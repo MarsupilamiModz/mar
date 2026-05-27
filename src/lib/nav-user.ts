@@ -8,10 +8,12 @@ export async function getNavUser(): Promise<NavUser | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const { evaluateUserAchievements } = await import("@/lib/achievements");
-  void evaluateUserAchievements(user.id);
-
-  const badges = await getInlineUserBadges(user.id, user.locale, 2);
+  let badges: Awaited<ReturnType<typeof getInlineUserBadges>> = [];
+  try {
+    badges = await getInlineUserBadges(user.id, user.locale, 2);
+  } catch (error) {
+    console.error("[getNavUser] badges", error);
+  }
 
   return {
     id: user.id,

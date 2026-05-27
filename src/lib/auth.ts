@@ -28,30 +28,52 @@ export const getCurrentUser = cache(async () => {
   if (user?.deletedAt) return null;
 
   if (!user) {
-    const username = session.email?.split("@")[0] ?? `user_${session.id.slice(0, 8)}`;
-    const base = username.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "user";
+    const email =
+      session.email?.trim() ||
+      session.user_metadata?.email?.trim() ||
+      `${session.id}@auth.local`;
+
+    const usernameBase =
+      session.email?.split("@")[0] ??
+      session.user_metadata?.preferred_username ??
+      session.user_metadata?.full_name ??
+      `user_${session.id.slice(0, 8)}`;
+    const base = String(usernameBase).replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "user";
     let uniqueUsername = base;
     let i = 0;
     while (await prisma.user.findUnique({ where: { username: uniqueUsername } })) {
       uniqueUsername = `${base}${++i}`;
     }
 
-    user = await prisma.user.create({
-      data: {
-        supabaseId: session.id,
-        email: session.email!,
-        username: uniqueUsername,
-        displayName: session.user_metadata?.full_name ?? uniqueUsername,
-        avatarUrl: session.user_metadata?.avatar_url,
-        emailVerified: !!session.email_confirmed_at,
-        discordId: session.user_metadata?.provider_id,
-      },
-      include: {
-        creatorProfile: true,
-        designerProfile: true,
-        subscriptions: { where: { status: "ACTIVE" }, select: { status: true } },
-      },
-    });
+    try {
+      user = await prisma.user.create({
+        data: {
+          supabaseId: session.id,
+          email,
+          username: uniqueUsername,
+          displayName: session.user_metadata?.full_name ?? uniqueUsername,
+          avatarUrl: session.user_metadata?.avatar_url,
+          emailVerified: !!session.email_confirmed_at,
+          discordId: session.user_metadata?.provider_id,
+        },
+        include: {
+          creatorProfile: true,
+          designerProfile: true,
+          subscriptions: { where: { status: "ACTIVE" }, select: { status: true } },
+        },
+      });
+    } catch (error) {
+      // Race: another request may have created the user first.
+      user = await prisma.user.findUnique({
+        where: { supabaseId: session.id },
+        include: {
+          creatorProfile: true,
+          designerProfile: true,
+          subscriptions: { where: { status: "ACTIVE" }, select: { status: true } },
+        },
+      });
+      if (!user) throw error;
+    }
   }
 
   return user;
