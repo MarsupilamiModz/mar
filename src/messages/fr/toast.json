@@ -1,0 +1,12 @@
+{
+  "toast": {
+    "saved": "Enregistré avec succès",
+    "deleted": "Supprimé avec succès",
+    "created": "Créé avec succès",
+    "updated": "Mis à jour avec succès",
+    "error": "Une erreur est survenue",
+    "copied": "Copié dans le presse-papiers",
+    "uploaded": "Téléversement terminé",
+    "loading": "Veuillez patienter…"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "toast": {
+    "saved": "Guardado correctamente",
+    "deleted": "Eliminado correctamente",
+    "created": "Creado correctamente",
+    "updated": "Actualizado correctamente",
+    "error": "Algo salió mal",
+    "copied": "Copiado al portapapeles",
+    "uploaded": "Subida completada",
+    "loading": "Espera un momento…"
+  }
+}

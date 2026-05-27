@@ -1,0 +1,17 @@
+{
+  "dashboard": {
+    "overview": "Overview",
+    "downloads": "Downloads",
+    "favorites": "Saved mods",
+    "subscription": "Subscription",
+    "licenses": "License keys",
+    "settings": "Account settings",
+    "notifications": "Notifications",
+    "orders": "Commissions",
+    "support": "Help center",
+    "welcome": "Welcome back, {name}",
+    "emptyDownloads": "You haven't downloaded anything yet.",
+    "emptyFavorites": "Mods you save will show up here.",
+    "emptyNotifications": "You're all caught up."
+  }
+}

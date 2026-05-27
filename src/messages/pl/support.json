@@ -1,0 +1,34 @@
+{
+  "support": {
+    "title": "Centrum pomocy",
+    "newTicket": "Otwórz zgłoszenie",
+    "subject": "Temat",
+    "message": "Opisz swój problem",
+    "submit": "Wyślij zgłoszenie",
+    "statusOpen": "Otwarte",
+    "statusInProgress": "W trakcie",
+    "statusWaiting": "Oczekuje na Twoją odpowiedź",
+    "statusClosed": "Zamknięte",
+    "categoryBilling": "Rozliczenia",
+    "categoryPremium": "Dostęp premium",
+    "categoryBug": "Zgłoszenie błędu",
+    "categoryOrders": "Zlecenia",
+    "categoryMods": "Problem z modem",
+    "categoryAccount": "Konto",
+    "emptyTickets": "Brak zgłoszeń wsparcia."
+  },
+  "orders": {
+    "title": "Zlecenia na zamówienie",
+    "subtitle": "Zamów minimapy Redux, HUD, pakiety UI lub prywatną pracę projektową.",
+    "newOrder": "Nowe zlecenie",
+    "signInHint": "Zaloguj się, aby wysłać zlecenie i śledzić postęp w panelu.",
+    "submit": "Wyślij zlecenie",
+    "submitted": "Zlecenie otrzymane — odpowiemy w Twoim panelu.",
+    "types": {
+      "redux_minimap": "Minimap Redux",
+      "custom_hud": "Niestandardowy HUD",
+      "ui_package": "Pakiet UI",
+      "commission": "Prywatne zlecenie"
+    }
+  }
+}

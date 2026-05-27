@@ -1,0 +1,18 @@
+{
+  "designer": {
+    "title": "Studio projektowe",
+    "subtitle": "Zarządzaj pakietami UI, HUD, minimapami i zleceniami na zamówienie.",
+    "uploads": "Moje assety",
+    "earnings": "Zarobki",
+    "orders": "Skrzynka zleceń",
+    "analytics": "Wyniki",
+    "newAsset": "Wrzuć asset",
+    "specialty": "Specjalizacja",
+    "totalDownloads": "Łączne pobrania",
+    "totalEarnings": "Łączne zarobki",
+    "openOrders": "Aktywne zlecenia",
+    "emptyUploads": "Nie opublikowałeś jeszcze assetów designu.",
+    "emptyOrders": "Brak przypisanych zleceń.",
+    "manageAsset": "Zarządzaj assetem"
+  }
+}

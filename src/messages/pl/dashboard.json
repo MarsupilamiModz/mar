@@ -1,0 +1,17 @@
+{
+  "dashboard": {
+    "overview": "Przegląd",
+    "downloads": "Pobrania",
+    "favorites": "Zapisane mody",
+    "subscription": "Subskrypcja",
+    "licenses": "Klucze licencyjne",
+    "settings": "Ustawienia konta",
+    "notifications": "Powiadomienia",
+    "orders": "Zlecenia",
+    "support": "Centrum pomocy",
+    "welcome": "Witaj ponownie, {name}",
+    "emptyDownloads": "Nie pobrałeś jeszcze niczego.",
+    "emptyFavorites": "Zapisane mody pojawią się tutaj.",
+    "emptyNotifications": "Wszystko nadrobione."
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "nav": {
+    "games": "Jeux",
+    "mods": "Mods",
+    "creators": "Créateurs",
+    "leaderboards": "Classements",
+    "designers": "Studio design",
+    "premium": "Premium",
+    "customOrders": "Commandes",
+    "blog": "Actualités",
+    "login": "Connexion",
+    "getStarted": "Créer un compte",
+    "dashboard": "Tableau de bord",
+    "search": "Rechercher des mods",
+    "language": "Langue"
+  },
+  "footer": {
+    "tagline": "Mods 100 % légaux et gratuits pour Rage MP, tutoriels et correctifs pour GTA. De nouvelles mods chaque jour, dès maintenant.",
+    "platform": "Plateforme",
+    "browseMods": "Parcourir les mods",
+    "games": "Jeux",
+    "creators": "Créateurs",
+    "leaderboards": "Classements",
+    "premium": "Premium",
+    "customWork": "Commandes",
+    "support": "Support",
+    "faq": "FAQ",
+    "contact": "Contact",
+    "supportTickets": "Centre d'aide",
+    "legal": "Mentions légales",
+    "terms": "Conditions d'utilisation",
+    "privacy": "Confidentialité",
+    "rights": "Tous droits réservés."
+  },
+  "common": {
+    "loading": "Chargement…",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "viewAll": "Tout voir",
+    "learnMore": "En savoir plus",
+    "noResults": "Rien pour le moment",
+    "error": "Une erreur est survenue",
+    "retry": "Réessayer",
+    "back": "Retour"
+  }
+}

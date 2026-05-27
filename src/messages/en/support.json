@@ -1,0 +1,34 @@
+{
+  "support": {
+    "title": "Help center",
+    "newTicket": "Open a ticket",
+    "subject": "Subject",
+    "message": "Describe your issue",
+    "submit": "Submit ticket",
+    "statusOpen": "Open",
+    "statusInProgress": "In progress",
+    "statusWaiting": "Awaiting your reply",
+    "statusClosed": "Closed",
+    "categoryBilling": "Billing",
+    "categoryPremium": "Premium access",
+    "categoryBug": "Bug report",
+    "categoryOrders": "Commissions",
+    "categoryMods": "Mod issues",
+    "categoryAccount": "Account",
+    "emptyTickets": "No support tickets yet."
+  },
+  "orders": {
+    "title": "Custom commissions",
+    "subtitle": "Request Redux minimaps, HUDs, UI packages, or private design work.",
+    "newOrder": "New request",
+    "signInHint": "Sign in to submit a request and track progress in your dashboard.",
+    "submit": "Submit request",
+    "submitted": "Request received — we'll follow up in your dashboard.",
+    "types": {
+      "redux_minimap": "Redux minimap",
+      "custom_hud": "Custom HUD",
+      "ui_package": "UI package",
+      "commission": "Private commission"
+    }
+  }
+}

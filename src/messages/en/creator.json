@@ -1,0 +1,15 @@
+{
+  "creator": {
+    "title": "Creator Studio",
+    "subtitle": "Publish mods, track downloads, and manage releases.",
+    "myMods": "My mods",
+    "newMod": "New mod",
+    "manageMod": "Manage release",
+    "uploadVersion": "Upload version",
+    "uploadScreenshot": "Add screenshot",
+    "uploadVideo": "Add video",
+    "createMod": "Publish mod",
+    "pendingReview": "Pending review",
+    "published": "Live"
+  }
+}

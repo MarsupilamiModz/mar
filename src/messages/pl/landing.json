@@ -1,0 +1,21 @@
+{
+  "landing": {
+    "heroBadge": "Marketplace wielu gier",
+    "heroTitle": "Mody warte instalacji",
+    "heroSubtitle": "Zweryfikowane release'y dla GTA V / FiveM, Minecraft, ETS2, BeamNG, Assetto Corsa i więcej — jedno konto, jedna biblioteka.",
+    "browseMods": "Przeglądaj katalog",
+    "goPremium": "Kup Premium",
+    "featuredGames": "Obsługiwane gry",
+    "trendingMods": "Popularne w tym tygodniu",
+    "viewAllGames": "Wszystkie gry",
+    "viewAllMods": "Pełny katalog",
+    "noGamesYet": "Katalog gier jest finalizowany.",
+    "noModsYet": "Katalog się zapełnia. Wróć wkrótce.",
+    "premiumBanner": "Premium — pobieranie bez limitów",
+    "premiumBannerDesc": "Pełna biblioteka premium, ekskluzywne release'y i priorytetowe wsparcie.",
+    "premiumCta": "Porównaj plany",
+    "statsMods": "Opublikowane mody",
+    "statsGames": "Obsługiwane tytuły",
+    "statsCreators": "Zweryfikowani twórcy"
+  }
+}

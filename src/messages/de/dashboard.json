@@ -1,0 +1,17 @@
+{
+  "dashboard": {
+    "overview": "Übersicht",
+    "downloads": "Downloads",
+    "favorites": "Gespeichert",
+    "subscription": "Abo",
+    "licenses": "Lizenzschlüssel",
+    "settings": "Kontoeinstellungen",
+    "notifications": "Benachrichtigungen",
+    "orders": "Aufträge",
+    "support": "Hilfe-Center",
+    "welcome": "Willkommen zurück, {name}",
+    "emptyDownloads": "Du hast noch nichts heruntergeladen.",
+    "emptyFavorites": "Gespeicherte Mods erscheinen hier.",
+    "emptyNotifications": "Alles erledigt — keine neuen Meldungen."
+  }
+}

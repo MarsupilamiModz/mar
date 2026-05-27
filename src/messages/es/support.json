@@ -1,0 +1,34 @@
+{
+  "support": {
+    "title": "Centro de ayuda",
+    "newTicket": "Abrir ticket",
+    "subject": "Asunto",
+    "message": "Describe tu problema",
+    "submit": "Enviar ticket",
+    "statusOpen": "Abierto",
+    "statusInProgress": "En curso",
+    "statusWaiting": "Esperando tu respuesta",
+    "statusClosed": "Cerrado",
+    "categoryBilling": "Facturación",
+    "categoryPremium": "Acceso premium",
+    "categoryBug": "Informe de error",
+    "categoryOrders": "Encargos",
+    "categoryMods": "Problema con mod",
+    "categoryAccount": "Cuenta",
+    "emptyTickets": "Aún no hay tickets de soporte."
+  },
+  "orders": {
+    "title": "Encargos personalizados",
+    "subtitle": "Solicita minimaps Redux, HUD, paquetes UI o trabajo de diseño privado.",
+    "newOrder": "Nueva solicitud",
+    "signInHint": "Inicia sesión para enviar una solicitud y seguir el progreso en tu panel.",
+    "submit": "Enviar solicitud",
+    "submitted": "Solicitud recibida — te responderemos en tu panel.",
+    "types": {
+      "redux_minimap": "Minimap Redux",
+      "custom_hud": "HUD personalizado",
+      "ui_package": "Paquete UI",
+      "commission": "Encargo privado"
+    }
+  }
+}

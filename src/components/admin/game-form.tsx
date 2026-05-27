@@ -1,0 +1,151 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { createGame, updateGame, uploadGameAsset } from "@/actions/admin/games";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { toast } from "@/hooks/use-toast";
+import { STORAGE } from "@/lib/storage";
+import { slugify } from "@/lib/utils";
+
+type GameData = {
+  id?: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  isFeatured: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  iconUrl?: string | null;
+  bannerUrl?: string | null;
+};
+
+export function GameForm({ locale, game }: { locale: string; game?: GameData }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [name, setName] = useState(game?.name ?? "");
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const payload = {
+      name: form.get("name") as string,
+      slug: (form.get("slug") as string) || slugify(name),
+      description: (form.get("description") as string) || undefined,
+      seoTitle: (form.get("seoTitle") as string) || undefined,
+      seoDescription: (form.get("seoDescription") as string) || undefined,
+      isFeatured: form.get("isFeatured") === "on",
+      isActive: form.get("isActive") === "on",
+      sortOrder: Number(form.get("sortOrder") || 0),
+    };
+
+    startTransition(async () => {
+      const result = game?.id
+        ? await updateGame(game.id, payload)
+        : await createGame(payload);
+
+      if (result.success) {
+        toast({ title: game?.id ? "Game updated" : "Game created" });
+        router.push(`/${locale}/admin/games`);
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+      }
+    });
+  }
+
+  async function uploadAsset(type: "icon" | "banner" | "cover", file: File) {
+    if (!game?.id) {
+      toast({ title: "Save game first", variant: "destructive" });
+      return;
+    }
+    const fd = new FormData();
+    fd.set("file", file);
+    const result = await uploadGameAsset(game.id, type, fd);
+    if (result.success) {
+      toast({ title: `${type} uploaded` });
+      router.refresh();
+    } else {
+      toast({ title: "Upload failed", description: result.error, variant: "destructive" });
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
+      <Card className="glass p-6 space-y-4">
+        <div>
+          <label className="text-sm font-medium">Name</label>
+          <Input name="name" value={name} onChange={(e) => setName(e.target.value)} required className="mt-1" />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Slug</label>
+          <Input name="slug" defaultValue={game?.slug} placeholder={slugify(name)} className="mt-1" />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Description</label>
+          <Textarea name="description" defaultValue={game?.description ?? ""} rows={4} className="mt-1" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="text-sm font-medium">SEO Title</label>
+            <Input name="seoTitle" defaultValue={game?.seoTitle ?? ""} className="mt-1" />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Sort Order</label>
+            <Input name="sortOrder" type="number" defaultValue={game?.sortOrder ?? 0} className="mt-1" />
+          </div>
+        </div>
+        <div>
+          <label className="text-sm font-medium">SEO Description</label>
+          <Textarea name="seoDescription" defaultValue={game?.seoDescription ?? ""} rows={2} className="mt-1" />
+        </div>
+        <div className="flex gap-6">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="isFeatured" defaultChecked={game?.isFeatured} />
+            Featured
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="isActive" defaultChecked={game?.isActive ?? true} />
+            Active
+          </label>
+        </div>
+      </Card>
+
+      {game?.id && (
+        <Card className="glass p-6 space-y-4">
+          <p className="font-medium">Assets</p>
+          <p className="text-xs text-muted-foreground">Uploaded to {STORAGE.cdn}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="text-xs text-muted-foreground">Icon (square)</label>
+              <Input
+                type="file"
+                accept="image/*"
+                className="mt-1"
+                onChange={(e) => e.target.files?.[0] && uploadAsset("icon", e.target.files[0])}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Banner (wide)</label>
+              <Input
+                type="file"
+                accept="image/*"
+                className="mt-1"
+                onChange={(e) => e.target.files?.[0] && uploadAsset("banner", e.target.files[0])}
+              />
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <Button type="submit" variant="neon" disabled={pending}>
+        {pending ? "Saving..." : game?.id ? "Update Game" : "Create Game"}
+      </Button>
+    </form>
+  );
+}

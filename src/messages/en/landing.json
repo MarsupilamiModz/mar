@@ -1,0 +1,21 @@
+{
+  "landing": {
+    "heroBadge": "Multi-game mod marketplace",
+    "heroTitle": "Mods worth installing",
+    "heroSubtitle": "Discover verified releases for GTA V / FiveM, Minecraft, ETS2, BeamNG, Assetto Corsa and more — one account, one library, zero clutter.",
+    "browseMods": "Explore catalog",
+    "goPremium": "Get Premium",
+    "featuredGames": "Supported games",
+    "trendingMods": "Popular this week",
+    "viewAllGames": "All games",
+    "viewAllMods": "Full catalog",
+    "noGamesYet": "Our game catalog is being finalized. New titles land here first.",
+    "noModsYet": "The catalog is warming up. Creators are uploading — check back soon.",
+    "premiumBanner": "Premium members download without limits",
+    "premiumBannerDesc": "Unlock the full premium library, member-only releases, Discord perks, and faster support when you need it.",
+    "premiumCta": "Compare plans",
+    "statsMods": "Published mods",
+    "statsGames": "Supported titles",
+    "statsCreators": "Verified creators"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "premium": {
+    "title": "MarsupilamiModz Premium",
+    "subtitle": "Tek abonelik. Tüm premium modlar. İndirme başına ücret yok.",
+    "monthly": "Aylık",
+    "yearly": "Yıllık",
+    "yearlySave": "~%20 tasarruf",
+    "subscribe": "Aboneliği başlat",
+    "perkDownloads": "Sınırsız premium indirme",
+    "perkExclusive": "Seçili sürümlere erken erişim",
+    "perkDiscord": "Premium Discord rolü ve kanalları",
+    "perkSupport": "Öncelikli destek kuyruğu",
+    "perkCreator": "Bağımsız creator'lara doğrudan destek"
+  }
+}

@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 8%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 8%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 270 91% 65%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 91% 60%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 240 5% 18%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 270 50% 20%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 6% 18%;
+    --input: 240 6% 18%;
+    --ring: 270 91% 65%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(168, 85, 247, 0.12), transparent);
+  }
+
+  /* Dark Reader / extension compatibility */
+  html:not([data-darkreader-mode]) img,
+  html:not([data-darkreader-mode]) svg,
+  html:not([data-darkreader-mode]) video {
+    filter: none !important;
+  }
+
+  [data-darkreader-scheme] {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 8%;
+    --primary: 270 91% 65%;
+    --secondary: 217 91% 60%;
+    --muted: 240 5% 18%;
+    --border: 240 6% 18%;
+  }
+
+  .dark-reader-lock,
+  .text-gradient,
+  [data-neon-lock] {
+    -webkit-text-fill-color: initial;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)];
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-[#c084fc] via-[#a855f7] to-[#60a5fa] bg-clip-text text-transparent;
+  }
+
+  .bg-hero-glow {
+    background: radial-gradient(ellipse 70% 55% at 50% -10%, rgba(168, 85, 247, 0.18), transparent 65%);
+  }
+}

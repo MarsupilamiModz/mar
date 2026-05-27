@@ -1,0 +1,48 @@
+{
+  "nav": {
+    "games": "Games",
+    "mods": "Mods",
+    "creators": "Creators",
+    "leaderboards": "Leaderboards",
+    "designers": "Design Studio",
+    "premium": "Premium",
+    "customOrders": "Commissions",
+    "blog": "News",
+    "login": "Sign in",
+    "getStarted": "Create account",
+    "dashboard": "Dashboard",
+    "search": "Search mods",
+    "language": "Language"
+  },
+  "footer": {
+    "tagline": "Free 100% legal Mods for Rage MP, Tutorials and fixes for GTA. Daily new Mods from now.",
+    "platform": "Platform",
+    "browseMods": "Browse mods",
+    "games": "Games",
+    "creators": "Creators",
+    "leaderboards": "Leaderboards",
+    "premium": "Premium",
+    "customWork": "Commissions",
+    "support": "Support",
+    "faq": "FAQ",
+    "contact": "Contact",
+    "supportTickets": "Help center",
+    "legal": "Legal",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "rights": "All rights reserved."
+  },
+  "common": {
+    "loading": "Loading…",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "viewAll": "View all",
+    "learnMore": "Learn more",
+    "noResults": "Nothing here yet",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "back": "Back"
+  }
+}

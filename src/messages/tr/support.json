@@ -1,0 +1,34 @@
+{
+  "support": {
+    "title": "Yardım merkezi",
+    "newTicket": "Destek talebi aç",
+    "subject": "Konu",
+    "message": "Sorununuzu açıklayın",
+    "submit": "Talebi gönder",
+    "statusOpen": "Açık",
+    "statusInProgress": "İşlemde",
+    "statusWaiting": "Yanıtınız bekleniyor",
+    "statusClosed": "Kapalı",
+    "categoryBilling": "Fatura",
+    "categoryPremium": "Premium erişim",
+    "categoryBug": "Hata bildirimi",
+    "categoryOrders": "Siparişler",
+    "categoryMods": "Mod sorunu",
+    "categoryAccount": "Hesap",
+    "emptyTickets": "Henüz destek talebi yok."
+  },
+  "orders": {
+    "title": "Özel siparişler",
+    "subtitle": "Redux minimap, HUD, UI paketi veya özel tasarım işi talep edin.",
+    "newOrder": "Yeni talep",
+    "signInHint": "Talep göndermek ve ilerlemeyi panelden takip etmek için giriş yapın.",
+    "submit": "Talebi gönder",
+    "submitted": "Talep alındı — panelinizden size dönüş yapacağız.",
+    "types": {
+      "redux_minimap": "Redux minimap",
+      "custom_hud": "Özel HUD",
+      "ui_package": "UI paketi",
+      "commission": "Özel sipariş"
+    }
+  }
+}

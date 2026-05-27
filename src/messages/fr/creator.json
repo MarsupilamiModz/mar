@@ -1,0 +1,15 @@
+{
+  "creator": {
+    "title": "Studio Créateur",
+    "subtitle": "Publiez des mods, suivez les téléchargements et gérez vos releases.",
+    "myMods": "Mes mods",
+    "newMod": "Nouveau mod",
+    "manageMod": "Gérer la release",
+    "uploadVersion": "Téléverser une version",
+    "uploadScreenshot": "Ajouter une capture",
+    "uploadVideo": "Ajouter une vidéo",
+    "createMod": "Publier le mod",
+    "pendingReview": "En attente de validation",
+    "published": "En ligne"
+  }
+}

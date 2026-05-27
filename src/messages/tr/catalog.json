@@ -1,0 +1,36 @@
+{
+  "games": {
+    "title": "Oyunlar",
+    "subtitle": "Modları, kategorileri ve öne çıkanları görmek için bir oyun seç.",
+    "empty": "Aktif oyun yok. Yöneticiler panelden ekleyebilir.",
+    "modsCount": "{count} mod",
+    "featured": "Öne çıkan",
+    "trending": "Trend",
+    "premiumSection": "Premium seçkisi",
+    "allCategories": "Tümü",
+    "allTypes": "Tüm türler",
+    "featuredMods": "Öne çıkan modlar",
+    "premiumMods": "Premium modlar",
+    "trendingMods": "Trend modlar",
+    "results": "Sonuçlar",
+    "noModsYet": "Bu oyun için henüz mod yok. Yakında tekrar kontrol edin."
+  },
+  "mods": {
+    "title": "Mod kataloğu",
+    "subtitle": "Oyun, fiyat ve kategoriye göre filtrele.",
+    "search": "İsim veya anahtar kelime ara…",
+    "filter": "Filtreler",
+    "free": "Ücretsiz",
+    "premium": "Premium",
+    "paid": "Ücretli",
+    "downloads": "İndirmeler",
+    "reviews": "Yorumlar",
+    "download": "İndir",
+    "favorite": "Kaydet",
+    "related": "Bunlar da ilgini çekebilir",
+    "versions": "Sürüm geçmişi",
+    "signInPremium": "Premium modlar için giriş yap",
+    "noReviews": "Henüz yorum yok — ilk sen ol.",
+    "leaveReview": "Yorum yaz"
+  }
+}

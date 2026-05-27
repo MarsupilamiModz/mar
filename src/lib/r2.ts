@@ -1,0 +1,67 @@
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { STORAGE, storageKey } from "@/lib/storage";
+import { buildAssetPublicUrl } from "@/lib/assets";
+
+const r2 = new S3Client({
+  region: "auto",
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  },
+});
+
+const BUCKET = STORAGE.bucket;
+
+export async function uploadToR2(
+  key: string,
+  body: Buffer | Uint8Array,
+  contentType: string,
+  cacheControl = "public, max-age=31536000, immutable"
+) {
+  const normalizedKey = key.startsWith(STORAGE.prefix) ? key : storageKey(key);
+  await r2.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: normalizedKey,
+      Body: body,
+      ContentType: contentType,
+      CacheControl: cacheControl,
+    })
+  );
+  return normalizedKey;
+}
+
+export async function deleteFromR2(key: string) {
+  await r2.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+}
+
+export async function getSignedDownloadUrl(key: string, expiresIn = 300) {
+  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
+  return getSignedUrl(r2, command, { expiresIn });
+}
+
+export function getPublicAssetUrl(key: string) {
+  return buildAssetPublicUrl(key.startsWith(STORAGE.prefix) ? key : storageKey(key));
+}
+
+export const ALLOWED_UPLOAD_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "video/mp4",
+  "application/zip",
+  "application/x-zip-compressed",
+  "application/octet-stream",
+];
+
+export const MAX_UPLOAD_SIZE = 500 * 1024 * 1024;
+
+export { STORAGE };

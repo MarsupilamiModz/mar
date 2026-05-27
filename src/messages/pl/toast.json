@@ -1,0 +1,12 @@
+{
+  "toast": {
+    "saved": "Zapisano pomyślnie",
+    "deleted": "Usunięto pomyślnie",
+    "created": "Utworzono pomyślnie",
+    "updated": "Zaktualizowano pomyślnie",
+    "error": "Coś poszło nie tak",
+    "copied": "Skopiowano do schowka",
+    "uploaded": "Przesyłanie zakończone",
+    "loading": "Proszę czekać…"
+  }
+}

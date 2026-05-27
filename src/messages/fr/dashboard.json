@@ -1,0 +1,17 @@
+{
+  "dashboard": {
+    "overview": "Vue d'ensemble",
+    "downloads": "Téléchargements",
+    "favorites": "Mods enregistrés",
+    "subscription": "Abonnement",
+    "licenses": "Clés de licence",
+    "settings": "Paramètres du compte",
+    "notifications": "Notifications",
+    "orders": "Commandes",
+    "support": "Centre d'aide",
+    "welcome": "Bon retour, {name}",
+    "emptyDownloads": "Vous n'avez encore rien téléchargé.",
+    "emptyFavorites": "Les mods que vous enregistrez apparaîtront ici.",
+    "emptyNotifications": "Vous êtes à jour."
+  }
+}

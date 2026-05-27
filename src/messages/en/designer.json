@@ -1,0 +1,19 @@
+{
+  "designer": {
+    "title": "Design Studio",
+    "subtitle": "Manage UI packs, HUDs, minimaps, and commission work.",
+    "uploads": "My assets",
+    "earnings": "Earnings",
+    "orders": "Commission inbox",
+    "analytics": "Performance",
+    "newAsset": "Upload asset",
+    "settings": "Studio settings",
+    "specialty": "Specialty",
+    "totalDownloads": "Total downloads",
+    "totalEarnings": "Lifetime earnings",
+    "openOrders": "Active commissions",
+    "emptyUploads": "You haven't published any design assets yet.",
+    "emptyOrders": "No commission requests assigned to you.",
+    "manageAsset": "Manage asset"
+  }
+}

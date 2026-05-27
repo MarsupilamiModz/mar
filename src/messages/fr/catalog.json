@@ -1,0 +1,36 @@
+{
+  "games": {
+    "title": "Jeux",
+    "subtitle": "Choisissez un jeu pour parcourir mods, catégories et sélections.",
+    "empty": "Aucun jeu actif. Les admins peuvent en ajouter depuis le panel.",
+    "modsCount": "{count} mods",
+    "featured": "À la une",
+    "trending": "Tendances",
+    "premiumSection": "Sélection Premium",
+    "allCategories": "Tout",
+    "allTypes": "Tous les types",
+    "featuredMods": "Mods à la une",
+    "premiumMods": "Mods premium",
+    "trendingMods": "Mods populaires",
+    "results": "Résultats",
+    "noModsYet": "Aucun mod publié pour ce jeu pour le moment. Revenez bientôt."
+  },
+  "mods": {
+    "title": "Catalogue de mods",
+    "subtitle": "Filtrer par jeu, tarif et catégorie.",
+    "search": "Rechercher par nom ou mot-clé…",
+    "filter": "Filtres",
+    "free": "Gratuit",
+    "premium": "Premium",
+    "paid": "Payant",
+    "downloads": "Téléchargements",
+    "reviews": "Avis",
+    "download": "Télécharger",
+    "favorite": "Enregistrer",
+    "related": "Vous aimerez aussi",
+    "versions": "Historique des versions",
+    "signInPremium": "Connectez-vous pour les mods Premium",
+    "noReviews": "Pas encore d'avis — soyez le premier.",
+    "leaveReview": "Laisser un avis"
+  }
+}

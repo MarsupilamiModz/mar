@@ -1,0 +1,28 @@
+{
+  "media": {
+    "screenshots": "Screenshots",
+    "screenshotCount": "{count} / {max}",
+    "dragDrop": "Drag and drop screenshots here",
+    "dragDropHint": "{types} · Max {size}MB each",
+    "previewBeforeUpload": "Preview before upload",
+    "uploadScreenshots": "Upload {count, plural, one {# screenshot} other {# screenshots}}",
+    "youtubeVideo": "YouTube video",
+    "youtubePlaceholder": "https://youtube.com/watch?v=... or youtu.be/...",
+    "addVideo": "Add video",
+    "featured": "Featured",
+    "setFeatured": "Set as featured",
+    "gallery": "Gallery",
+    "galleryCount": "{count} screenshots",
+    "videos": "Videos",
+    "noMedia": "No media available",
+    "profileMedia": "Profile media",
+    "avatar": "Avatar",
+    "banner": "Banner",
+    "uploadAvatar": "Upload avatar",
+    "uploadBanner": "Upload banner",
+    "uploading": "Uploading… {progress}%",
+    "uploadFailed": "Upload failed",
+    "retryUpload": "Retry upload",
+    "imageLoadFailed": "Image unavailable"
+  }
+}

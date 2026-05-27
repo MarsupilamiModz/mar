@@ -1,0 +1,12 @@
+{
+  "toast": {
+    "saved": "Başarıyla kaydedildi",
+    "deleted": "Başarıyla silindi",
+    "created": "Başarıyla oluşturuldu",
+    "updated": "Başarıyla güncellendi",
+    "error": "Bir şeyler ters gitti",
+    "copied": "Panoya kopyalandı",
+    "uploaded": "Yükleme tamamlandı",
+    "loading": "Lütfen bekleyin…"
+  }
+}

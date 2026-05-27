@@ -1,0 +1,18 @@
+{
+  "designer": {
+    "title": "Studio Design",
+    "subtitle": "Gérez vos packs UI, HUD, minimaps et commandes sur mesure.",
+    "uploads": "Mes assets",
+    "earnings": "Revenus",
+    "orders": "Boîte de commandes",
+    "analytics": "Performance",
+    "newAsset": "Publier un asset",
+    "specialty": "Spécialité",
+    "totalDownloads": "Téléchargements totaux",
+    "totalEarnings": "Revenus cumulés",
+    "openOrders": "Commandes actives",
+    "emptyUploads": "Vous n'avez pas encore publié d'assets design.",
+    "emptyOrders": "Aucune commande ne vous est assignée.",
+    "manageAsset": "Gérer l'asset"
+  }
+}

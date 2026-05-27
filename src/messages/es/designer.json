@@ -1,0 +1,18 @@
+{
+  "designer": {
+    "title": "Estudio de diseño",
+    "subtitle": "Gestiona packs UI, HUD, minimaps y encargos personalizados.",
+    "uploads": "Mis assets",
+    "earnings": "Ingresos",
+    "orders": "Bandeja de encargos",
+    "analytics": "Rendimiento",
+    "newAsset": "Subir asset",
+    "specialty": "Especialidad",
+    "totalDownloads": "Descargas totales",
+    "totalEarnings": "Ingresos acumulados",
+    "openOrders": "Encargos activos",
+    "emptyUploads": "Aún no has publicado assets de diseño.",
+    "emptyOrders": "No tienes encargos asignados.",
+    "manageAsset": "Gestionar asset"
+  }
+}

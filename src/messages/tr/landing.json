@@ -1,0 +1,21 @@
+{
+  "landing": {
+    "heroBadge": "Çoklu oyun mod pazaryeri",
+    "heroTitle": "Kurulmaya değer modlar",
+    "heroSubtitle": "GTA V / FiveM, Minecraft, ETS2, BeamNG, Assetto Corsa ve daha fazlası için doğrulanmış içerikler — tek hesap, tek kütüphane.",
+    "browseMods": "Kataloğu keşfet",
+    "goPremium": "Premium al",
+    "featuredGames": "Desteklenen oyunlar",
+    "trendingMods": "Bu hafta popüler",
+    "viewAllGames": "Tüm oyunlar",
+    "viewAllMods": "Tam katalog",
+    "noGamesYet": "Oyun kataloğumuz tamamlanıyor.",
+    "noModsYet": "Katalog doluyor. Yakında tekrar bak.",
+    "premiumBanner": "Premium üyeler sınırsız indirir",
+    "premiumBannerDesc": "Tüm premium kütüphane, özel içerikler ve öncelikli destek.",
+    "premiumCta": "Planları karşılaştır",
+    "statsMods": "Yayınlanan modlar",
+    "statsGames": "Desteklenen oyunlar",
+    "statsCreators": "Doğrulanmış üreticiler"
+  }
+}

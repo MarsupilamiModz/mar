@@ -1,0 +1,17 @@
+{
+  "dashboard": {
+    "overview": "Genel bakış",
+    "downloads": "İndirmeler",
+    "favorites": "Kaydedilen modlar",
+    "subscription": "Abonelik",
+    "licenses": "Lisans anahtarları",
+    "settings": "Hesap ayarları",
+    "notifications": "Bildirimler",
+    "orders": "Siparişler",
+    "support": "Yardım merkezi",
+    "welcome": "Tekrar hoş geldin, {name}",
+    "emptyDownloads": "Henüz bir şey indirmedin.",
+    "emptyFavorites": "Kaydettiğin modlar burada görünecek.",
+    "emptyNotifications": "Her şey güncel."
+  }
+}

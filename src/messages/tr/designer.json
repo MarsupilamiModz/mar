@@ -1,0 +1,18 @@
+{
+  "designer": {
+    "title": "Tasarım Stüdyosu",
+    "subtitle": "UI paketleri, HUD, minimap ve özel siparişleri yönet.",
+    "uploads": "Varlıklarım",
+    "earnings": "Kazançlar",
+    "orders": "Sipariş gelen kutusu",
+    "analytics": "Performans",
+    "newAsset": "Varlık yükle",
+    "specialty": "Uzmanlık",
+    "totalDownloads": "Toplam indirme",
+    "totalEarnings": "Toplam kazanç",
+    "openOrders": "Aktif siparişler",
+    "emptyUploads": "Henüz tasarım varlığı yayınlamadın.",
+    "emptyOrders": "Sana atanmış sipariş yok.",
+    "manageAsset": "Varlığı yönet"
+  }
+}

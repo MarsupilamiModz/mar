@@ -1,0 +1,36 @@
+{
+  "games": {
+    "title": "Games",
+    "subtitle": "Pick a title to browse mods, categories, and featured releases.",
+    "empty": "No active games in the catalog. Staff can add titles from the admin panel.",
+    "modsCount": "{count} mods",
+    "featured": "Featured",
+    "trending": "Trending",
+    "premiumSection": "Premium picks",
+    "allCategories": "All",
+    "allTypes": "All types",
+    "featuredMods": "Featured mods",
+    "premiumMods": "Premium mods",
+    "trendingMods": "Trending mods",
+    "results": "Results",
+    "noModsYet": "No mods published for this game yet. Check back soon."
+  },
+  "mods": {
+    "title": "Mod catalog",
+    "subtitle": "Filter by game, pricing, and category.",
+    "search": "Search by name or keyword…",
+    "filter": "Filters",
+    "free": "Free",
+    "premium": "Premium",
+    "paid": "Paid",
+    "downloads": "Downloads",
+    "reviews": "Reviews",
+    "download": "Download",
+    "favorite": "Save",
+    "related": "You might also like",
+    "versions": "Version history",
+    "signInPremium": "Sign in to access premium mods",
+    "noReviews": "No reviews yet — be the first to share feedback.",
+    "leaveReview": "Write a review"
+  }
+}

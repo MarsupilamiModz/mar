@@ -1,0 +1,19 @@
+{
+  "designer": {
+    "title": "Design Studio",
+    "subtitle": "UI-Packs, HUDs, Minimaps und Auftragsarbeit verwalten.",
+    "uploads": "Meine Assets",
+    "earnings": "Einnahmen",
+    "orders": "Auftrags-Posteingang",
+    "analytics": "Performance",
+    "newAsset": "Asset hochladen",
+    "settings": "Studio-Einstellungen",
+    "specialty": "Schwerpunkt",
+    "totalDownloads": "Downloads gesamt",
+    "totalEarnings": "Einnahmen gesamt",
+    "openOrders": "Aktive Aufträge",
+    "emptyUploads": "Du hast noch keine Design-Assets veröffentlicht.",
+    "emptyOrders": "Keine Aufträge dir zugewiesen.",
+    "manageAsset": "Asset verwalten"
+  }
+}

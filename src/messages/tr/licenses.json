@@ -1,0 +1,23 @@
+{
+  "licenses": {
+    "title": "License keys",
+    "subtitle": "Redeem product keys or premium access codes.",
+    "redeem": "Redeem key",
+    "placeholder": "MARSU-XXXXXX-XXXXXX",
+    "redeemed": "License activated",
+    "invalid": "Invalid or unavailable key",
+    "productExclusive": "This key only works for: {product}",
+    "adminTitle": "License management",
+    "create": "Create key",
+    "bulkGenerate": "Bulk generate",
+    "assignProduct": "Linked product",
+    "assignUser": "Assigned user",
+    "maxActivations": "Max activations",
+    "activations": "Activations",
+    "revoke": "Revoke",
+    "pause": "Pause",
+    "resume": "Resume",
+    "export": "Export batch",
+    "activationLog": "Activation log"
+  }
+}

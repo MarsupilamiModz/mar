@@ -1,0 +1,233 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { UserRole } from "@prisma/client";
+import {
+  banUser,
+  restoreUser,
+  setUserPremium,
+  softDeleteUser,
+  unbanUser,
+} from "@/actions/admin/users";
+import { assignMembershipToUser } from "@/actions/admin/memberships";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { toast } from "@/hooks/use-toast";
+import { ROLE_LABELS, TICKET_STATUS_LABELS } from "@/lib/ticket-labels";
+import Link from "next/link";
+
+type UserDetail = {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string | null;
+  role: UserRole;
+  isBanned: boolean;
+  banReason: string | null;
+  bannedAt: Date | null;
+  discordId: string | null;
+  discordUsername: string | null;
+  deletedAt: Date | null;
+  createdAt: Date;
+  subscriptions: { id: string; status: string; interval: string; currentPeriodEnd: Date }[];
+  membershipPurchases: {
+    id: string;
+    amountCents: number;
+    createdAt: Date;
+    plan: { name: string; slug: string; priceCents: number };
+  }[];
+  banRecords: { reason: string | null; createdAt: Date; bannedBy: { username: string } | null }[];
+  supportTickets: { id: string; ticketNumber: string; subject: string; status: string }[];
+  _count: { downloads: number; favorites: number; mods: number };
+};
+
+export function UserDetailPanel({
+  locale,
+  user,
+  auditLogs,
+  membershipPlans = [],
+}: {
+  locale: string;
+  user: UserDetail;
+  auditLogs: {
+    id: string;
+    action: string;
+    createdAt: Date;
+    actor: { username: string } | null;
+  }[];
+  membershipPlans?: { id: string; name: string; slug: string }[];
+}) {
+  const [pending, startTransition] = useTransition();
+  const [confirmBan, setConfirmBan] = useState(false);
+
+  async function run(action: () => Promise<{ success: boolean; error?: string }>, msg: string) {
+    startTransition(async () => {
+      const r = await action();
+      if (r.success) toast({ title: msg });
+      else toast({ title: "Error", description: r.error, variant: "destructive" });
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">{user.displayName ?? user.username}</h1>
+          <p className="text-muted-foreground">@{user.username} · {user.email}</p>
+          <div className="mt-2 flex gap-2">
+            <Badge variant="outline">{ROLE_LABELS[user.role]}</Badge>
+            {user.isBanned && <Badge variant="destructive">Banned</Badge>}
+            {user.deletedAt && <Badge variant="destructive">Deleted</Badge>}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {user.deletedAt ? (
+            <Button variant="outline" disabled={pending} onClick={() => run(() => restoreUser(user.id), "Restored")}>
+              Restore
+            </Button>
+          ) : (
+            <>
+              {user.isBanned ? (
+                <Button variant="outline" disabled={pending} onClick={() => run(() => unbanUser(user.id), "Unbanned")}>
+                  Unban
+                </Button>
+              ) : (
+                <Button variant="destructive" disabled={pending} onClick={() => setConfirmBan(true)}>
+                  Ban
+                </Button>
+              )}
+              <Button variant="outline" disabled={pending} onClick={() => run(() => setUserPremium(user.id, user.role !== "PREMIUM"), "Updated")}>
+                Toggle Premium
+              </Button>
+              <Button variant="outline" disabled={pending} onClick={() => run(() => softDeleteUser(user.id), "Soft deleted")}>
+                Soft Delete
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="glass"><CardHeader><CardTitle className="text-sm">Downloads</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{user._count.downloads}</p></CardContent></Card>
+        <Card className="glass"><CardHeader><CardTitle className="text-sm">Favorites</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{user._count.favorites}</p></CardContent></Card>
+        <Card className="glass"><CardHeader><CardTitle className="text-sm">Mods</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{user._count.mods}</p></CardContent></Card>
+        <Card className="glass"><CardHeader><CardTitle className="text-sm">Member since</CardTitle></CardHeader><CardContent><p className="text-sm">{new Date(user.createdAt).toLocaleDateString()}</p></CardContent></Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="glass">
+          <CardHeader><CardTitle>Discord</CardTitle></CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            {user.discordId ? (
+              <>
+                <p>ID: {user.discordId}</p>
+                {user.discordUsername && <p>@{user.discordUsername}</p>}
+              </>
+            ) : (
+              <p>Not connected</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="glass">
+          <CardHeader><CardTitle>Membership</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {user.membershipPurchases.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No lifetime membership purchases</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {user.membershipPurchases.map((p) => (
+                  <li key={p.id} className="flex justify-between">
+                    <span>{p.plan.name}</span>
+                    <span className="text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {membershipPlans.length > 0 && (
+              <div className="flex gap-2 pt-2 border-t border-border/30">
+                <select id="assign-plan" className="h-9 flex-1 rounded-md border border-input bg-background/50 px-2 text-sm">
+                  <option value="">Assign plan…</option>
+                  {membershipPlans.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <Button size="sm" variant="outline" disabled={pending} onClick={() => {
+                  const sel = document.getElementById("assign-plan") as HTMLSelectElement;
+                  if (!sel?.value) return;
+                  run(() => assignMembershipToUser(user.id, sel.value), "Membership assigned");
+                }}>Assign</Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="glass">
+          <CardHeader><CardTitle>Legacy subscriptions</CardTitle></CardHeader>
+          <CardContent>
+            {user.subscriptions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">None (platform uses lifetime purchases)</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {user.subscriptions.map((s) => (
+                  <li key={s.id}>
+                    {s.status} · {s.interval} · ends {new Date(s.currentPeriodEnd).toLocaleDateString()}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="glass lg:col-span-2">
+          <CardHeader><CardTitle>Recent Tickets</CardTitle></CardHeader>
+          <CardContent>
+            {user.supportTickets.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No tickets</p>
+            ) : (
+              <ul className="space-y-2">
+                {user.supportTickets.map((t) => (
+                  <li key={t.id}>
+                    <Link href={`/${locale}/admin/tickets/${t.id}`} className="text-sm hover:text-neon-purple">
+                      {t.ticketNumber} — {t.subject} ({TICKET_STATUS_LABELS[t.status as keyof typeof TICKET_STATUS_LABELS]})
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="glass lg:col-span-2">
+          <CardHeader><CardTitle>Audit Log</CardTitle></CardHeader>
+          <CardContent>
+            {auditLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No audit entries</p>
+            ) : (
+              <ul className="space-y-2 text-sm max-h-64 overflow-y-auto">
+                {auditLogs.map((log) => (
+                  <li key={log.id} className="flex justify-between border-b border-border/30 pb-2">
+                    <span>{log.action} {log.actor && <span className="text-muted-foreground">by @{log.actor.username}</span>}</span>
+                    <span className="text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <ConfirmDialog
+        open={confirmBan}
+        onOpenChange={setConfirmBan}
+        title="Ban user"
+        description={`Ban @${user.username}?`}
+        variant="destructive"
+        loading={pending}
+        onConfirm={() => run(() => banUser(user.id, "Admin panel"), "Banned")}
+      />
+    </div>
+  );
+}

@@ -1,0 +1,48 @@
+{
+  "nav": {
+    "games": "Oyunlar",
+    "mods": "Modlar",
+    "creators": "İçerik üreticileri",
+    "leaderboards": "Sıralamalar",
+    "designers": "Tasarım stüdyosu",
+    "premium": "Premium",
+    "customOrders": "Siparişler",
+    "blog": "Haberler",
+    "login": "Giriş yap",
+    "getStarted": "Hesap oluştur",
+    "dashboard": "Panel",
+    "search": "Mod ara",
+    "language": "Dil"
+  },
+  "footer": {
+    "tagline": "Rage MP için %100 yasal ücretsiz modlar, GTA eğitimleri ve düzeltmeleri. Artık her gün yeni modlar.",
+    "platform": "Platform",
+    "browseMods": "Modlara göz at",
+    "games": "Oyunlar",
+    "creators": "İçerik üreticileri",
+    "leaderboards": "Sıralamalar",
+    "premium": "Premium",
+    "customWork": "Siparişler",
+    "support": "Destek",
+    "faq": "SSS",
+    "contact": "İletişim",
+    "supportTickets": "Yardım merkezi",
+    "legal": "Yasal",
+    "terms": "Kullanım şartları",
+    "privacy": "Gizlilik",
+    "rights": "Tüm hakları saklıdır."
+  },
+  "common": {
+    "loading": "Yükleniyor…",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "delete": "Sil",
+    "edit": "Düzenle",
+    "viewAll": "Tümünü gör",
+    "learnMore": "Daha fazla",
+    "noResults": "Henüz bir şey yok",
+    "error": "Bir hata oluştu",
+    "retry": "Tekrar dene",
+    "back": "Geri"
+  }
+}

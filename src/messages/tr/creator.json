@@ -1,0 +1,15 @@
+{
+  "creator": {
+    "title": "Creator Stüdyosu",
+    "subtitle": "Mod yayınla, indirmeleri takip et ve sürümleri yönet.",
+    "myMods": "Modlarım",
+    "newMod": "Yeni mod",
+    "manageMod": "Sürümü yönet",
+    "uploadVersion": "Sürüm yükle",
+    "uploadScreenshot": "Ekran görüntüsü ekle",
+    "uploadVideo": "Video ekle",
+    "createMod": "Modu yayınla",
+    "pendingReview": "İnceleme bekliyor",
+    "published": "Yayında"
+  }
+}

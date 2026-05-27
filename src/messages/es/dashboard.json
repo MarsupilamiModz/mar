@@ -1,0 +1,17 @@
+{
+  "dashboard": {
+    "overview": "Resumen",
+    "downloads": "Descargas",
+    "favorites": "Mods guardados",
+    "subscription": "Suscripción",
+    "licenses": "Claves de licencia",
+    "settings": "Ajustes de cuenta",
+    "notifications": "Notificaciones",
+    "orders": "Encargos",
+    "support": "Centro de ayuda",
+    "welcome": "Bienvenido de nuevo, {name}",
+    "emptyDownloads": "Aún no has descargado nada.",
+    "emptyFavorites": "Los mods que guardes aparecerán aquí.",
+    "emptyNotifications": "Estás al día."
+  }
+}

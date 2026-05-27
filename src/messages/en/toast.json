@@ -1,0 +1,12 @@
+{
+  "toast": {
+    "saved": "Saved successfully",
+    "deleted": "Deleted successfully",
+    "created": "Created successfully",
+    "updated": "Updated successfully",
+    "error": "Something went wrong",
+    "copied": "Copied to clipboard",
+    "uploaded": "Upload complete",
+    "loading": "Please wait…"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "premium": {
+    "title": "MarsupilamiModz Premium",
+    "subtitle": "Una suscripción. Todos los mods premium. Sin tarifas por descarga.",
+    "monthly": "Mensual",
+    "yearly": "Anual",
+    "yearlySave": "Ahorra ~20 %",
+    "subscribe": "Iniciar suscripción",
+    "perkDownloads": "Descargas premium ilimitadas",
+    "perkExclusive": "Acceso anticipado a releases selectas",
+    "perkDiscord": "Rol y canales premium en Discord",
+    "perkSupport": "Cola de soporte prioritaria",
+    "perkCreator": "Apoyo directo a creadores independientes"
+  }
+}
