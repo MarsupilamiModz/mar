@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionPermission } from "@/lib/action-utils";
+import { ok, requireActionPermission } from "@/lib/action-utils";
 import { seedDefaultAchievements } from "@/lib/achievements";
 import type { AchievementCategory, AchievementRarity, Prisma } from "@prisma/client";
 

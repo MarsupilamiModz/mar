@@ -28,7 +28,7 @@ export function UserIdentity({
 
   return (
     <span className={cn("inline-flex items-center gap-1.5 min-w-0", className)}>
-      <span className={cn("truncate font-medium", nameClassName)}>{name}</span>
+      <span className={cn("truncate font-medium", size === "md" ? "text-base" : "text-sm", nameClassName)}>{name}</span>
       {showBadges &&
         badges.map((b) => (
           <AchievementBadge

@@ -81,7 +81,7 @@ async function fetchLeaderboard(filters: LeaderboardFilters): Promise<Leaderboar
     ? await prisma.game.findUnique({ where: { slug: filters.gameSlug }, select: { id: true } })
     : null;
 
-  let periodDownloadsByAuthor: Record<string, number> = {};
+  const periodDownloadsByAuthor: Record<string, number> = {};
   if (since) {
     const downloads = await prisma.download.findMany({
       where: { createdAt: { gte: since } },

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionPermission } from "@/lib/action-utils";
+import { ok, requireActionPermission } from "@/lib/action-utils";
 import { getLeaderboardWeights, saveLeaderboardWeights, syncCreatorRanks, type LeaderboardWeights } from "@/lib/leaderboards";
 
 export async function getAdminLeaderboardConfig() {

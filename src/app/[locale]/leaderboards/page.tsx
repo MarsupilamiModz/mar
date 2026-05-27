@@ -1,5 +1,5 @@
 import { setRequestLocale } from "next-intl/server";
-import { getLeaderboard, METRIC_LABELS, PUBLIC_LEADERBOARD_METRICS, syncCreatorRanks } from "@/lib/leaderboards";
+import { getLeaderboard, PUBLIC_LEADERBOARD_METRICS, syncCreatorRanks } from "@/lib/leaderboards";
 import { getAllGames } from "@/lib/data";
 import { LeaderboardClient } from "@/components/leaderboards/leaderboard-client";
 import type { LeaderboardMetric, LeaderboardPeriod } from "@prisma/client";
