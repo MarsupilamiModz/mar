@@ -25,7 +25,8 @@ export async function startCreditPackCheckout(productId: string, locale: string)
     product.slug,
     product.creditsAmount,
     product.priceCents,
-    locale
+    locale,
+    product.stripePriceId
   );
 
   return ok({ url: session.url });

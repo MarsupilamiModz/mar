@@ -65,7 +65,7 @@ export async function createMembershipCheckout(
   });
 }
 
-/** Credit pack checkout (real money → credits). */
+/** Credit pack checkout (real money → credits). Uses Stripe Price ID when configured. */
 export async function createCreditPackCheckout(
   userId: string,
   email: string,
@@ -73,27 +73,32 @@ export async function createCreditPackCheckout(
   productSlug: string,
   creditsAmount: number,
   amountCents: number,
-  locale: string = "en"
+  locale: string = "en",
+  stripePriceId?: string | null
 ) {
   const stripe = getStripe();
   const customerId = await getOrCreateStripeCustomer(userId, email);
 
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = stripePriceId
+    ? [{ price: stripePriceId, quantity: 1 }]
+    : [
+        {
+          price_data: {
+            currency: "eur",
+            product_data: {
+              name: `${creditsAmount.toLocaleString()} Credits`,
+              description: "MarsupilamiModz credit pack",
+            },
+            unit_amount: amountCents,
+          },
+          quantity: 1,
+        },
+      ];
+
   return stripe.checkout.sessions.create({
     customer: customerId,
     mode: "payment",
-    line_items: [
-      {
-        price_data: {
-          currency: "eur",
-          product_data: {
-            name: `${creditsAmount.toLocaleString()} Credits`,
-            description: "MarsupilamiModz credit pack",
-          },
-          unit_amount: amountCents,
-        },
-        quantity: 1,
-      },
-    ],
+    line_items: lineItems,
     success_url: `${appPathForLocale(locale, "/dashboard")}?credits=1`,
     cancel_url: appPathForLocale(locale, "/shop"),
     invoice_creation: { enabled: true },

@@ -5,7 +5,7 @@ import { collectDescendantIds, type FlatCategory } from "@/lib/categories";
 
 import { ensureModMediaSynced } from "@/lib/mod-media";
 
-const modListInclude = {
+const modListSelect = {
   id: true,
   slug: true,
   title: true,
@@ -19,12 +19,12 @@ const modListInclude = {
   author: { select: { username: true, displayName: true, avatarUrl: true } },
 };
 
-const modListIncludeWithMedia = {
-  ...modListInclude,
+const modListSelectWithMedia = {
+  ...modListSelect,
   media: { orderBy: [{ isFeatured: "desc" as const }, { orderIndex: "asc" as const }] },
 };
 
-const modListIncludeMinimal = {
+const modListSelectMinimal = {
   id: true,
   slug: true,
   title: true,
@@ -37,24 +37,26 @@ const modListIncludeMinimal = {
   author: { select: { username: true, displayName: true, avatarUrl: true } },
 };
 
-async function findModsListing(args: Parameters<typeof prisma.mod.findMany>[0]) {
+async function findModsListing(args: NonNullable<Parameters<typeof prisma.mod.findMany>[0]> = {}) {
+  const { include: _include, select: _select, ...rest } = args;
+
   try {
     return await prisma.mod.findMany({
-      ...args,
-      include: modListIncludeWithMedia,
+      ...rest,
+      select: modListSelectWithMedia,
     });
   } catch (err) {
-    console.error("[findModsListing] media include failed", err);
+    console.error("[findModsListing] media select failed", err);
     try {
       return await prisma.mod.findMany({
-        ...args,
-        include: modListInclude,
+        ...rest,
+        select: modListSelect,
       });
     } catch (err2) {
-      console.error("[findModsListing] standard include failed", err2);
+      console.error("[findModsListing] standard select failed", err2);
       return prisma.mod.findMany({
-        ...args,
-        include: modListIncludeMinimal,
+        ...rest,
+        select: modListSelectMinimal,
       });
     }
   }

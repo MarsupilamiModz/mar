@@ -1414,6 +1414,7 @@ model ShopProduct {
   productType      ShopProductType     @default(CREDIT_PACK)
   creditPrice      Int                 @default(0)
   priceCents       Int                 @default(0)
+  stripePriceId    String?
   creditsAmount    Int?
   modId            String?
   mod              Mod?                @relation(fields: [modId], references: [id], onDelete: SetNull)

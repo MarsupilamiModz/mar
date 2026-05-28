@@ -15,7 +15,7 @@ const productSchema = z.object({
   productType: z.enum(["CREDIT_PACK", "MEMBERSHIP", "MOD", "EXCLUSIVE", "BUNDLE", "SUBSCRIPTION", "ACCESS"]),
   creditPrice: z.number().int().min(0).default(0),
   priceCents: z.number().int().min(0).default(0),
-  creditsAmount: z.number().int().min(0).optional(),
+  stripePriceId: z.string().max(120).optional().nullable(),
   modId: z.string().cuid().optional().nullable(),
   membershipPlanId: z.string().cuid().optional().nullable(),
   thumbnailUrl: z.string().optional().nullable(),
@@ -63,6 +63,7 @@ export async function createShopProduct(input: z.infer<typeof productSchema>) {
       slug: uniqueSlug,
       modId: parsed.data.modId || null,
       membershipPlanId: parsed.data.membershipPlanId || null,
+      stripePriceId: parsed.data.stripePriceId || null,
       stock: parsed.data.stock ?? null,
     },
   });
@@ -86,6 +87,8 @@ export async function updateShopProduct(id: string, input: Partial<z.infer<typeo
       modId: parsed.data.modId === undefined ? undefined : parsed.data.modId || null,
       membershipPlanId:
         parsed.data.membershipPlanId === undefined ? undefined : parsed.data.membershipPlanId || null,
+      stripePriceId:
+        parsed.data.stripePriceId === undefined ? undefined : parsed.data.stripePriceId || null,
     },
   });
 

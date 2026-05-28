@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { createShopProduct, updateShopProduct, deleteShopProduct } from "@/actions/admin/shop";
 import { useAppToast } from "@/hooks/use-app-toast";
+import { CREDITS_PER_EUR } from "@/lib/credits";
 
 type Product = {
   id: string;
@@ -19,6 +20,7 @@ type Product = {
   creditPrice: number;
   priceCents: number;
   creditsAmount: number | null;
+  stripePriceId: string | null;
   isFeatured: boolean;
   isActive: boolean;
   salePercent: number;
@@ -26,28 +28,43 @@ type Product = {
   _count?: { purchases: number };
 };
 
+function formatEuro(cents: number) {
+  return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
+}
+
+function creditsToEuroHint(credits: number) {
+  const euros = credits / CREDITS_PER_EUR;
+  return `${credits.toLocaleString()} Credits = ${formatEuro(Math.round(euros * 100))}`;
+}
+
 export function ShopAdminPanel({ products }: { products: Product[] }) {
   const appToast = useAppToast();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<Product | null>(null);
+  const [creditsPreview, setCreditsPreview] = useState(editing?.creditsAmount ?? 0);
 
   return (
     <div className="space-y-6">
       <Card className="glass p-6 space-y-4">
-        <h3 className="font-semibold">{editing ? "Edit product" : "Create product"}</h3>
+        <h3 className="font-semibold">{editing ? "Produkt bearbeiten" : "Produkt erstellen"}</h3>
+        <p className="text-xs text-muted-foreground">
+          Kurs: 10 € = 1.000 Credits · z. B. 500 Credits = 5,00 €
+        </p>
         <form
           className="grid gap-3 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
+            const priceEuro = Number(fd.get("priceEuro") || 0);
             const payload = {
               name: fd.get("name") as string,
               description: (fd.get("description") as string) || undefined,
               category: fd.get("category") as "CREDITS" | "MEMBERSHIP" | "MODS" | "EXCLUSIVE" | "BUNDLES" | "ACCESS",
               productType: fd.get("productType") as "CREDIT_PACK" | "MEMBERSHIP" | "MOD" | "EXCLUSIVE" | "BUNDLE" | "SUBSCRIPTION" | "ACCESS",
               creditPrice: Number(fd.get("creditPrice") || 0),
-              priceCents: Number(fd.get("priceCents") || 0),
+              priceCents: Math.round(priceEuro * 100),
               creditsAmount: fd.get("creditsAmount") ? Number(fd.get("creditsAmount")) : undefined,
+              stripePriceId: ((fd.get("stripePriceId") as string) || undefined)?.trim() || null,
               isFeatured: fd.get("isFeatured") === "on",
               isActive: fd.get("isActive") === "on",
               salePercent: Number(fd.get("salePercent") || 0),
@@ -65,10 +82,32 @@ export function ShopAdminPanel({ products }: { products: Product[] }) {
             });
           }}
         >
-          <Input name="name" defaultValue={editing?.name} placeholder="Product name" required />
-          <Input name="creditPrice" type="number" defaultValue={editing?.creditPrice ?? 0} placeholder="Credit price" />
-          <Input name="priceCents" type="number" defaultValue={editing?.priceCents ?? 0} placeholder="EUR cents (Stripe)" />
-          <Input name="creditsAmount" type="number" defaultValue={editing?.creditsAmount ?? ""} placeholder="Credits amount (packs)" />
+          <Input name="name" defaultValue={editing?.name} placeholder="Produktname" required />
+          <Input
+            name="creditsAmount"
+            type="number"
+            defaultValue={editing?.creditsAmount ?? ""}
+            placeholder="Credits (z. B. 500)"
+            onChange={(e) => setCreditsPreview(Number(e.target.value) || 0)}
+          />
+          <Input
+            name="priceEuro"
+            type="number"
+            step="0.01"
+            min={0}
+            defaultValue={editing ? (editing.priceCents / 100).toFixed(2) : ""}
+            placeholder="Preis in € (z. B. 5.00)"
+          />
+          <Input
+            name="stripePriceId"
+            defaultValue={editing?.stripePriceId ?? ""}
+            placeholder="Stripe Price ID (price_...)"
+            className="font-mono text-xs"
+          />
+          <Input name="creditPrice" type="number" defaultValue={editing?.creditPrice ?? 0} placeholder="Preis in Credits (In-App-Kauf)" />
+          {creditsPreview > 0 && (
+            <p className="text-xs text-neon-blue sm:col-span-2">{creditsToEuroHint(creditsPreview)}</p>
+          )}
           <select name="category" defaultValue={editing?.category ?? "CREDITS"} className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm">
             {["CREDITS", "MEMBERSHIP", "MODS", "EXCLUSIVE", "BUNDLES", "ACCESS"].map((c) => (
               <option key={c} value={c}>{c}</option>
@@ -79,14 +118,14 @@ export function ShopAdminPanel({ products }: { products: Product[] }) {
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-          <Input name="salePercent" type="number" defaultValue={editing?.salePercent ?? 0} placeholder="Sale %" />
-          <Input name="sortOrder" type="number" defaultValue={editing?.sortOrder ?? 0} placeholder="Sort order" />
-          <Textarea name="description" defaultValue={editing?.description ?? ""} placeholder="Description" className="sm:col-span-2" rows={3} />
+          <Input name="salePercent" type="number" defaultValue={editing?.salePercent ?? 0} placeholder="Rabatt %" />
+          <Input name="sortOrder" type="number" defaultValue={editing?.sortOrder ?? 0} placeholder="Sortierung" />
+          <Textarea name="description" defaultValue={editing?.description ?? ""} placeholder="Beschreibung" className="sm:col-span-2" rows={3} />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isFeatured" defaultChecked={editing?.isFeatured} /> Featured</label>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isActive" defaultChecked={editing?.isActive ?? true} /> Active</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isActive" defaultChecked={editing?.isActive ?? true} /> Aktiv</label>
           <div className="sm:col-span-2 flex gap-2">
-            <Button type="submit" variant="neon" disabled={pending}>{editing ? "Update" : "Create"}</Button>
-            {editing && <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>}
+            <Button type="submit" variant="neon" disabled={pending}>{editing ? "Speichern" : "Erstellen"}</Button>
+            {editing && <Button type="button" variant="outline" onClick={() => setEditing(null)}>Abbrechen</Button>}
           </div>
         </form>
       </Card>
@@ -98,12 +137,40 @@ export function ShopAdminPanel({ products }: { products: Product[] }) {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium">{p.name}</p>
                 {p.isFeatured && <Badge variant="premium">Featured</Badge>}
-                {!p.isActive && <Badge variant="outline">Inactive</Badge>}
+                {!p.isActive && <Badge variant="outline">Inaktiv</Badge>}
               </div>
-              <p className="text-xs text-muted-foreground">{p.category} · {p.productType} · {p._count?.purchases ?? 0} sales</p>
+              <p className="text-xs text-muted-foreground">
+                {p.category} · {p.productType} · {p._count?.purchases ?? 0} Verkäufe
+              </p>
+              <p className="text-sm mt-1">
+                {p.creditsAmount ? (
+                  <>
+                    <span className="text-neon-blue">{p.creditsAmount.toLocaleString()} Credits</span>
+                    {" · "}
+                    <span>{formatEuro(p.priceCents)}</span>
+                    {p.creditPrice > 0 && (
+                      <span className="text-muted-foreground"> · {p.creditPrice.toLocaleString()} Credits (In-App)</span>
+                    )}
+                  </>
+                ) : (
+                  <span>{formatEuro(p.priceCents)}</span>
+                )}
+              </p>
+              {p.stripePriceId && (
+                <p className="text-xs font-mono text-muted-foreground truncate mt-0.5">{p.stripePriceId}</p>
+              )}
             </div>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => setEditing(p)}>Edit</Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setEditing(p);
+                  setCreditsPreview(p.creditsAmount ?? 0);
+                }}
+              >
+                Bearbeiten
+              </Button>
               <Button
                 size="sm"
                 variant="destructive"
@@ -116,7 +183,7 @@ export function ShopAdminPanel({ products }: { products: Product[] }) {
                   })
                 }
               >
-                Delete
+                Löschen
               </Button>
             </div>
           </Card>
