@@ -18,6 +18,8 @@ export function Header({ locale, user }: { locale: string; user: NavUser | null 
     { href: `/${locale}/games`, label: t("games") },
     { href: `/${locale}/mods`, label: t("mods") },
     { href: `/${locale}/creators`, label: t("creators") },
+    { href: `/${locale}/partners`, label: t("partners") },
+    { href: `/${locale}/shop`, label: t("shop") },
     { href: `/${locale}/leaderboards`, label: t("leaderboards") },
     { href: `/${locale}/premium`, label: t("premium") },
     { href: `/${locale}/custom-orders`, label: t("customOrders") },

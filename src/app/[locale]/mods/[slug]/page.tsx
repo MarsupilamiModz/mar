@@ -25,6 +25,8 @@ import { SafeImage } from "@/components/ui/safe-image";
 import { UserIdentity } from "@/components/user/user-identity";
 import { getInlineBadgesForUsers } from "@/lib/user-badges";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
+import { ModPurchaseButton } from "@/components/mods/mod-purchase-button";
+import { formatCreditsFromCents } from "@/lib/credits";
 import type { Locale } from "@/i18n/config";
 
 export async function generateMetadata({
@@ -80,7 +82,7 @@ export default async function ModDetailPage({
   const reviewUserIds = mod.reviews.map((r) => r.userId);
   const authorId = mod.author.id;
 
-  const [favorited, related, badgeMap] = await Promise.all([
+  const [favorited, related, badgeMap, owned] = await Promise.all([
     user
       ? prisma.modFavorite.findUnique({
           where: { modId_userId: { modId: mod.id, userId: user.id } },
@@ -88,6 +90,11 @@ export default async function ModDetailPage({
       : null,
     getTrendingMods(4, mod.gameId),
     getInlineBadgesForUsers([authorId, ...reviewUserIds], locale),
+    user
+      ? prisma.modPurchase.findUnique({
+          where: { modId_userId: { modId: mod.id, userId: user.id } },
+        })
+      : null,
   ]);
 
   const relatedMods = related.filter((m) => m.id !== mod.id).slice(0, 4);
@@ -184,6 +191,19 @@ export default async function ModDetailPage({
               </form>
               <FavoriteButton modId={mod.id} initialFavorited={!!favorited} />
             </div>
+            {mod.pricing === "PAID" && mod.priceCents && mod.priceCents > 0 && user && (
+              <ModPurchaseButton
+                modId={mod.id}
+                priceCents={mod.priceCents}
+                owned={!!owned}
+                locale={locale}
+              />
+            )}
+            {mod.pricing === "PAID" && mod.priceCents && mod.priceCents > 0 && !user && (
+              <p className="text-sm text-center mt-2 text-neon-purple font-medium">
+                {formatCreditsFromCents(mod.priceCents, locale)}
+              </p>
+            )}
             {!user && mod.pricing !== "FREE" && (
               <p className="mt-3 text-xs text-muted-foreground text-center">
                 <Link href={`/${locale}/login`} className="text-neon-purple hover:underline">

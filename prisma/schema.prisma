@@ -323,6 +323,7 @@ model User {
   userAchievements  UserAchievement[]
   userProgress      UserProgress?
   creditWallet      CreditWallet?
+  shopPurchases     ShopPurchase[]
 
   @@index([email])
   @@index([username])
@@ -551,6 +552,7 @@ model Mod {
   changelog     ModChangelog[]
   purchases     ModPurchase[]
   licenseKeys   LicenseKey[]
+  shopProducts  ShopProduct[]
 
   exclusivePrograms ExclusiveProgram[]
 
@@ -1128,6 +1130,7 @@ model MembershipPlan {
 
   subscriptions Subscription[]
   purchases     MembershipPurchase[]
+  shopProducts  ShopProduct[]
 
   @@index([isActive, sortOrder])
 }
@@ -1381,4 +1384,69 @@ model CreditTransaction {
 
   @@index([walletId, createdAt])
   @@index([referenceId])
+}
+
+enum ShopProductCategory {
+  CREDITS
+  MEMBERSHIP
+  MODS
+  EXCLUSIVE
+  BUNDLES
+  ACCESS
+}
+
+enum ShopProductType {
+  CREDIT_PACK
+  MEMBERSHIP
+  MOD
+  EXCLUSIVE
+  BUNDLE
+  SUBSCRIPTION
+  ACCESS
+}
+
+model ShopProduct {
+  id               String              @id @default(cuid())
+  slug             String              @unique
+  name             String
+  description      String?             @db.Text
+  category         ShopProductCategory @default(CREDITS)
+  productType      ShopProductType     @default(CREDIT_PACK)
+  creditPrice      Int                 @default(0)
+  priceCents       Int                 @default(0)
+  creditsAmount    Int?
+  modId            String?
+  mod              Mod?                @relation(fields: [modId], references: [id], onDelete: SetNull)
+  membershipPlanId String?
+  membershipPlan   MembershipPlan?     @relation(fields: [membershipPlanId], references: [id], onDelete: SetNull)
+  thumbnailUrl     String?
+  stock            Int?
+  isFeatured       Boolean             @default(false)
+  isActive         Boolean             @default(true)
+  salePercent      Int                 @default(0)
+  creatorShareBps  Int                 @default(0)
+  partnerShareBps  Int                 @default(0)
+  sortOrder        Int                 @default(0)
+  translations     Json?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  purchases ShopPurchase[]
+
+  @@index([isActive, isFeatured, sortOrder])
+  @@index([category])
+}
+
+model ShopPurchase {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId       String
+  product         ShopProduct @relation(fields: [productId], references: [id])
+  creditsSpent    Int         @default(0)
+  priceCents      Int         @default(0)
+  stripePaymentId String?
+  createdAt       DateTime    @default(now())
+
+  @@index([userId, createdAt])
 }

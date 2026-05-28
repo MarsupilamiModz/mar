@@ -1,0 +1,14 @@
+{
+  "shop": {
+    "title": "Tienda de Credits",
+    "subtitle": "Compra credits, mods, membresias y productos exclusivos.",
+    "balance": "Tu saldo",
+    "buyWithCard": "Pagar con tarjeta",
+    "buyWithCredits": "Pagar con Credits",
+    "featured": "Destacado",
+    "creditPacks": "Paquetes de credits",
+    "products": "Productos",
+    "owned": "Ya lo tienes",
+    "insufficientCredits": "Credits insuficientes"
+  }
+}

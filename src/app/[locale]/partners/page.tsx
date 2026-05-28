@@ -2,50 +2,90 @@ import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { prisma } from "@/lib/db";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { PartnerHubCard } from "@/components/partners/partner-hub-card";
 import { SITE } from "@/lib/site";
 import type { Locale } from "@/i18n/config";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Partners",
-  description: `Affiliate partners on ${SITE.name}.`,
+  description: `Verified affiliate partners on ${SITE.name}.`,
 };
 
 export default async function PartnersPage({ params: { locale } }: { params: { locale: Locale } }) {
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
 
-  const partners = await prisma.partnerProfile.findMany({
-    where: { isVerified: true, isBanned: false, isSuspended: false },
-    orderBy: { totalRevenueCents: "desc" },
-    take: 24,
-    include: {
-      user: { select: { displayName: true, username: true, avatarUrl: true } },
-    },
-  }).catch(() => []);
+  const [featured, verified, elite, official, topPerforming] = await Promise.all([
+    prisma.partnerProfile.findMany({
+      where: { isFeatured: true, isBanned: false, isSuspended: false },
+      orderBy: { totalConversions: "desc" },
+      take: 6,
+      include: { user: { select: { displayName: true, username: true, avatarUrl: true } }, socialLinks: { take: 4 } },
+    }).catch(() => []),
+    prisma.partnerProfile.findMany({
+      where: { isVerified: true, isBanned: false, isSuspended: false },
+      orderBy: { followerCount: "desc" },
+      take: 12,
+      include: { user: { select: { displayName: true, username: true, avatarUrl: true } }, socialLinks: { take: 4 } },
+    }).catch(() => []),
+    prisma.partnerProfile.findMany({
+      where: { level: "ELITE", isBanned: false, isSuspended: false },
+      take: 8,
+      include: { user: { select: { displayName: true, username: true, avatarUrl: true } }, socialLinks: { take: 4 } },
+    }).catch(() => []),
+    prisma.partnerProfile.findMany({
+      where: { level: "OFFICIAL_PARTNER", isBanned: false, isSuspended: false },
+      take: 8,
+      include: { user: { select: { displayName: true, username: true, avatarUrl: true } }, socialLinks: { take: 4 } },
+    }).catch(() => []),
+    prisma.partnerProfile.findMany({
+      where: { isBanned: false, isSuspended: false },
+      orderBy: { totalConversions: "desc" },
+      take: 12,
+      include: { user: { select: { displayName: true, username: true, avatarUrl: true } }, socialLinks: { take: 4 } },
+    }).catch(() => []),
+  ]);
+
+  const sections = [
+    { title: t("featuredPartners"), items: featured },
+    { title: t("verifiedPartners"), items: verified },
+    { title: t("elitePartners"), items: elite },
+    { title: t("officialPartners"), items: official },
+    { title: t("topPartners"), items: topPerforming },
+  ];
+
+  const hasAny = sections.some((s) => s.items.length > 0);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-      <h1 className="text-3xl font-bold text-gradient">{t("partners")}</h1>
+      <h1 className="text-3xl font-bold text-gradient">{t("partnerHub")}</h1>
       <p className="mt-2 text-muted-foreground">{t("partnersSubtitle")}</p>
-      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {partners.length === 0 ? (
-          <Card className="glass col-span-full p-12 text-center text-muted-foreground">{t("noPartners")}</Card>
-        ) : (
-          partners.map((p) => (
-            <Link key={p.id} href={`/${locale}/partners/${p.slug}`}>
-              <Card className="glass p-6 hover:border-neon-blue/40 transition-colors h-full">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold">{p.user.displayName ?? p.user.username}</p>
-                  {p.isFeatured && <Badge variant="premium">{t("featured")}</Badge>}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">{p.tagline ?? t("partner")}</p>
-                <p className="text-xs text-neon-blue mt-3">{p.totalConversions} {t("conversions")}</p>
-              </Card>
-            </Link>
-          ))
-        )}
+
+      {!hasAny ? (
+        <Card className="glass mt-10 p-12 text-center text-muted-foreground">{t("noPartners")}</Card>
+      ) : (
+        <div className="mt-10 space-y-12">
+          {sections.map(
+            (section) =>
+              section.items.length > 0 && (
+                <section key={section.title}>
+                  <h2 className="text-xl font-bold mb-6">{section.title}</h2>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {section.items.map((p) => (
+                      <PartnerHubCard key={p.id} locale={locale} partner={p} t={t} />
+                    ))}
+                  </div>
+                </section>
+              )
+          )}
+        </div>
+      )}
+
+      <div className="mt-12 text-center">
+        <Link href={`/${locale}/register`} className="text-neon-blue hover:underline text-sm">
+          {t("becomePartner")}
+        </Link>
       </div>
     </div>
   );

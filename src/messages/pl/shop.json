@@ -1,0 +1,14 @@
+{
+  "shop": {
+    "title": "Sklep Creditow",
+    "subtitle": "Kup credity, odblokuj mody, czlonkostwa i produkty ekskluzywne.",
+    "balance": "Twoje saldo",
+    "buyWithCard": "Kup karta",
+    "buyWithCredits": "Kup za Credit",
+    "featured": "Polecane",
+    "creditPacks": "Pakiety creditow",
+    "products": "Produkty",
+    "owned": "Juz posiadasz",
+    "insufficientCredits": "Niewystarczajace credity"
+  }
+}

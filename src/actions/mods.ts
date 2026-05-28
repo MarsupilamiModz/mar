@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { ModPricing, ModStatus, ModVisibility, UserRole } from "@prisma/client";
+import { ModPricing, ModStatus, ModVisibility, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { fail, ok, requireActionUser, requireActionPermission } from "@/lib/action-utils";
@@ -84,13 +84,34 @@ export async function createMod(input: z.infer<typeof modCreateSchema> & { autho
   return ok({ id: mod.id, slug: mod.slug });
 }
 
+const modUpdateSchema = modCreateSchema.partial().extend({
+  categoryId: z.string().cuid().nullable().optional(),
+  status: z.enum(["DRAFT", "PENDING", "PUBLISHED", "REJECTED", "ARCHIVED"]).optional(),
+  visibility: z.enum(["PUBLIC", "UNLISTED", "PRIVATE"]).optional(),
+  isFeatured: z.boolean().optional(),
+  authorId: z.string().cuid().optional(),
+});
+
+function dedupeTags(tags: string[]) {
+  return Array.from(new Set(tags.map((t) => t.trim()).filter(Boolean)));
+}
+
+function prismaErrorMessage(err: unknown): string {
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === "P2003") return "Invalid game, category, or author reference";
+    if (err.code === "P2002") return "Duplicate value — check tags or slug";
+  }
+  return err instanceof Error ? err.message : "Update failed";
+}
+
 export async function updateMod(
   modId: string,
-  input: Partial<z.infer<typeof modCreateSchema>> & {
+  input: Omit<Partial<z.infer<typeof modCreateSchema>>, "categoryId"> & {
     status?: ModStatus;
     visibility?: ModVisibility;
     isFeatured?: boolean;
     authorId?: string;
+    categoryId?: string | null;
   }
 ) {
   const { user, error } = await requireActionUser();
@@ -100,41 +121,92 @@ export async function updateMod(
   if (!mod) return fail("Mod not found");
   if (!(await canEditMod(user.id, user.role, mod.authorId))) return fail("Forbidden");
 
+  const parsed = modUpdateSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.message);
+
+  const data = parsed.data;
   const isStaff = hasPermission(user.role, "mods.write");
-  const status = input.status ?? mod.status;
+  const nextGameId = data.gameId ?? mod.gameId;
+  const nextCategoryId =
+    input.categoryId === null || input.categoryId === ""
+      ? null
+      : input.categoryId !== undefined
+        ? input.categoryId
+        : data.categoryId;
+
+  if (nextCategoryId) {
+    const category = await prisma.gameCategory.findFirst({
+      where: { id: nextCategoryId, gameId: nextGameId },
+    });
+    if (!category) return fail("Category does not belong to the selected game");
+  }
+
+  const status = data.status ?? mod.status;
   const publishedAt =
     status === "PUBLISHED" && !mod.publishedAt ? new Date() : mod.publishedAt;
 
-  const updated = await prisma.mod.update({
-    where: { id: modId },
-    data: {
-      ...(input.title && { title: input.title }),
-      ...(input.description && { description: input.description }),
-      ...(input.shortDescription !== undefined && { shortDescription: input.shortDescription }),
-      ...(input.gameId && { gameId: input.gameId }),
-      ...(input.categoryId !== undefined && { categoryId: input.categoryId }),
-      ...(input.pricing && { pricing: input.pricing as ModPricing }),
-      ...(input.priceCents !== undefined && { priceCents: input.priceCents }),
-      ...(isStaff && input.status && { status, publishedAt }),
-      ...(isStaff && input.visibility && { visibility: input.visibility }),
-      ...(isStaff && input.isFeatured !== undefined && { isFeatured: input.isFeatured }),
-      ...(isStaff && input.authorId && { authorId: input.authorId }),
-    },
-  });
+  const priceCents =
+    data.pricing === "PAID"
+      ? data.priceCents ?? mod.priceCents ?? 0
+      : data.pricing
+        ? null
+        : data.priceCents;
 
-  if (input.tags) {
-    await prisma.modTag.deleteMany({ where: { modId } });
-    if (input.tags.length) {
-      await prisma.modTag.createMany({
-        data: input.tags.map((name) => ({ modId, name })),
+  try {
+    const updated = await prisma.mod.update({
+      where: { id: modId },
+      data: {
+        ...(data.title && { title: data.title }),
+        ...(data.description && { description: data.description }),
+        ...(data.shortDescription !== undefined && { shortDescription: data.shortDescription }),
+        ...(data.gameId && { gameId: data.gameId }),
+        ...(input.categoryId !== undefined || data.categoryId !== undefined
+          ? { categoryId: nextCategoryId }
+          : {}),
+        ...(data.pricing && { pricing: data.pricing as ModPricing }),
+        ...(priceCents !== undefined && { priceCents }),
+        ...(isStaff && data.status && { status, publishedAt }),
+        ...(isStaff && data.visibility && { visibility: data.visibility as ModVisibility }),
+        ...(isStaff && data.isFeatured !== undefined && { isFeatured: data.isFeatured }),
+        ...(isStaff && data.authorId && { authorId: data.authorId }),
+      },
+    });
+
+    if (data.tags) {
+      const tags = dedupeTags(data.tags);
+      await prisma.modTag.deleteMany({ where: { modId } });
+      if (tags.length) {
+        await prisma.modTag.createMany({
+          data: tags.map((name) => ({ modId, name })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    if (status === "PUBLISHED" && mod.status !== "PUBLISHED") {
+      const { notifyCreatorFollowers } = await import("@/lib/follows");
+      void notifyCreatorFollowers(updated.authorId, {
+        title: "New mod published",
+        body: `${updated.title} is now live`,
+        link: `/mods/${updated.slug}`,
       });
     }
-  }
 
-  invalidateModCaches();
-  revalidatePath(`/mods/${updated.slug}`);
-  revalidatePath("/admin/mods");
-  return ok(updated);
+    await createAuditLog({
+      actorId: user.id,
+      action: "mod.update",
+      entityType: "Mod",
+      entityId: modId,
+    });
+
+    invalidateModCaches();
+    revalidatePath(`/mods/${updated.slug}`);
+    revalidatePath("/admin/mods");
+    return ok(updated);
+  } catch (err) {
+    console.error("[updateMod]", err);
+    return fail(prismaErrorMessage(err));
+  }
 }
 
 export async function uploadModVersion(modId: string, formData: FormData) {
@@ -269,23 +341,43 @@ export async function getModForEdit(modId: string) {
   if (!mod) return fail("Not found");
   if (!(await canEditMod(user.id, user.role, mod.authorId))) return fail("Forbidden");
 
-  await ensureModMediaSynced(modId);
-  const withMedia = await prisma.mod.findUnique({
-    where: { id: modId },
-    include: {
-      game: { select: { id: true, name: true } },
-      category: { select: { id: true, name: true } },
-      author: { select: { id: true, username: true } },
-      tags: true,
-      media: { orderBy: [{ isFeatured: "desc" }, { orderIndex: "asc" }] },
-      screenshots: { orderBy: { sortOrder: "asc" } },
-      videos: { orderBy: { sortOrder: "asc" } },
-      versions: { orderBy: { createdAt: "desc" } },
-      changelog: { orderBy: { createdAt: "desc" }, take: 5 },
-    },
-  });
+  await ensureModMediaSynced(modId).catch(() => undefined);
 
-  return ok(withMedia!);
+  try {
+    const withMedia = await prisma.mod.findUnique({
+      where: { id: modId },
+      include: {
+        game: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+        author: { select: { id: true, username: true } },
+        tags: true,
+        media: { orderBy: [{ isFeatured: "desc" }, { orderIndex: "asc" }] },
+        screenshots: { orderBy: { sortOrder: "asc" } },
+        videos: { orderBy: { sortOrder: "asc" } },
+        versions: { orderBy: { createdAt: "desc" } },
+        changelog: { orderBy: { createdAt: "desc" }, take: 5 },
+      },
+    });
+    if (!withMedia) return fail("Not found");
+    return ok(withMedia);
+  } catch (err) {
+    console.error("[getModForEdit] media include failed", err);
+    const fallback = await prisma.mod.findUnique({
+      where: { id: modId },
+      include: {
+        game: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+        author: { select: { id: true, username: true } },
+        tags: true,
+        screenshots: { orderBy: { sortOrder: "asc" } },
+        videos: { orderBy: { sortOrder: "asc" } },
+        versions: { orderBy: { createdAt: "desc" } },
+        changelog: { orderBy: { createdAt: "desc" }, take: 5 },
+      },
+    });
+    if (!fallback) return fail("Not found");
+    return ok({ ...fallback, media: [] });
+  }
 }
 
 export async function getUserMods(userId: string) {

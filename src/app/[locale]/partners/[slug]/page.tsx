@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { REVALIDATE } from "@/lib/cache";
 import { formatDisplayName } from "@/lib/display-name";
+import { FollowButton } from "@/components/creator/follow-button";
+import { CreatorLevelBadge } from "@/components/creator/creator-level-badge";
+import { getAppUrl } from "@/lib/app-url";
 import type { Locale } from "@/i18n/config";
 
 export const revalidate = REVALIDATE.catalog;
@@ -22,11 +25,15 @@ export default async function PartnerProfilePage({
   const profile = await prisma.partnerProfile.findUnique({
     where: { slug, isBanned: false, isSuspended: false },
     include: {
-      user: { select: { displayName: true, username: true, avatarUrl: true } },
+      user: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
       socialLinks: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!profile) notFound();
+
+  const referralLink = profile.affiliateCode
+    ? `${getAppUrl()}/${locale}?ref=${profile.affiliateCode}`
+    : null;
 
   return (
     <div>
@@ -46,6 +53,7 @@ export default async function PartnerProfilePage({
             )}
             <div className="flex-1">
               <div className="flex flex-wrap gap-2 mb-2">
+                <CreatorLevelBadge level={profile.level} size="sm" />
                 {profile.isVerified && <Badge variant="premium">{t("verified")}</Badge>}
                 {profile.isFeatured && <Badge variant="outline">{t("featured")}</Badge>}
               </div>
@@ -54,10 +62,20 @@ export default async function PartnerProfilePage({
               {profile.affiliateCode && (
                 <p className="text-sm mt-2 font-mono text-neon-blue">{t("affiliateCode")}: {profile.affiliateCode}</p>
               )}
+              {referralLink && (
+                <p className="text-xs mt-2 text-muted-foreground break-all">
+                  {t("referralLink")}: <span className="text-neon-blue">{referralLink}</span>
+                </p>
+              )}
+              <div className="mt-3">
+                <FollowButton followingUserId={profile.userId} profileType="partner" locale={locale} />
+              </div>
               <SocialLinks links={profile.socialLinks} className="mt-4" />
             </div>
             <Card className="glass p-4 text-center min-w-[160px]">
-              <p className="text-2xl font-bold">{profile.totalConversions}</p>
+              <p className="text-2xl font-bold">{profile.followerCount.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">{t("followers")}</p>
+              <p className="text-2xl font-bold mt-3">{profile.totalConversions}</p>
               <p className="text-xs text-muted-foreground">{t("conversions")}</p>
             </Card>
           </div>

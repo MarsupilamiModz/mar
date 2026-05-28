@@ -10,12 +10,17 @@ import {
   CreditCard,
   LifeBuoy,
   Package,
+  Coins,
+  Users,
+  BookOpen,
 } from "lucide-react";
 
 const nav = [
   { href: "", icon: LayoutDashboard, label: "Overview" },
   { href: "/support", icon: LifeBuoy, label: "Support" },
   { href: "/orders", icon: Package, label: "Custom Orders" },
+  { href: "/library", icon: BookOpen, label: "Library" },
+  { href: "/following", icon: Users, label: "Following" },
   { href: "/downloads", icon: Download, label: "Downloads" },
   { href: "/favorites", icon: Heart, label: "Favorites" },
   { href: "/subscription", icon: CreditCard, label: "Membership" },
@@ -35,6 +40,11 @@ export default async function DashboardLayout({
 }) {
   const user = await requireAuth(`/${locale}/login`);
 
+  const navWithShop = [
+    ...nav.map((item) => ({ ...item, dashboard: true as const })),
+    { href: `/${locale}/shop`, icon: Coins, label: "Shop", dashboard: false as const },
+  ];
+
   return (
     <div className="mx-auto flex max-w-7xl gap-8 px-4 py-8 sm:px-6">
       <aside className="hidden w-56 shrink-0 lg:block">
@@ -42,10 +52,10 @@ export default async function DashboardLayout({
           <p className="font-semibold truncate">{user.displayName ?? user.username}</p>
           <p className="text-xs text-muted-foreground mb-4">{user.role}</p>
           <nav className="space-y-1">
-            {nav.map((item) => (
+            {navWithShop.map((item) => (
               <Link
-                key={item.href}
-                href={`/${locale}/dashboard${item.href}`}
+                key={item.label}
+                href={item.dashboard ? `/${locale}/dashboard${item.href}` : item.href}
                 className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent/20 hover:text-foreground"
               >
                 <item.icon className="h-4 w-4" />

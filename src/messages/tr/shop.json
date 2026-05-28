@@ -1,0 +1,14 @@
+{
+  "shop": {
+    "title": "Credit Magazasi",
+    "subtitle": "Credit satin alin, modlar, uyelikler ve ozel urunlerin kilidini acin.",
+    "balance": "Bakiyeniz",
+    "buyWithCard": "Kartla satin al",
+    "buyWithCredits": "Credit ile satin al",
+    "featured": "One cikan",
+    "creditPacks": "Credit paketleri",
+    "products": "Urunler",
+    "owned": "Zaten sahipsiniz",
+    "insufficientCredits": "Yetersiz credit"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "shop": {
+    "title": "Credits Shop",
+    "subtitle": "Credits kaufen, Mods, Mitgliedschaften und exklusive Produkte freischalten.",
+    "balance": "Dein Guthaben",
+    "buyWithCard": "Mit Karte kaufen",
+    "buyWithCredits": "Mit Credits kaufen",
+    "featured": "Empfohlen",
+    "creditPacks": "Credit-Pakete",
+    "products": "Produkte",
+    "owned": "Bereits gekauft",
+    "insufficientCredits": "Nicht genug Credits"
+  }
+}

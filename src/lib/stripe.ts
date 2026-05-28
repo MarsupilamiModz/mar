@@ -65,6 +65,52 @@ export async function createMembershipCheckout(
   });
 }
 
+/** Credit pack checkout (real money → credits). */
+export async function createCreditPackCheckout(
+  userId: string,
+  email: string,
+  productId: string,
+  productSlug: string,
+  creditsAmount: number,
+  amountCents: number,
+  locale: string = "en"
+) {
+  const stripe = getStripe();
+  const customerId = await getOrCreateStripeCustomer(userId, email);
+
+  return stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: "payment",
+    line_items: [
+      {
+        price_data: {
+          currency: "eur",
+          product_data: {
+            name: `${creditsAmount.toLocaleString()} Credits`,
+            description: "MarsupilamiModz credit pack",
+          },
+          unit_amount: amountCents,
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: `${appPathForLocale(locale, "/dashboard")}?credits=1`,
+    cancel_url: appPathForLocale(locale, "/shop"),
+    invoice_creation: { enabled: true },
+    payment_method_types: ["card"],
+    metadata: {
+      userId,
+      productId,
+      productSlug,
+      creditsAmount: String(creditsAmount),
+      type: "credit_purchase",
+    },
+    payment_intent_data: {
+      metadata: { userId, productId, type: "credit_purchase" },
+    },
+  });
+}
+
 export async function createModPurchaseCheckout(
   userId: string,
   email: string,

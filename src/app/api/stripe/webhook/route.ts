@@ -86,6 +86,35 @@ export async function POST(req: Request) {
           void evaluateUserAchievements(userId);
         }
 
+        if (userId && type === "credit_purchase") {
+          const productId = session.metadata?.productId;
+          const creditsAmount = Number(session.metadata?.creditsAmount ?? 0);
+          const paymentId =
+            typeof session.payment_intent === "string"
+              ? session.payment_intent
+              : session.payment_intent?.id;
+
+          if (productId && creditsAmount > 0) {
+            const { creditWallet } = await import("@/lib/credits");
+            await creditWallet({
+              userId,
+              amount: creditsAmount,
+              type: "PURCHASE",
+              description: "Credit pack purchase",
+              referenceId: productId,
+            });
+            await prisma.shopPurchase.create({
+              data: {
+                userId,
+                productId,
+                creditsSpent: 0,
+                priceCents: session.amount_total ?? 0,
+                stripePaymentId: paymentId ?? undefined,
+              },
+            });
+          }
+        }
+
         const orderId = session.metadata?.orderId;
         if (orderId && userId && type === "custom_order_payment") {
           const paymentId =

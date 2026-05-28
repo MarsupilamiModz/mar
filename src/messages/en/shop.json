@@ -1,0 +1,14 @@
+{
+  "shop": {
+    "title": "Credits Shop",
+    "subtitle": "Buy credits, unlock mods, memberships, and exclusive products.",
+    "balance": "Your balance",
+    "buyWithCard": "Buy with card",
+    "buyWithCredits": "Buy with Credits",
+    "featured": "Featured",
+    "creditPacks": "Credit packs",
+    "products": "Products",
+    "owned": "You own this",
+    "insufficientCredits": "Insufficient credits"
+  }
+}

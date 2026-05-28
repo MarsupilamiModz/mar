@@ -1,0 +1,14 @@
+{
+  "shop": {
+    "title": "Boutique Credits",
+    "subtitle": "Achetez des credits, des mods, des abonnements et des produits exclusifs.",
+    "balance": "Votre solde",
+    "buyWithCard": "Payer par carte",
+    "buyWithCredits": "Payer en Credits",
+    "featured": "En vedette",
+    "creditPacks": "Packs de credits",
+    "products": "Produits",
+    "owned": "Deja possede",
+    "insufficientCredits": "Credits insuffisants"
+  }
+}

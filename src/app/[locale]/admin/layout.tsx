@@ -18,6 +18,8 @@ const allLinks = [
   { href: "/audit", label: "Audit Logs", permission: "audit.read" as const },
   { href: "/announcements", label: "Announcements", permission: "settings.write" as const },
   { href: "/memberships", label: "Membership Pricing", permission: "settings.write" as const },
+  { href: "/shop", label: "Shop", permission: "settings.write" as const },
+  { href: "/payments", label: "Payments", permission: "settings.write" as const },
   { href: "/achievements", label: "Achievements", permission: "settings.write" as const },
   { href: "/leaderboards", label: "Leaderboards", permission: "settings.write" as const },
   { href: "/ads", label: "Advertising", permission: "settings.write" as const },

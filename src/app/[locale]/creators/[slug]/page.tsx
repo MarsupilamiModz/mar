@@ -15,6 +15,7 @@ import { REVALIDATE } from "@/lib/cache";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import type { Locale } from "@/i18n/config";
 import type { Metadata } from "next";
+import { FollowButton } from "@/components/creator/follow-button";
 import { formatDisplayName } from "@/lib/display-name";
 
 export const revalidate = REVALIDATE.catalog;
@@ -91,6 +92,9 @@ export default async function CreatorProfilePage({
                 {profile.isFeatured && <Badge variant="outline">{t("featured")}</Badge>}
               </div>
               <h1 className="text-3xl font-bold">{formatDisplayName(profile.user)}</h1>
+              <div className="mt-3">
+                <FollowButton followingUserId={profile.userId} profileType="creator" locale={locale} />
+              </div>
               {profile.tagline && <p className="text-muted-foreground mt-1">{profile.tagline}</p>}
               {profile.creatorCode && (
                 <p className="text-sm mt-2 font-mono text-neon-purple">{t("creatorCode")}: {profile.creatorCode}</p>

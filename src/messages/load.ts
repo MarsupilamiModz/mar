@@ -15,6 +15,7 @@ const modules = [
   "toast",
   "ecosystem",
   "media",
+  "shop",
 ] as const;
 
 async function loadLocaleModules(locale: Locale) {

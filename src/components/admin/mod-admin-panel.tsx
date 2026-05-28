@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import {
   createMod,
@@ -76,6 +76,7 @@ export function ModAdminPanel({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [gameId, setGameId] = useState(mod?.gameId ?? games[0]?.id ?? "");
+  const [categoryId, setCategoryId] = useState(mod?.categoryId ?? "");
   const [pricing, setPricing] = useState<"FREE" | "PREMIUM" | "PAID">(
     (mod?.pricing as "FREE" | "PREMIUM" | "PAID") ?? "FREE"
   );
@@ -86,6 +87,12 @@ export function ModAdminPanel({
   const gameCategories = formatCategoryOptions(
     (games.find((g) => g.id === gameId)?.categories ?? []) as FlatCategory[]
   );
+
+  useEffect(() => {
+    if (categoryId && !gameCategories.some((c) => c.id === categoryId)) {
+      setCategoryId("");
+    }
+  }, [gameId, gameCategories, categoryId]);
 
   if (mod) {
     return (
@@ -109,14 +116,17 @@ export function ModAdminPanel({
               const fd = new FormData(e.currentTarget);
               const tags = (fd.get("tags") as string).split(",").map((x) => x.trim()).filter(Boolean);
               startTransition(async () => {
+                const priceRaw = fd.get("priceCents");
+                const priceCredits =
+                  pricing === "PAID" && priceRaw ? Math.max(0, Math.round(Number(priceRaw))) : undefined;
                 const r = await updateMod(mod.id, {
                   title: fd.get("title") as string,
                   description: fd.get("description") as string,
                   shortDescription: (fd.get("shortDescription") as string) || undefined,
                   gameId,
-                  categoryId: (fd.get("categoryId") as string) || undefined,
+                  categoryId: categoryId ? categoryId : null,
                   pricing,
-                  priceCents: pricing === "PAID" ? Number(fd.get("priceCents")) * 100 : undefined,
+                  priceCents: priceCredits,
                   tags,
                   ...(isAdmin && {
                     status: status as never,
@@ -144,12 +154,15 @@ export function ModAdminPanel({
                   ))}
                 </SelectContent>
               </Select>
-              <select name="categoryId" defaultValue={mod.categoryId ?? ""} className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm">
-                <option value="">—</option>
-                {gameCategories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.label}</option>
-                ))}
-              </select>
+              <Select value={categoryId || "__none__"} onValueChange={(v) => setCategoryId(v === "__none__" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">—</SelectItem>
+                  {gameCategories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             {isAdmin && authors && (
               <Select value={authorId} onValueChange={setAuthorId}>
@@ -189,7 +202,7 @@ export function ModAdminPanel({
             </div>
             <Input name="tags" defaultValue={mod.tags.map((t) => t.name).join(", ")} />
             {pricing === "PAID" && (
-              <Input name="priceCents" type="number" defaultValue={(mod.priceCents ?? 0) / 100} min={0} step={0.01} />
+              <Input name="priceCents" type="number" defaultValue={mod.priceCents ?? 0} min={0} step={100} placeholder="Price (Credits)" />
             )}
             <Button type="submit" variant="neon" disabled={pending}>{tc("manageMod")}</Button>
           </form>
