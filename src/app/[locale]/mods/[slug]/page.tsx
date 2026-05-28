@@ -36,7 +36,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const mod = await getModBySlug(slug);
   if (!mod) return { title: "Mod not found" };
-  const media = mapModMedia(mod.media);
+  const media = mapModMedia(mod.media ?? []);
   const cover = getFeaturedMediaUrl(media, mod.screenshots);
   return {
     title: mod.title,
@@ -66,7 +66,7 @@ export default async function ModDetailPage({
   });
 
   const user = await getCurrentUser();
-  const media = mapModMedia(mod.media);
+  const media = mapModMedia(mod.media ?? []);
   const featuredUrl = getFeaturedMediaUrl(media, mod.screenshots);
   const featuredImage = media.find((m) => m.isFeatured && m.mediaType === "IMAGE");
   const featuredVideo = media.find((m) => m.isFeatured && m.mediaType === "YOUTUBE");
@@ -91,9 +91,11 @@ export default async function ModDetailPage({
     getTrendingMods(4, mod.gameId),
     getInlineBadgesForUsers([authorId, ...reviewUserIds], locale),
     user
-      ? prisma.modPurchase.findUnique({
-          where: { modId_userId: { modId: mod.id, userId: user.id } },
-        })
+      ? prisma.modPurchase
+          .findUnique({
+            where: { modId_userId: { modId: mod.id, userId: user.id } },
+          })
+          .catch(() => null)
       : null,
   ]);
 

@@ -1,28 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { useTranslations } from "next-intl";
 import { Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/logo";
 import { AuthButtons } from "@/components/layout/auth-buttons";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
+import type { NavLabels } from "@/components/layout/nav-labels";
 import type { NavUser } from "@/components/layout/user-nav";
 import { useState } from "react";
 
-export function Header({ locale, user }: { locale: string; user: NavUser | null }) {
-  const t = useTranslations("nav");
+export function Header({
+  locale,
+  user,
+  navLabels,
+}: {
+  locale: string;
+  user: NavUser | null;
+  navLabels: NavLabels;
+}) {
   const [open, setOpen] = useState(false);
 
   const links = [
-    { href: `/${locale}/games`, label: t("games") },
-    { href: `/${locale}/mods`, label: t("mods") },
-    { href: `/${locale}/creators`, label: t("creators") },
-    { href: `/${locale}/partners`, label: t("partners") },
-    { href: `/${locale}/shop`, label: t("shop") },
-    { href: `/${locale}/leaderboards`, label: t("leaderboards") },
-    { href: `/${locale}/premium`, label: t("premium") },
-    { href: `/${locale}/custom-orders`, label: t("customOrders") },
+    { href: `/${locale}/games`, label: navLabels.games },
+    { href: `/${locale}/mods`, label: navLabels.mods },
+    { href: `/${locale}/creators`, label: navLabels.creators },
+    { href: `/${locale}/partners`, label: navLabels.partners },
+    { href: `/${locale}/shop`, label: navLabels.shop },
+    { href: `/${locale}/leaderboards`, label: navLabels.leaderboards },
+    { href: `/${locale}/premium`, label: navLabels.premium },
+    { href: `/${locale}/custom-orders`, label: navLabels.customOrders },
   ];
 
   return (
@@ -47,7 +54,7 @@ export function Header({ locale, user }: { locale: string; user: NavUser | null 
 
         <div className="flex items-center gap-1 sm:gap-2">
           <Button variant="ghost" size="icon" asChild className="hidden sm:flex">
-            <Link href={`/${locale}/mods`} aria-label={t("search")}>
+            <Link href={`/${locale}/mods`} aria-label={navLabels.search}>
               <Search className="h-4 w-4" />
             </Link>
           </Button>

@@ -15,9 +15,81 @@ const modListInclude = {
   averageRating: true,
   favoriteCount: true,
   game: { select: { name: true, slug: true } },
-  media: { orderBy: [{ isFeatured: "desc" as const }, { orderIndex: "asc" as const }] },
   screenshots: { take: 1, orderBy: { sortOrder: "asc" as const } },
   author: { select: { username: true, displayName: true, avatarUrl: true } },
+};
+
+const modListIncludeWithMedia = {
+  ...modListInclude,
+  media: { orderBy: [{ isFeatured: "desc" as const }, { orderIndex: "asc" as const }] },
+};
+
+const modListIncludeMinimal = {
+  id: true,
+  slug: true,
+  title: true,
+  shortDescription: true,
+  pricing: true,
+  downloadCount: true,
+  averageRating: true,
+  game: { select: { name: true, slug: true } },
+  screenshots: { take: 1, orderBy: { sortOrder: "asc" as const } },
+  author: { select: { username: true, displayName: true, avatarUrl: true } },
+};
+
+async function findModsListing(args: Parameters<typeof prisma.mod.findMany>[0]) {
+  try {
+    return await prisma.mod.findMany({
+      ...args,
+      include: modListIncludeWithMedia,
+    });
+  } catch (err) {
+    console.error("[findModsListing] media include failed", err);
+    try {
+      return await prisma.mod.findMany({
+        ...args,
+        include: modListInclude,
+      });
+    } catch (err2) {
+      console.error("[findModsListing] standard include failed", err2);
+      return prisma.mod.findMany({
+        ...args,
+        include: modListIncludeMinimal,
+      });
+    }
+  }
+}
+
+const modDetailInclude = {
+  game: true,
+  category: true,
+  author: {
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      avatarUrl: true,
+      creatorProfile: true,
+      designerProfile: true,
+    },
+  },
+  media: { orderBy: [{ isFeatured: "desc" as const }, { orderIndex: "asc" as const }] },
+  screenshots: { orderBy: { sortOrder: "asc" as const } },
+  videos: { orderBy: { sortOrder: "asc" as const } },
+  tags: true,
+  versions: { orderBy: { createdAt: "desc" as const } },
+  changelog: { orderBy: { createdAt: "desc" as const }, take: 10 },
+  reviews: {
+    take: 20,
+    orderBy: { createdAt: "desc" as const },
+    include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+  },
+  dependencies: { include: { dependency: { select: { slug: true, title: true } } } },
+};
+
+const modDetailIncludeNoMedia = {
+  ...modDetailInclude,
+  media: false as const,
 };
 
 export const getFeaturedGames = unstable_cache(
@@ -64,7 +136,7 @@ export const getAllGames = unstable_cache(
 export async function getTrendingMods(limit = 8, gameId?: string) {
   return unstable_cache(
     async () =>
-      prisma.mod.findMany({
+      findModsListing({
         where: {
           status: "PUBLISHED",
           visibility: "PUBLIC",
@@ -72,7 +144,6 @@ export async function getTrendingMods(limit = 8, gameId?: string) {
         },
         orderBy: { downloadCount: "desc" },
         take: limit,
-        include: modListInclude,
       }),
     [`trending-mods-${limit}-${gameId ?? "all"}`],
     { revalidate: REVALIDATE.homepage, tags: [CACHE_TAGS.mods] }
@@ -82,7 +153,7 @@ export async function getTrendingMods(limit = 8, gameId?: string) {
 export async function getPremiumMods(limit = 8, gameId?: string) {
   return unstable_cache(
     async () =>
-      prisma.mod.findMany({
+      findModsListing({
         where: {
           status: "PUBLISHED",
           visibility: "PUBLIC",
@@ -91,7 +162,6 @@ export async function getPremiumMods(limit = 8, gameId?: string) {
         },
         orderBy: { downloadCount: "desc" },
         take: limit,
-        include: modListInclude,
       }),
     [`premium-mods-${limit}-${gameId ?? "all"}`],
     { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.mods] }
@@ -101,7 +171,7 @@ export async function getPremiumMods(limit = 8, gameId?: string) {
 export async function getFeaturedMods(limit = 8, gameId?: string) {
   return unstable_cache(
     async () =>
-      prisma.mod.findMany({
+      findModsListing({
         where: {
           status: "PUBLISHED",
           visibility: "PUBLIC",
@@ -110,7 +180,6 @@ export async function getFeaturedMods(limit = 8, gameId?: string) {
         },
         orderBy: { downloadCount: "desc" },
         take: limit,
-        include: modListInclude,
       }),
     [`featured-mods-${limit}-${gameId ?? "all"}`],
     { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.mods, CACHE_TAGS.featured] }
@@ -153,17 +222,11 @@ export async function getMods(filters: {
   };
 
   const [mods, total] = await Promise.all([
-    prisma.mod.findMany({
+    findModsListing({
       where,
       skip,
       take: limit,
       orderBy: { downloadCount: "desc" },
-      include: {
-        game: { select: { name: true, slug: true } },
-        media: { orderBy: [{ isFeatured: "desc" }, { orderIndex: "asc" }] },
-        screenshots: { take: 1, orderBy: { sortOrder: "asc" } },
-        tags: { take: 3 },
-      },
     }),
     prisma.mod.count({ where }),
   ]);
@@ -173,37 +236,29 @@ export async function getMods(filters: {
 
 export async function getModBySlug(slug: string) {
   const found = await prisma.mod.findUnique({ where: { slug }, select: { id: true } });
-  if (found) await ensureModMediaSynced(found.id);
+  if (found) await ensureModMediaSynced(found.id).catch(() => undefined);
 
-  return prisma.mod.findUnique({
-    where: { slug },
-    include: {
-      game: true,
-      category: true,
-      author: {
-        select: {
-          id: true,
-          username: true,
-          displayName: true,
-          avatarUrl: true,
-          creatorProfile: true,
-          designerProfile: true,
-        },
-      },
-      media: { orderBy: [{ isFeatured: "desc" }, { orderIndex: "asc" }] },
-      screenshots: { orderBy: { sortOrder: "asc" } },
-      videos: { orderBy: { sortOrder: "asc" } },
-      tags: true,
-      versions: { orderBy: { createdAt: "desc" } },
-      changelog: { orderBy: { createdAt: "desc" }, take: 10 },
-      reviews: {
-        take: 20,
-        orderBy: { createdAt: "desc" },
-        include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
-      },
-      dependencies: { include: { dependency: { select: { slug: true, title: true } } } },
-    },
-  });
+  try {
+    const mod = await prisma.mod.findUnique({
+      where: { slug },
+      include: modDetailInclude,
+    });
+    if (!mod) return null;
+    return mod;
+  } catch (err) {
+    console.error("[getModBySlug] full include failed", err);
+    try {
+      const mod = await prisma.mod.findUnique({
+        where: { slug },
+        include: modDetailIncludeNoMedia,
+      });
+      if (!mod) return null;
+      return { ...mod, media: [] };
+    } catch (err2) {
+      console.error("[getModBySlug] fallback include failed", err2);
+      return null;
+    }
+  }
 }
 
 export async function getGameBySlug(slug: string) {
