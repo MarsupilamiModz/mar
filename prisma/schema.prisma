@@ -280,6 +280,8 @@ model User {
   bannedBy          User?     @relation("BanIssuer", fields: [bannedById], references: [id])
   deletedAt         DateTime?
   role              UserRole  @default(USER)
+  permissionGroupId String?
+  permissionGroup   PermissionGroup? @relation(fields: [permissionGroupId], references: [id], onDelete: SetNull)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -354,6 +356,7 @@ model Game {
   slug            String   @unique
   name            String
   description     String?  @db.Text
+  shortDescription String? @db.VarChar(300)
   coverUrl        String?
   bannerUrl       String?
   iconUrl         String?
@@ -1089,6 +1092,29 @@ model SiteSetting {
   value Json
 }
 
+enum EmailLogStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model EmailLog {
+  id          String         @id @default(cuid())
+  to          String
+  subject     String
+  templateKey String?
+  status      EmailLogStatus @default(PENDING)
+  error       String?        @db.Text
+  html        String?        @db.Text
+  attempts    Int            @default(0)
+  sentAt      DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([status, createdAt])
+  @@index([templateKey])
+}
+
 model Announcement {
   id        String   @id @default(cuid())
   title     String
@@ -1198,6 +1224,7 @@ model PermissionGroup {
   isSystem    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  users       User[]
 }
 
 model ExclusiveProgram {

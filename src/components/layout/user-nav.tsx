@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Crown,
   LayoutDashboard,
   LogOut,
   Shield,
@@ -15,7 +14,6 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,9 +26,6 @@ import { Button } from "@/components/ui/button";
 import { isStaff, isDesigner, isCreator, isPartner } from "@/lib/permissions";
 import type { UserRole } from "@prisma/client";
 import { formatDisplayName } from "@/lib/display-name";
-import { UserIdentity } from "@/components/user/user-identity";
-
-import type { InlineBadge } from "@/lib/user-badges";
 
 export type NavUser = {
   id: string;
@@ -39,12 +34,13 @@ export type NavUser = {
   avatarUrl: string | null;
   role: UserRole;
   isPremium: boolean;
-  badges?: InlineBadge[];
+  permissions?: import("@/lib/permissions").PermissionKey[];
 };
 
 export function UserNav({ locale, user }: { locale: string; user: NavUser }) {
   const router = useRouter();
-  const initials = formatDisplayName(user).slice(0, 2).toUpperCase();
+  const displayName = formatDisplayName(user);
+  const initials = displayName.slice(0, 2).toUpperCase();
 
   async function handleLogout() {
     const supabase = createClient();
@@ -61,25 +57,11 @@ export function UserNav({ locale, user }: { locale: string; user: NavUser }) {
             <AvatarImage src={user.avatarUrl ?? undefined} alt={user.username} />
             <AvatarFallback className="bg-neon-purple/20 text-xs">{initials}</AvatarFallback>
           </Avatar>
-          <span className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium max-w-[160px]">
-            <UserIdentity
-              username={user.username}
-              displayName={user.displayName}
-              badges={user.badges ?? []}
-              className="min-w-0"
-            />
-          </span>
-          {user.isPremium && (
-            <Badge variant="premium" className="hidden sm:inline-flex text-[10px] px-1.5">
-              <Crown className="h-3 w-3 mr-0.5" /> PRO
-            </Badge>
-          )}
+          <span className="hidden sm:inline text-sm font-medium max-w-[160px] truncate">{displayName}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 glass">
-        <DropdownMenuLabel>
-          <UserIdentity username={user.username} displayName={user.displayName} badges={user.badges ?? []} />
-        </DropdownMenuLabel>
+        <DropdownMenuLabel className="truncate">{displayName}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href={`/${locale}/dashboard`} className="cursor-pointer">

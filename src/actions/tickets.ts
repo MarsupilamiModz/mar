@@ -5,9 +5,10 @@ import { TicketCategory, TicketPriority, TicketStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
-import { fail, ok, requireActionStaff, requireActionUser, type ActionResult } from "@/lib/action-utils";
+import { fail, ok, requireActionPermission, requireActionUser, type ActionResult } from "@/lib/action-utils";
 import { hasPermission } from "@/lib/permissions";
 import { ALLOWED_UPLOAD_TYPES, uploadToR2 } from "@/lib/r2";
+import { sendTicketNotification } from "@/lib/email";
 import { randomBytes } from "crypto";
 
 const createTicketSchema = z.object({
@@ -23,7 +24,7 @@ const replySchema = z.object({
 });
 
 async function generateTicketNumber() {
-  const num = `MM-${Date.now().toString(36).toUpperCase()}-${randomBytes(2).toString("hex").toUpperCase()}`;
+  const num = `XM-${Date.now().toString(36).toUpperCase()}-${randomBytes(2).toString("hex").toUpperCase()}`;
   const exists = await prisma.supportTicket.findUnique({ where: { ticketNumber: num } });
   if (exists) return generateTicketNumber();
   return num;
@@ -57,7 +58,19 @@ export async function createTicket(input: {
         },
       },
     },
-    include: { messages: true },
+    include: {
+      messages: true,
+      user: { select: { username: true, email: true, displayName: true } },
+    },
+  });
+
+  void sendTicketNotification({
+    type: "created",
+    ticketNumber: ticket.ticketNumber,
+    subject: ticket.subject,
+    message: parsed.data.message,
+    username: ticket.user.displayName ?? ticket.user.username,
+    userEmail: ticket.user.email,
   });
 
   revalidatePath("/dashboard/support");
@@ -75,7 +88,10 @@ export async function replyToTicket(
   const parsed = replySchema.safeParse({ ticketId, content });
   if (!parsed.success) return fail("Invalid message");
 
-  const ticket = await prisma.supportTicket.findUnique({ where: { id: ticketId } });
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    include: { user: { select: { username: true, email: true, displayName: true } } },
+  });
   if (!ticket) return fail("Ticket not found");
 
   const isStaff = isStaffOverride ?? hasPermission(user.role, "tickets.write");
@@ -98,6 +114,17 @@ export async function replyToTicket(
     data: { status: newStatus, updatedAt: new Date() },
   });
 
+  void sendTicketNotification({
+    type: "reply",
+    ticketNumber: ticket.ticketNumber,
+    subject: ticket.subject,
+    message: parsed.data.content,
+    username: isStaff
+      ? user.displayName ?? user.username
+      : ticket.user.displayName ?? ticket.user.username,
+    userEmail: isStaff ? ticket.user.email : undefined,
+  });
+
   revalidatePath(`/dashboard/support/${ticketId}`);
   revalidatePath(`/admin/tickets/${ticketId}`);
   return ok(undefined);
@@ -107,10 +134,13 @@ export async function updateTicketStatus(
   ticketId: string,
   status: TicketStatus
 ): Promise<ActionResult> {
-  const { user, error } = await requireActionStaff();
+  const { user, error } = await requireActionPermission("tickets.write");
   if (error) return error;
 
-  const ticket = await prisma.supportTicket.findUnique({ where: { id: ticketId } });
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    include: { user: { select: { username: true, email: true, displayName: true } } },
+  });
   if (!ticket) return fail("Ticket not found");
 
   await prisma.supportTicket.update({
@@ -119,6 +149,15 @@ export async function updateTicketStatus(
       status,
       closedAt: status === "CLOSED" ? new Date() : null,
     },
+  });
+
+  void sendTicketNotification({
+    type: "updated",
+    ticketNumber: ticket.ticketNumber,
+    subject: ticket.subject,
+    message: `Ticket status changed to ${status.replace(/_/g, " ")}`,
+    username: ticket.user.displayName ?? ticket.user.username,
+    userEmail: ticket.user.email,
   });
 
   await createAuditLog({
@@ -138,7 +177,7 @@ export async function assignTicket(
   ticketId: string,
   assigneeId: string | null
 ): Promise<ActionResult> {
-  const { user, error } = await requireActionStaff();
+  const { user, error } = await requireActionPermission("tickets.write");
   if (error) return error;
 
   await prisma.supportTicket.update({
@@ -162,7 +201,7 @@ export async function updateTicketPriority(
   ticketId: string,
   priority: TicketPriority
 ): Promise<ActionResult> {
-  const { error } = await requireActionStaff();
+  const { error } = await requireActionPermission("tickets.write");
   if (error) return error;
 
   await prisma.supportTicket.update({
@@ -286,7 +325,7 @@ export async function getTicketsAdmin(params: {
   search?: string;
   assigneeId?: string;
 }) {
-  const { error } = await requireActionStaff();
+  const { error } = await requireActionPermission("tickets.read");
   if (error) return error;
 
   const page = params.page ?? 1;

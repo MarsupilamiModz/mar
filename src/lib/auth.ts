@@ -5,6 +5,8 @@ import { getLocale } from "next-intl/server";
 import { prisma } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin, isStaff, isDesigner, canAccessStudio } from "@/lib/permissions";
+import { userHasPermission } from "@/lib/permission-store";
+import type { PermissionKey } from "@/lib/permissions";
 
 export const getSession = cache(async () => {
   const supabase = await createClient();
@@ -115,6 +117,17 @@ export async function requireDesigner() {
   if (!isDesigner(user.role) && !user.designerProfile) {
     redirect(`/${locale}/dashboard`);
   }
+  return user;
+}
+
+export async function requirePagePermission(permission: PermissionKey) {
+  const locale = await getLocale();
+  const user = await requireAuth();
+  const allowed = await userHasPermission(
+    { id: user.id, role: user.role, permissionGroupId: user.permissionGroupId },
+    permission
+  );
+  if (!allowed) redirect(`/${locale}/dashboard`);
   return user;
 }
 

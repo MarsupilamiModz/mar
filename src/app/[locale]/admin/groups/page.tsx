@@ -1,18 +1,26 @@
 import { requireAdmin } from "@/lib/auth";
 import { getAdminPermissionGroups } from "@/actions/admin/branding";
+import { getAdminRolePermissions } from "@/actions/admin/permissions";
 import { GroupsAdminPanel } from "@/components/admin/groups-admin-panel";
 
 export default async function AdminGroupsPage() {
   await requireAdmin();
-  const result = await getAdminPermissionGroups();
-  if (!result.success) return <p className="text-destructive">{result.error}</p>;
+  const [groupsResult, rolesResult] = await Promise.all([
+    getAdminPermissionGroups(),
+    getAdminRolePermissions(),
+  ]);
+
+  if (!groupsResult.success) return <p className="text-destructive">{groupsResult.error}</p>;
+  if (!rolesResult.success) return <p className="text-destructive">{rolesResult.error}</p>;
 
   return (
     <div>
       <h1 className="text-2xl font-bold">Groups & Permissions</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Manage custom permission groups and access control.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Edit role permissions (synced to database) and manage optional permission groups for users.
+      </p>
       <div className="mt-8">
-        <GroupsAdminPanel groups={result.data} />
+        <GroupsAdminPanel groups={groupsResult.data} roles={rolesResult.data} />
       </div>
     </div>
   );

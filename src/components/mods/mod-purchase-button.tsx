@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCreditsFromCents } from "@/lib/credits";
@@ -19,6 +20,7 @@ export function ModPurchaseButton({
   locale: string;
 }) {
   const appToast = useAppToast();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   if (owned) {
@@ -37,7 +39,7 @@ export function ModPurchaseButton({
           const r = await purchaseModWithCredits(modId);
           if (r.success) {
             appToast.saved();
-            window.location.reload();
+            router.refresh();
           } else if (r.error === "Unauthorized") {
             window.location.href = `/${locale}/login`;
           } else {

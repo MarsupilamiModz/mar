@@ -1,6 +1,11 @@
 import { defaultLocale, type Locale } from "@/i18n/config";
 
 const PRODUCTION_HOSTS = new Set([
+  "www.xumari-modz.com",
+  "xumari-modz.com",
+  "xumarimodz.com",
+  "www.xumarimodz.com",
+  // Legacy hosts — keep redirects working during migration
   "www.marsupilami-modz.com",
   "marsupilami-modz.com",
   "marsupilamimodz.com",
@@ -17,7 +22,7 @@ export function getAppUrl(): string {
   }
 
   if (process.env.NODE_ENV === "production") {
-    return "https://www.marsupilami-modz.com";
+    return "https://www.xumari-modz.com";
   }
 
   return "http://localhost:3000";

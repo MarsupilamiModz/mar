@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { fail, ok, requireActionPermission } from "@/lib/action-utils";
+import { invalidatePermissionCache } from "@/lib/permission-store";
 import type { Prisma } from "@prisma/client";
 import { DEFAULT_BRANDING, saveBrandingSettings, saveGameCoverOverride, type BrandingSettings } from "@/lib/branding";
 import { uploadAsset } from "@/lib/asset-storage";
@@ -109,8 +110,8 @@ export async function getAdminPermissionGroups() {
     await prisma.permissionGroup.createMany({
       data: [
         { slug: "staff-full", name: "Staff Full Access", permissions: ["*"], isSystem: true },
-        { slug: "creator-standard", name: "Creator Standard", permissions: ["mods.write", "analytics.read"], isSystem: true },
-        { slug: "partner-standard", name: "Partner Standard", permissions: ["coupons.write", "analytics.read"], isSystem: true },
+        { slug: "creator-standard", name: "Creator Standard", permissions: ["mods.read", "assets.read", "analytics.creator", "licenses.write"], isSystem: true },
+        { slug: "partner-standard", name: "Partner Standard", permissions: ["analytics.creator", "coupons.write"], isSystem: true },
       ],
     });
     groups = await prisma.permissionGroup.findMany({ orderBy: { name: "asc" } });
@@ -149,6 +150,7 @@ export async function savePermissionGroup(input: {
       },
     });
   }
+  invalidatePermissionCache();
   revalidatePath("/admin/groups");
   return ok(undefined);
 }

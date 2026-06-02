@@ -146,6 +146,8 @@ export async function updateUserRole(
     metadata: { from: target.role, to: parsed.data },
   });
 
+  const { invalidatePermissionCache } = await import("@/lib/permission-store");
+  invalidatePermissionCache();
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
   return ok(undefined);
@@ -161,7 +163,13 @@ export async function setUserPremium(
   const target = await prisma.user.findUnique({ where: { id: userId } });
   if (!target || target.deletedAt) return fail("User not found");
 
-  const newRole = premium ? "PREMIUM" : target.role === "PREMIUM" ? "USER" : target.role;
+  const newRole = premium
+    ? ["USER", "PREMIUM"].includes(target.role)
+      ? "PREMIUM"
+      : target.role
+    : target.role === "PREMIUM"
+      ? "USER"
+      : target.role;
   if (!canManageRole(actor.role, target.role)) return fail("Forbidden");
 
   await prisma.user.update({
@@ -177,6 +185,42 @@ export async function setUserPremium(
   });
 
   revalidatePath("/admin/users");
+  return ok(undefined);
+}
+
+export async function assignUserPermissionGroup(
+  userId: string,
+  permissionGroupId: string | null
+): Promise<ActionResult> {
+  const { user: actor, error } = await requireActionPermission("users.write");
+  if (error) return error;
+
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target || target.deletedAt) return fail("User not found");
+  if (!canManageRole(actor.role, target.role)) return fail("Forbidden");
+
+  if (permissionGroupId) {
+    const group = await prisma.permissionGroup.findUnique({ where: { id: permissionGroupId } });
+    if (!group) return fail("Permission group not found");
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { permissionGroupId },
+  });
+
+  await createAuditLog({
+    actorId: actor.id,
+    action: "user.permission_group",
+    entityType: "User",
+    entityId: userId,
+    metadata: { permissionGroupId },
+  });
+
+  const { invalidatePermissionCache } = await import("@/lib/permission-store");
+  invalidatePermissionCache();
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
   return ok(undefined);
 }
 

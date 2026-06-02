@@ -10,6 +10,7 @@ import { slugify } from "@/lib/utils";
 import { CREATOR_LEVELS } from "@/lib/creator-levels";
 import { applyLevelRevenueShare, syncCreatorStats } from "@/lib/creators";
 import { CACHE_TAGS } from "@/lib/cache";
+import { sendCreatorApprovalEmail } from "@/lib/email/send";
 import type { PublisherLevel, SocialPlatform } from "@prisma/client";
 
 const profileSchema = z.object({
@@ -159,6 +160,12 @@ export async function createCreatorProfile(input: z.infer<typeof profileSchema>)
 
   await createAuditLog({ actorId: user.id, action: "creator.create", entityType: "CreatorProfile", entityId: profile.id });
   revalidateCreatorPaths(slug);
+
+  void sendCreatorApprovalEmail({
+    email: target.email,
+    creatorName: target.displayName ?? target.username,
+  });
+
   return ok(profile);
 }
 
@@ -168,6 +175,12 @@ export async function updateCreatorProfile(
 ) {
   const { user, error } = await requireActionPermission("users.write");
   if (error) return error;
+
+  const existing = await prisma.creatorProfile.findUnique({
+    where: { id },
+    include: { user: { select: { email: true, username: true, displayName: true } } },
+  });
+  if (!existing) return fail("Creator not found");
 
   const profile = await prisma.creatorProfile.update({
     where: { id },
@@ -188,6 +201,14 @@ export async function updateCreatorProfile(
 
   await createAuditLog({ actorId: user.id, action: "creator.update", entityType: "CreatorProfile", entityId: id });
   revalidateCreatorPaths(profile.slug);
+
+  if (input.isVerified === true && !existing.isVerified && existing.user.email) {
+    void sendCreatorApprovalEmail({
+      email: existing.user.email,
+      creatorName: existing.user.displayName ?? existing.user.username,
+    });
+  }
+
   return ok(profile);
 }
 

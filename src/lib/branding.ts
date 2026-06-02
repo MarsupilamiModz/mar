@@ -17,7 +17,7 @@ export type BrandingSettings = {
 };
 
 export const DEFAULT_BRANDING: BrandingSettings = {
-  siteTitle: "MarsupilamiModz",
+  siteTitle: "XumariModz",
   siteTagline: "Premium gaming mods marketplace",
   logoUrl: null,
   logoDarkUrl: null,
@@ -27,7 +27,7 @@ export const DEFAULT_BRANDING: BrandingSettings = {
   ogTitle: null,
   ogDescription: null,
   ogImageUrl: null,
-  footerText: "© MarsupilamiModz. All rights reserved.",
+  footerText: "© Xumari Modz. All rights reserved.",
   primaryColor: "#a855f7",
   accentColor: "#3b82f6",
 };

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ModCard } from "@/components/mods/mod-card";
 import { GameCard } from "@/components/games/game-card";
-import { getFeaturedGames, getTrendingMods } from "@/lib/data";
+import { getHomepageGames, getTrendingMods } from "@/lib/data";
 import { getActiveAnnouncements } from "@/actions/admin/announcements";
 import { REVALIDATE } from "@/lib/cache";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
@@ -19,7 +19,7 @@ export default async function HomePage({ params: { locale } }: { params: { local
   const tm = await getTranslations("mods");
 
   const [games, mods, announcements] = await Promise.all([
-    getFeaturedGames().catch(() => []),
+    getHomepageGames().catch(() => []),
     getTrendingMods(8).catch(() => []),
     getActiveAnnouncements().catch(() => []),
   ]);

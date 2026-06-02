@@ -10,12 +10,15 @@ import { Card } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { STORAGE } from "@/lib/storage";
 import { slugify } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compress";
+import { SafeImage } from "@/components/ui/safe-image";
 
 type GameData = {
   id?: string;
   name: string;
   slug: string;
   description?: string | null;
+  shortDescription?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
   isFeatured: boolean;
@@ -23,6 +26,7 @@ type GameData = {
   sortOrder: number;
   iconUrl?: string | null;
   bannerUrl?: string | null;
+  coverUrl?: string | null;
 };
 
 export function GameForm({ locale, game }: { locale: string; game?: GameData }) {
@@ -37,6 +41,7 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
       name: form.get("name") as string,
       slug: (form.get("slug") as string) || slugify(name),
       description: (form.get("description") as string) || undefined,
+      shortDescription: (form.get("shortDescription") as string) || undefined,
       seoTitle: (form.get("seoTitle") as string) || undefined,
       seoDescription: (form.get("seoDescription") as string) || undefined,
       isFeatured: form.get("isFeatured") === "on",
@@ -65,7 +70,8 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
       return;
     }
     const fd = new FormData();
-    fd.set("file", file);
+    const compressed = await compressImage(file, 0.85, type === "icon" ? 512 : 1920).catch(() => file);
+    fd.set("file", compressed);
     const result = await uploadGameAsset(game.id, type, fd);
     if (result.success) {
       toast({ title: `${type} uploaded` });
@@ -85,6 +91,10 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
         <div>
           <label className="text-sm font-medium">Slug</label>
           <Input name="slug" defaultValue={game?.slug} placeholder={slugify(name)} className="mt-1" />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Short Description</label>
+          <Input name="shortDescription" defaultValue={game?.shortDescription ?? ""} maxLength={300} className="mt-1" placeholder="Brief tagline for cards and SEO" />
         </div>
         <div>
           <label className="text-sm font-medium">Description</label>
@@ -119,10 +129,15 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
       {game?.id && (
         <Card className="glass p-6 space-y-4">
           <p className="font-medium">Assets</p>
-          <p className="text-xs text-muted-foreground">Uploaded to {STORAGE.cdn}</p>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <p className="text-xs text-muted-foreground">Uploaded to {STORAGE.cdn} · WebP compression applied on upload</p>
+          <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="text-xs text-muted-foreground">Icon (square)</label>
+              {game.iconUrl && (
+                <div className="relative mt-1 mb-2 h-14 w-14 rounded-lg overflow-hidden border border-border/50">
+                  <SafeImage src={game.iconUrl} alt="" fill className="object-cover" sizes="56px" />
+                </div>
+              )}
               <Input
                 type="file"
                 accept="image/*"
@@ -132,11 +147,30 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Banner (wide)</label>
+              {game.bannerUrl && (
+                <div className="relative mt-1 mb-2 h-16 w-full rounded-lg overflow-hidden border border-border/50">
+                  <SafeImage src={game.bannerUrl} alt="" fill className="object-cover" sizes="200px" />
+                </div>
+              )}
               <Input
                 type="file"
                 accept="image/*"
                 className="mt-1"
                 onChange={(e) => e.target.files?.[0] && uploadAsset("banner", e.target.files[0])}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Cover (card fallback)</label>
+              {game.coverUrl && (
+                <div className="relative mt-1 mb-2 h-16 w-full rounded-lg overflow-hidden border border-border/50">
+                  <SafeImage src={game.coverUrl} alt="" fill className="object-cover" sizes="200px" />
+                </div>
+              )}
+              <Input
+                type="file"
+                accept="image/*"
+                className="mt-1"
+                onChange={(e) => e.target.files?.[0] && uploadAsset("cover", e.target.files[0])}
               />
             </div>
           </div>

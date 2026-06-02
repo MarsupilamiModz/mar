@@ -6,6 +6,8 @@ import { AsyncHeader } from "@/components/layout/async-header";
 import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthSync } from "@/components/auth/auth-sync";
+import { LocaleHtmlLang } from "@/components/layout/locale-html-lang";
+import { ScrollRestoration } from "@/components/layout/scroll-restoration";
 import { SnakeEasterEgg } from "@/components/easter-egg/snake-game";
 import { AdProviderScripts } from "@/components/ads/ad-provider-scripts";
 import { AdPopupSlot } from "@/components/ads/ad-popup-slot";
@@ -28,6 +30,8 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider messages={messages}>
+      <LocaleHtmlLang locale={locale} />
+      <ScrollRestoration />
       <AdProviderScripts />
       <AdPopupSlot />
       <AuthSync />

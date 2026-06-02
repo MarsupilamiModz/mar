@@ -8,8 +8,8 @@ const GAMES = [
     name: "GTA V / FiveM",
     description:
       "Premium FiveM resources — scripts, MLOs, vehicles, maps and gameplay enhancements for your roleplay server.",
-    seoTitle: "GTA V & FiveM Mods | MarsupilamiModz",
-    seoDescription: "Download premium FiveM scripts, MLOs, vehicles and maps on MarsupilamiModz.",
+    seoTitle: "GTA V & FiveM Mods | XumariModz",
+    seoDescription: "Download premium FiveM scripts, MLOs, vehicles and maps on XumariModz.",
     isFeatured: true,
     sortOrder: 1,
   },
@@ -17,8 +17,8 @@ const GAMES = [
     slug: "minecraft",
     name: "Minecraft",
     description: "Mods, resource packs, shaders and plugins for Java and Bedrock editions.",
-    seoTitle: "Minecraft Mods | MarsupilamiModz",
-    seoDescription: "Premium Minecraft mods, packs and plugins on MarsupilamiModz.",
+    seoTitle: "Minecraft Mods | XumariModz",
+    seoDescription: "Premium Minecraft mods, packs and plugins on XumariModz.",
     isFeatured: true,
     sortOrder: 2,
   },
@@ -26,8 +26,8 @@ const GAMES = [
     slug: "euro-truck-simulator-2",
     name: "Euro Truck Simulator 2",
     description: "Trucks, trailers, maps and realism packs for long-haul simulation.",
-    seoTitle: "ETS2 Mods | MarsupilamiModz",
-    seoDescription: "Euro Truck Simulator 2 mods — trucks, maps and realism on MarsupilamiModz.",
+    seoTitle: "ETS2 Mods | XumariModz",
+    seoDescription: "Euro Truck Simulator 2 mods — trucks, maps and realism on XumariModz.",
     isFeatured: true,
     sortOrder: 3,
   },
@@ -35,8 +35,8 @@ const GAMES = [
     slug: "beamng",
     name: "BeamNG.drive",
     description: "Vehicles, maps, scenarios and physics configs for BeamNG.",
-    seoTitle: "BeamNG Mods | MarsupilamiModz",
-    seoDescription: "BeamNG.drive vehicles and scenarios on MarsupilamiModz.",
+    seoTitle: "BeamNG Mods | XumariModz",
+    seoDescription: "BeamNG.drive vehicles and scenarios on XumariModz.",
     isFeatured: true,
     sortOrder: 4,
   },
@@ -44,8 +44,8 @@ const GAMES = [
     slug: "assetto-corsa",
     name: "Assetto Corsa",
     description: "Cars, tracks, shaders and physics for Assetto Corsa and Competizione.",
-    seoTitle: "Assetto Corsa Mods | MarsupilamiModz",
-    seoDescription: "Assetto Corsa cars, tracks and shaders on MarsupilamiModz.",
+    seoTitle: "Assetto Corsa Mods | XumariModz",
+    seoDescription: "Assetto Corsa cars, tracks and shaders on XumariModz.",
     isFeatured: true,
     sortOrder: 5,
   },
@@ -168,6 +168,32 @@ async function main() {
     });
   }
 
+  const rolePermissionSeed: Record<string, string[]> = {
+    OWNER: permissions,
+    ADMIN: permissions,
+    MODERATOR: ["mods.read", "mods.moderate", "tickets.read", "tickets.write"],
+    SUPPORT: ["tickets.read", "tickets.write", "orders.read"],
+    CREATOR: ["mods.read", "assets.read", "analytics.creator", "licenses.write"],
+    PARTNER: ["analytics.creator", "coupons.write"],
+    DESIGNER: ["mods.read", "assets.read", "assets.write", "orders.read", "orders.write", "analytics.creator"],
+    PREMIUM: [],
+    USER: [],
+  };
+
+  const catalog = await prisma.permission.findMany();
+  const byKey = new Map(catalog.map((p) => [p.key, p.id]));
+  const existing = await prisma.rolePermission.count();
+  if (existing === 0) {
+    const rows: { role: import("@prisma/client").UserRole; permissionId: string }[] = [];
+    for (const [role, keys] of Object.entries(rolePermissionSeed)) {
+      for (const key of keys) {
+        const permissionId = byKey.get(key);
+        if (permissionId) rows.push({ role: role as import("@prisma/client").UserRole, permissionId });
+      }
+    }
+    if (rows.length) await prisma.rolePermission.createMany({ data: rows, skipDuplicates: true });
+  }
+
   for (const [gameSlug, tree] of Object.entries(CATEGORY_SEEDS)) {
     const game = await prisma.game.findUnique({ where: { slug: gameSlug } });
     if (!game) continue;
@@ -188,7 +214,7 @@ async function main() {
     }
   }
 
-  console.log("MarsupilamiModz seed complete:", GAMES.length, "games");
+  console.log("XumariModz seed complete:", GAMES.length, "games");
 }
 
 main()

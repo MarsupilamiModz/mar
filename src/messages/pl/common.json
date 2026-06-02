@@ -44,6 +44,10 @@
     "learnMore": "Dowiedz się więcej",
     "noResults": "Na razie pusto",
     "error": "Coś poszło nie tak",
+    "errorPageHint": "Wystąpił nieoczekiwany błąd. Spróbuj ponownie lub wróć na stronę główną.",
+    "notFoundTitle": "Nie znaleziono strony",
+    "notFoundHint": "Szukana strona nie istnieje lub została przeniesiona.",
+    "backHome": "Strona główna",
     "retry": "Spróbuj ponownie",
     "back": "Wstecz"
   }

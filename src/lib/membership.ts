@@ -333,7 +333,7 @@ export type PremiumPageSettings = {
 };
 
 export const DEFAULT_PREMIUM_PAGE: PremiumPageSettings = {
-  heroTitle: "Unlock the full MarsupilamiModz experience",
+  heroTitle: "Unlock the full XumariModz experience",
   heroSubtitle: "One-time lifetime access — premium downloads, exclusive mods, and ad-free browsing.",
   ctaText: "Buy lifetime access",
   showComparison: true,

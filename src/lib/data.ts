@@ -94,26 +94,43 @@ const modDetailIncludeNoMedia = {
   media: false as const,
 };
 
-export const getFeaturedGames = unstable_cache(
-  async () =>
-    prisma.game.findMany({
+export const getHomepageGames = unstable_cache(
+  async () => {
+    const select = {
+      id: true,
+      slug: true,
+      name: true,
+      description: true,
+      shortDescription: true,
+      iconUrl: true,
+      bannerUrl: true,
+      coverUrl: true,
+      isFeatured: true,
+      _count: { select: { mods: { where: { status: "PUBLISHED" as const } } } },
+    };
+
+    const featured = await prisma.game.findMany({
       where: { isActive: true, isFeatured: true },
       orderBy: { sortOrder: "asc" },
       take: 6,
-      select: {
-        id: true,
-        slug: true,
-        name: true,
-        description: true,
-        iconUrl: true,
-        bannerUrl: true,
-        coverUrl: true,
-        _count: { select: { mods: { where: { status: "PUBLISHED" } } } },
-      },
-    }),
-  ["featured-games"],
+      select,
+    });
+
+    if (featured.length > 0) return featured;
+
+    return prisma.game.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+      take: 6,
+      select,
+    });
+  },
+  ["homepage-games"],
   { revalidate: REVALIDATE.homepage, tags: [CACHE_TAGS.games, CACHE_TAGS.featured] }
 );
+
+/** @deprecated Use getHomepageGames */
+export const getFeaturedGames = getHomepageGames;
 
 export const getAllGames = unstable_cache(
   async () =>

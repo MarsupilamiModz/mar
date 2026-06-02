@@ -24,7 +24,8 @@ export const PERMISSIONS = {
 
 export type PermissionKey = keyof typeof PERMISSIONS;
 
-const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
+/** Default role → permission map (used when DB has no overrides for a role). */
+export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
   OWNER: Object.keys(PERMISSIONS) as PermissionKey[],
   ADMIN: [
     "users.read",
@@ -50,13 +51,39 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
   SUPPORT: ["tickets.read", "tickets.write", "orders.read"],
   CREATOR: ["mods.read", "assets.read", "analytics.creator", "licenses.write"],
   PARTNER: ["analytics.creator", "coupons.write"],
-  DESIGNER: ["mods.read", "assets.read", "assets.write", "orders.read", "orders.write", "analytics.creator"],
+  DESIGNER: [
+    "mods.read",
+    "assets.read",
+    "assets.write",
+    "orders.read",
+    "orders.write",
+    "analytics.creator",
+  ],
   PREMIUM: [],
   USER: [],
 };
 
+/** Lower → higher. Higher roles inherit all permissions from lower tiers. */
+export const ROLE_HIERARCHY: UserRole[] = [
+  "USER",
+  "PREMIUM",
+  "PARTNER",
+  "CREATOR",
+  "DESIGNER",
+  "SUPPORT",
+  "MODERATOR",
+  "ADMIN",
+  "OWNER",
+];
+
 export function hasPermission(role: UserRole, permission: PermissionKey) {
-  return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+  const idx = ROLE_HIERARCHY.indexOf(role);
+  if (idx < 0) return DEFAULT_ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+  for (let i = 0; i <= idx; i++) {
+    const perms = DEFAULT_ROLE_PERMISSIONS[ROLE_HIERARCHY[i]] ?? [];
+    if (perms.includes(permission)) return true;
+  }
+  return false;
 }
 
 export function isStaff(role: UserRole) {

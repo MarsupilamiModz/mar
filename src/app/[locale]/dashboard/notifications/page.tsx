@@ -12,7 +12,7 @@ export default async function NotificationsPage({ params: { locale } }: { params
     <div>
       <h1 className="text-2xl font-bold">Notifications</h1>
       <div className="mt-6">
-        <NotificationsList notifications={notifications} />
+        <NotificationsList notifications={notifications} locale={locale} />
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ export function Logo({
         )}
         aria-hidden
       >
-        M
+        X
       </span>
       {showText && (
         <span className="bg-gradient-to-r from-neon-purple to-neon-blue bg-clip-text text-transparent">

@@ -40,6 +40,7 @@ export default async function EditGamePage({
           name: game.name,
           slug: game.slug,
           description: game.description,
+          shortDescription: game.shortDescription,
           seoTitle: game.seoTitle,
           seoDescription: game.seoDescription,
           isFeatured: game.isFeatured,
@@ -47,6 +48,7 @@ export default async function EditGamePage({
           sortOrder: game.sortOrder,
           iconUrl: game.iconUrl,
           bannerUrl: game.bannerUrl,
+          coverUrl: game.coverUrl,
         }}
       />
       <GameCoverPanel

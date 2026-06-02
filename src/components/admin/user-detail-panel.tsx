@@ -8,6 +8,8 @@ import {
   setUserPremium,
   softDeleteUser,
   unbanUser,
+  updateUserRole,
+  assignUserPermissionGroup,
 } from "@/actions/admin/users";
 import { assignMembershipToUser } from "@/actions/admin/memberships";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +18,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
 import { ROLE_LABELS, TICKET_STATUS_LABELS } from "@/lib/ticket-labels";
+import { formatDisplayName } from "@/lib/display-name";
+import { ASSIGNABLE_ROLES } from "@/lib/permission-types";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type UserDetail = {
   id: string;
@@ -24,6 +29,7 @@ type UserDetail = {
   email: string;
   displayName: string | null;
   role: UserRole;
+  permissionGroupId: string | null;
   isBanned: boolean;
   banReason: string | null;
   bannedAt: Date | null;
@@ -48,6 +54,7 @@ export function UserDetailPanel({
   user,
   auditLogs,
   membershipPlans = [],
+  permissionGroups = [],
 }: {
   locale: string;
   user: UserDetail;
@@ -58,15 +65,19 @@ export function UserDetailPanel({
     actor: { username: string } | null;
   }[];
   membershipPlans?: { id: string; name: string; slug: string }[];
+  permissionGroups?: { id: string; name: string; slug: string }[];
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmBan, setConfirmBan] = useState(false);
 
   async function run(action: () => Promise<{ success: boolean; error?: string }>, msg: string) {
     startTransition(async () => {
       const r = await action();
-      if (r.success) toast({ title: msg });
-      else toast({ title: "Error", description: r.error, variant: "destructive" });
+      if (r.success) {
+        toast({ title: msg });
+        router.refresh();
+      } else toast({ title: "Error", description: r.error, variant: "destructive" });
     });
   }
 
@@ -74,8 +85,8 @@ export function UserDetailPanel({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{user.displayName ?? user.username}</h1>
-          <p className="text-muted-foreground">@{user.username} · {user.email}</p>
+          <h1 className="text-2xl font-bold">{formatDisplayName(user)}</h1>
+          <p className="text-muted-foreground">{user.email}</p>
           <div className="mt-2 flex gap-2">
             <Badge variant="outline">{ROLE_LABELS[user.role]}</Badge>
             {user.isBanned && <Badge variant="destructive">Banned</Badge>}
@@ -108,6 +119,49 @@ export function UserDetailPanel({
           )}
         </div>
       </div>
+
+      <Card className="glass p-5 space-y-4">
+        <h3 className="font-semibold">Access control</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="text-xs text-muted-foreground">Role</label>
+            <select
+              className="mt-1 h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm"
+              value={user.role}
+              disabled={pending}
+              onChange={(e) =>
+                run(
+                  () => updateUserRole(user.id, e.target.value as UserRole),
+                  "Role updated"
+                )
+              }
+            >
+              {ASSIGNABLE_ROLES.map((role) => (
+                <option key={role} value={role}>{ROLE_LABELS[role] ?? role}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Permission group (optional extras)</label>
+            <select
+              className="mt-1 h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm"
+              value={user.permissionGroupId ?? ""}
+              disabled={pending}
+              onChange={(e) =>
+                run(
+                  () => assignUserPermissionGroup(user.id, e.target.value || null),
+                  "Permission group updated"
+                )
+              }
+            >
+              <option value="">None</option>
+              {(permissionGroups ?? []).map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="glass"><CardHeader><CardTitle className="text-sm">Downloads</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{user._count.downloads}</p></CardContent></Card>

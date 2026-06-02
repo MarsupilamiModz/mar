@@ -1,3 +1,5 @@
+import { SITE } from "@/lib/site";
+
 const DISCORD_API = "https://discord.com/api/v10";
 
 export function getDiscordOAuthUrl(state: string) {
@@ -47,10 +49,11 @@ export async function logToDiscordWebhook(payload: {
     body: JSON.stringify({
       embeds: [
         {
-          title: payload.title,
+          title: `${SITE.shortName} — ${payload.title}`,
           description: payload.description,
           color: payload.color ?? 0xa855f7,
           timestamp: new Date().toISOString(),
+          footer: { text: SITE.name },
         },
       ],
     }),

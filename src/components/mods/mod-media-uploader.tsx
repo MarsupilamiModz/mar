@@ -221,7 +221,7 @@ export function ModMediaUploader({ modId, media: initialMedia, settings }: ModMe
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {pendingFiles.map((p) => (
                 <div key={p.id} className="relative aspect-video overflow-hidden rounded-lg border border-border/50">
-                  <Image src={p.preview} alt="" fill className="object-cover" sizes="120px" />
+                  <Image src={p.preview} alt="" fill className="object-cover" sizes="120px" unoptimized />
                   {p.status === "uploading" && (
                     <div className="absolute inset-0 flex items-center justify-center bg-background/70">
                       <Loader2 className="h-5 w-5 animate-spin text-neon-purple" />

@@ -1,10 +1,10 @@
-/** Marsupilami Storage / CDN configuration */
+/** Xumari Storage / CDN configuration */
 export const STORAGE = {
   provider: "Cloudflare R2",
-  brand: "Marsupilami Storage",
-  cdn: "Marsupilami CDN",
-  bucket: process.env.R2_BUCKET_NAME ?? "marsupilami-storage",
-  prefix: "marsupilami",
+  brand: "Xumari Storage",
+  cdn: "Xumari CDN",
+  bucket: process.env.R2_BUCKET_NAME ?? "xumari-storage",
+  prefix: "xumari",
   buckets: {
     modImages: "mod-images",
     modVideoThumbnails: "mod-videos-thumbnails",

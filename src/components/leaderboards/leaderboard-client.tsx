@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreatorRankBadge } from "@/components/leaderboards/creator-rank-badge";
 import { CreatorLevelBadge } from "@/components/creator/creator-level-badge";
 import { METRIC_LABELS, PERIOD_LABELS, PUBLIC_LEADERBOARD_METRICS, type LeaderboardEntry } from "@/lib/leaderboards";
+import { formatNumber } from "@/lib/format-locale";
 import type { LeaderboardMetric, LeaderboardPeriod } from "@prisma/client";
 
 type Game = { slug: string; name: string };
@@ -130,7 +131,7 @@ export function LeaderboardClient({
               </div>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold text-neon-blue">{entries[0].score.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-neon-blue">{formatNumber(entries[0].score, locale)}</p>
               <p className="text-xs text-muted-foreground">score</p>
             </div>
           </div>
@@ -164,8 +165,8 @@ export function LeaderboardClient({
               </div>
             </div>
             <div className="text-right text-sm shrink-0 hidden sm:block">
-              <p className="font-semibold text-neon-blue">{e.score.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">{e.totalDownloads.toLocaleString()} downloads · {e.followerCount} followers</p>
+              <p className="font-semibold text-neon-blue">{formatNumber(e.score, locale)}</p>
+              <p className="text-xs text-muted-foreground">{formatNumber(e.totalDownloads, locale)} downloads · {formatNumber(e.followerCount, locale)} followers</p>
             </div>
           </Card>
         ))}

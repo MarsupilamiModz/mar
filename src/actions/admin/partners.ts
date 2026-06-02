@@ -8,6 +8,7 @@ import { fail, ok, requireActionPermission } from "@/lib/action-utils";
 import { generateAffiliateCode } from "@/lib/affiliate";
 import { slugify } from "@/lib/utils";
 import { CREATOR_LEVELS } from "@/lib/creator-levels";
+import { sendPartnerApprovalEmail } from "@/lib/email/send";
 import type { PublisherLevel, SocialPlatform } from "@prisma/client";
 
 const profileSchema = z.object({
@@ -177,12 +178,26 @@ export async function createPartnerProfile(input: z.infer<typeof profileSchema>)
   });
 
   revalidatePath("/admin/partners");
+
+  if (profile.isVerified && target.email) {
+    void sendPartnerApprovalEmail({
+      email: target.email,
+      partnerName: target.displayName ?? target.username,
+    });
+  }
+
   return ok(profile);
 }
 
 export async function updatePartnerProfile(id: string, input: Partial<z.infer<typeof profileSchema>>) {
   const { user, error } = await requireActionPermission("users.write");
   if (error) return error;
+
+  const existing = await prisma.partnerProfile.findUnique({
+    where: { id },
+    include: { user: { select: { email: true, username: true, displayName: true } } },
+  });
+  if (!existing) return fail("Partner not found");
 
   const profile = await prisma.partnerProfile.update({
     where: { id },
@@ -208,6 +223,14 @@ export async function updatePartnerProfile(id: string, input: Partial<z.infer<ty
 
   revalidatePath("/admin/partners");
   revalidatePath(`/partners/${profile.slug}`);
+
+  if (input.isVerified === true && !existing.isVerified && existing.user.email) {
+    void sendPartnerApprovalEmail({
+      email: existing.user.email,
+      partnerName: existing.user.displayName ?? existing.user.username,
+    });
+  }
+
   return ok(profile);
 }
 

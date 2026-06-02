@@ -44,6 +44,10 @@
     "learnMore": "Learn more",
     "noResults": "Nothing here yet",
     "error": "Something went wrong",
+    "errorPageHint": "An unexpected error occurred. You can try again or return to the homepage.",
+    "notFoundTitle": "Page not found",
+    "notFoundHint": "The page you are looking for does not exist or was moved.",
+    "backHome": "Back to home",
     "retry": "Try again",
     "back": "Back"
   }

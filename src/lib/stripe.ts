@@ -87,7 +87,7 @@ export async function createCreditPackCheckout(
             currency: "eur",
             product_data: {
               name: `${creditsAmount.toLocaleString()} Credits`,
-              description: "MarsupilamiModz credit pack",
+              description: "XumariModz credit pack",
             },
             unit_amount: amountCents,
           },
@@ -159,7 +159,7 @@ export async function createOrderPaymentCheckout(
           currency: "eur",
           product_data: {
             name: `Custom Order ${invoiceNumber}`,
-            description: `MarsupilamiModz custom commission payment`,
+            description: `XumariModz custom commission payment`,
           },
           unit_amount: amountCents,
         },

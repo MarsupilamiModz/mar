@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { createShopProduct, updateShopProduct, deleteShopProduct } from "@/actions/admin/shop";
 import { useAppToast } from "@/hooks/use-app-toast";
 import { CREDITS_PER_EUR } from "@/lib/credits";
+import { formatEuro, formatNumber } from "@/lib/format-locale";
 
 type Product = {
   id: string;
@@ -28,17 +30,14 @@ type Product = {
   _count?: { purchases: number };
 };
 
-function formatEuro(cents: number) {
-  return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
-}
-
-function creditsToEuroHint(credits: number) {
+function creditsToEuroHint(credits: number, locale: string) {
   const euros = credits / CREDITS_PER_EUR;
-  return `${credits.toLocaleString()} Credits = ${formatEuro(Math.round(euros * 100))}`;
+  return `${formatNumber(credits, locale)} Credits = ${formatEuro(Math.round(euros * 100), locale)}`;
 }
 
-export function ShopAdminPanel({ products }: { products: Product[] }) {
+export function ShopAdminPanel({ products, locale }: { products: Product[]; locale: string }) {
   const appToast = useAppToast();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<Product | null>(null);
   const [creditsPreview, setCreditsPreview] = useState(editing?.creditsAmount ?? 0);
@@ -77,7 +76,7 @@ export function ShopAdminPanel({ products }: { products: Product[] }) {
               if (r.success) {
                 appToast.saved();
                 setEditing(null);
-                window.location.reload();
+                router.refresh();
               } else appToast.error(r.error);
             });
           }}
@@ -106,7 +105,7 @@ export function ShopAdminPanel({ products }: { products: Product[] }) {
           />
           <Input name="creditPrice" type="number" defaultValue={editing?.creditPrice ?? 0} placeholder="Preis in Credits (In-App-Kauf)" />
           {creditsPreview > 0 && (
-            <p className="text-xs text-neon-blue sm:col-span-2">{creditsToEuroHint(creditsPreview)}</p>
+            <p className="text-xs text-neon-blue sm:col-span-2">{creditsToEuroHint(creditsPreview, locale)}</p>
           )}
           <select name="category" defaultValue={editing?.category ?? "CREDITS"} className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm">
             {["CREDITS", "MEMBERSHIP", "MODS", "EXCLUSIVE", "BUNDLES", "ACCESS"].map((c) => (
@@ -145,15 +144,15 @@ export function ShopAdminPanel({ products }: { products: Product[] }) {
               <p className="text-sm mt-1">
                 {p.creditsAmount ? (
                   <>
-                    <span className="text-neon-blue">{p.creditsAmount.toLocaleString()} Credits</span>
+                    <span className="text-neon-blue">{formatNumber(p.creditsAmount, locale)} Credits</span>
                     {" · "}
-                    <span>{formatEuro(p.priceCents)}</span>
+                    <span>{formatEuro(p.priceCents, locale)}</span>
                     {p.creditPrice > 0 && (
-                      <span className="text-muted-foreground"> · {p.creditPrice.toLocaleString()} Credits (In-App)</span>
+                      <span className="text-muted-foreground"> · {formatNumber(p.creditPrice, locale)} Credits (In-App)</span>
                     )}
                   </>
                 ) : (
-                  <span>{formatEuro(p.priceCents)}</span>
+                  <span>{formatEuro(p.priceCents, locale)}</span>
                 )}
               </p>
               {p.stripePriceId && (
@@ -178,7 +177,7 @@ export function ShopAdminPanel({ products }: { products: Product[] }) {
                 onClick={() =>
                   startTransition(async () => {
                     const r = await deleteShopProduct(p.id);
-                    if (r.success) window.location.reload();
+                    if (r.success) router.refresh();
                     else appToast.error(r.error);
                   })
                 }

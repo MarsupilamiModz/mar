@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -16,7 +15,6 @@ export function AuthButtons({
   user: NavUser | null;
 }) {
   const t = useTranslations("nav");
-  const router = useRouter();
   const [user, setUser] = useState<NavUser | null>(initialUser);
 
   useEffect(() => {
@@ -49,11 +47,10 @@ export function AuthButtons({
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
       syncUser();
-      router.refresh();
     });
 
     return () => subscription.unsubscribe();
-  }, [router]);
+  }, []);
 
   if (user) {
     return <UserNav locale={locale} user={user} />;

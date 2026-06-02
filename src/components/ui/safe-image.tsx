@@ -18,6 +18,10 @@ type SafeImageProps = {
   loading?: "lazy" | "eager";
 };
 
+function isLocalPreview(url: string) {
+  return url.startsWith("blob:") || url.startsWith("data:");
+}
+
 export function SafeImage({
   src,
   alt,
@@ -27,7 +31,7 @@ export function SafeImage({
   className,
   sizes,
   priority,
-  loading,
+  loading = "lazy",
 }: SafeImageProps) {
   const [failed, setFailed] = useState(false);
   const resolved = resolveAssetUrl(src);
@@ -41,11 +45,14 @@ export function SafeImage({
           className
         )}
         style={!fill && width && height ? { width, height } : undefined}
+        aria-hidden={!alt}
       >
         <ImageOff className="h-8 w-8 opacity-40" />
       </div>
     );
   }
+
+  const unoptimized = isLocalPreview(resolved);
 
   if (fill) {
     return (
@@ -54,9 +61,11 @@ export function SafeImage({
         alt={alt}
         fill
         className={className}
-        sizes={sizes}
+        sizes={sizes ?? "100vw"}
         priority={priority}
-        loading={loading}
+        loading={priority ? undefined : loading}
+        placeholder="empty"
+        unoptimized={unoptimized}
         onError={() => setFailed(true)}
       />
     );
@@ -71,7 +80,9 @@ export function SafeImage({
       className={className}
       sizes={sizes}
       priority={priority}
-      loading={loading}
+      loading={priority ? undefined : loading}
+      placeholder="empty"
+      unoptimized={unoptimized}
       onError={() => setFailed(true)}
     />
   );

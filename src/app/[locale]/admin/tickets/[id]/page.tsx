@@ -6,6 +6,7 @@ import { TicketThread } from "@/components/tickets/ticket-thread";
 import { TicketAdminPanel } from "@/components/admin/ticket-admin-panel";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
+import { formatDisplayName } from "@/lib/display-name";
 import type { Locale } from "@/i18n/config";
 
 export default async function AdminTicketDetailPage({
@@ -20,7 +21,7 @@ export default async function AdminTicketDetailPage({
   const { ticket } = result.data;
   const staffUsers = await prisma.user.findMany({
     where: { role: { in: ["OWNER", "ADMIN", "MODERATOR", "SUPPORT"] }, deletedAt: null },
-    select: { id: true, username: true },
+    select: { id: true, username: true, displayName: true },
   });
 
   return (
@@ -45,7 +46,7 @@ export default async function AdminTicketDetailPage({
           />
           <div className="glass rounded-xl p-4 text-sm">
             <p className="text-muted-foreground">Submitted by</p>
-            <p className="font-medium">@{ticket.user.username}</p>
+            <p className="font-medium">{formatDisplayName(ticket.user)}</p>
             <p className="text-muted-foreground mt-2">{ticket.user.email}</p>
           </div>
         </div>

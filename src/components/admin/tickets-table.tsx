@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { TicketCategory, TicketPriority, TicketStatus } from "@prisma/client";
 import { getTicketsAdmin } from "@/actions/tickets";
+import { formatDisplayName } from "@/lib/display-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,7 +138,7 @@ export function TicketsTable({
                       <p className="text-xs text-muted-foreground line-clamp-1">{t.subject}</p>
                     </Link>
                   </TableCell>
-                  <TableCell className="text-sm">@{t.user.username}</TableCell>
+                  <TableCell className="text-sm">{formatDisplayName({ username: t.user.username })}</TableCell>
                   <TableCell className="text-sm">{TICKET_CATEGORY_LABELS[t.category]}</TableCell>
                   <TableCell>
                     <Badge variant={priorityColor(t.priority) as "outline"}>

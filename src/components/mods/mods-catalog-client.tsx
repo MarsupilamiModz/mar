@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { ModCard } from "@/components/mods/mod-card";
+import { formatNumber } from "@/lib/format-locale";
 
 type Game = { id: string; slug: string; name: string };
 type Mod = Parameters<typeof ModCard>[0]["mod"];
@@ -81,7 +82,7 @@ export function ModsCatalogClient({
   return (
     <>
       <p className="mt-2 text-muted-foreground">
-        {total.toLocaleString()} {pending ? "…" : ""}
+        {formatNumber(total, locale)} {pending ? "…" : ""}
       </p>
 
       <div className="mt-8 flex flex-wrap gap-3">

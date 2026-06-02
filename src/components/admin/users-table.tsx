@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
+import { ASSIGNABLE_ROLES } from "@/lib/permission-types";
+import { formatDisplayName } from "@/lib/display-name";
 import { ROLE_LABELS } from "@/lib/ticket-labels";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -212,7 +214,7 @@ export function UsersTable({
                         <AvatarFallback>{u.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">{u.displayName ?? u.username}</p>
+                        <p className="font-medium">{formatDisplayName(u)}</p>
                         <p className="text-xs text-muted-foreground">{u.email}</p>
                       </div>
                     </Link>
@@ -243,7 +245,7 @@ export function UsersTable({
                           <Link href={`/${locale}/admin/users/${u.id}`}>View profile</Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        {(["USER", "PREMIUM", "CREATOR", "SUPPORT", "MODERATOR", "ADMIN"] as UserRole[]).map(
+                        {ASSIGNABLE_ROLES.map(
                           (role) => (
                             <DropdownMenuItem
                               key={role}

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { setRequestLocale } from "next-intl/server";
 import { getLeaderboard, PUBLIC_LEADERBOARD_METRICS, syncCreatorRanks } from "@/lib/leaderboards";
 import { getAllGames } from "@/lib/data";
@@ -46,15 +47,17 @@ export default async function LeaderboardsPage({
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-      <LeaderboardClient
-        locale={locale}
-        entries={entries}
-        games={games}
-        initialMetric={validMetric}
-        initialPeriod={period}
-        initialGame={searchParams.game}
-        initialSearch={searchParams.q}
-      />
+      <Suspense fallback={<div className="h-96 animate-pulse rounded-xl bg-muted/20" />}>
+        <LeaderboardClient
+          locale={locale}
+          entries={entries}
+          games={games}
+          initialMetric={validMetric}
+          initialPeriod={period}
+          initialGame={searchParams.game}
+          initialSearch={searchParams.q}
+        />
+      </Suspense>
     </div>
   );
 }

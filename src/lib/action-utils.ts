@@ -1,6 +1,7 @@
 import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
-import { hasPermission, isAdmin, isStaff, type PermissionKey } from "@/lib/permissions";
+import { isAdmin, isStaff, type PermissionKey } from "@/lib/permissions";
+import { userHasPermission } from "@/lib/permission-store";
 
 export type ActionResult<T = void> =
   | { success: true; data: T }
@@ -25,7 +26,11 @@ export async function requireActionUser() {
 export async function requireActionPermission(permission: PermissionKey) {
   const { user, error } = await requireActionUser();
   if (error) return { user: null as never, error };
-  if (!hasPermission(user.role, permission)) {
+  const allowed = await userHasPermission(
+    { id: user.id, role: user.role, permissionGroupId: user.permissionGroupId },
+    permission
+  );
+  if (!allowed) {
     return { user: null as never, error: fail("Forbidden") };
   }
   return { user, error: null };

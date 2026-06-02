@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { SafeImage } from "@/components/ui/safe-image";
 import { getFeaturedMediaUrl, type ModMediaItem } from "@/lib/mod-media";
+import { formatNumber } from "@/lib/format-locale";
 
 import { ModCardLikeButton } from "@/components/mods/mod-card-like-button";
 
@@ -87,11 +88,11 @@ export function ModCard({ locale, mod, pricingLabel, isFavorited, showLike = tru
             </span>
             <span className="flex items-center gap-1">
               <Download className="h-3.5 w-3.5" />
-              {mod.downloadCount.toLocaleString()}
+              {formatNumber(mod.downloadCount, locale)}
             </span>
             {mod.favoriteCount != null && mod.favoriteCount > 0 && (
               <span className="flex items-center gap-1 text-neon-purple">
-                ♥ {mod.favoriteCount.toLocaleString()}
+                ♥ {formatNumber(mod.favoriteCount, locale)}
               </span>
             )}
           </div>

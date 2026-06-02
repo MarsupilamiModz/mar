@@ -24,7 +24,7 @@ export async function ensureDefaultCreditPacks() {
         isActive: true,
         isFeatured: "isFeatured" in pack ? pack.isFeatured : false,
         sortOrder: pack.sortOrder,
-        description: `${pack.creditsAmount.toLocaleString()} Credits for the MarsupilamiModz platform`,
+        description: `${pack.creditsAmount.toLocaleString()} Credits for the XumariModz platform`,
       },
       update: {},
     });

@@ -1,4 +1,4 @@
-# MarsupilamiModz
+# XumariModz
 
 Premium multi-game mods marketplace — GTA V / FiveM, Minecraft, ETS2, BeamNG, Assetto Corsa and more.
 
@@ -45,4 +45,4 @@ stripe listen --forward-to localhost:3000/api/stripe/webhook
 
 ## License
 
-Proprietary — MarsupilamiModz. All rights reserved.
+Proprietary — XumariModz. All rights reserved.

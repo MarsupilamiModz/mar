@@ -44,6 +44,10 @@
     "learnMore": "Daha fazla",
     "noResults": "Henüz bir şey yok",
     "error": "Bir hata oluştu",
+    "errorPageHint": "Beklenmeyen bir hata oluştu. Tekrar deneyebilir veya ana sayfaya dönebilirsiniz.",
+    "notFoundTitle": "Sayfa bulunamadı",
+    "notFoundHint": "Aradığınız sayfa mevcut değil veya taşınmış.",
+    "backHome": "Ana sayfaya dön",
     "retry": "Tekrar dene",
     "back": "Geri"
   }

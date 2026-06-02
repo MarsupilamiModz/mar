@@ -44,6 +44,10 @@
     "learnMore": "Mehr erfahren",
     "noResults": "Noch nichts hier",
     "error": "Etwas ist schiefgelaufen",
+    "errorPageHint": "Ein unerwarteter Fehler ist aufgetreten. Du kannst es erneut versuchen oder zur Startseite zurückkehren.",
+    "notFoundTitle": "Seite nicht gefunden",
+    "notFoundHint": "Die gesuchte Seite existiert nicht oder wurde verschoben.",
+    "backHome": "Zur Startseite",
     "retry": "Erneut versuchen",
     "back": "Zurück"
   }

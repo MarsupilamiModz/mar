@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { syncDiscordRoles, logToDiscordWebhook } from "@/lib/discord";
 import { trackAffiliateConversion } from "@/actions/affiliate";
 import { grantMembershipPurchase } from "@/lib/membership";
+import { sendPaymentNotification, sendPremiumActivationEmail } from "@/lib/email/send";
 import type Stripe from "stripe";
 
 export async function POST(req: Request) {
@@ -52,6 +53,12 @@ export async function POST(req: Request) {
 
             const user = await prisma.user.findUnique({ where: { id: userId } });
             if (user?.discordId) await syncDiscordRoles(user.discordId, ["premium"]);
+            if (user?.email) {
+              void sendPremiumActivationEmail({
+                email: user.email,
+                username: user.displayName ?? user.username,
+              });
+            }
           }
 
           const refCode = session.metadata?.refCode;
@@ -62,6 +69,13 @@ export async function POST(req: Request) {
           await logToDiscordWebhook({
             title: "Membership Purchase",
             description: `User ${userId} purchased plan ${planId}`,
+          });
+
+          void sendPaymentNotification({
+            type: "Membership purchase",
+            amountCents: session.amount_total ?? 0,
+            userId,
+            reference: planId,
           });
         }
 
@@ -84,6 +98,13 @@ export async function POST(req: Request) {
 
           const { evaluateUserAchievements } = await import("@/lib/achievements");
           void evaluateUserAchievements(userId);
+
+          void sendPaymentNotification({
+            type: "Mod purchase",
+            amountCents: session.amount_total ?? 0,
+            userId,
+            reference: modId,
+          });
         }
 
         if (userId && type === "credit_purchase") {
@@ -113,6 +134,13 @@ export async function POST(req: Request) {
               },
             });
           }
+
+          void sendPaymentNotification({
+            type: "Credit pack purchase",
+            amountCents: session.amount_total ?? 0,
+            userId,
+            reference: productId ?? undefined,
+          });
         }
 
         const orderId = session.metadata?.orderId;
@@ -135,6 +163,13 @@ export async function POST(req: Request) {
           await logToDiscordWebhook({
             title: "Custom Order Paid",
             description: `Order ${session.metadata?.invoiceNumber ?? orderId} paid via Stripe`,
+          });
+
+          void sendPaymentNotification({
+            type: "Custom order payment",
+            amountCents: session.amount_total ?? 0,
+            userId,
+            reference: session.metadata?.invoiceNumber ?? orderId,
           });
         }
         break;

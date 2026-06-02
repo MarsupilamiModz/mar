@@ -1,18 +1,23 @@
 import { getCurrentUser, hasPremiumAccess } from "@/lib/auth";
 import type { NavUser } from "@/components/layout/user-nav";
-
-import { getInlineUserBadges } from "@/lib/user-badges";
 import { resolveAssetUrl } from "@/lib/assets";
+import { getEffectivePermissions } from "@/lib/permission-store";
+import type { PermissionKey } from "@/lib/permissions";
 
 export async function getNavUser(): Promise<NavUser | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  let badges: Awaited<ReturnType<typeof getInlineUserBadges>> = [];
+  let permissions: PermissionKey[] = [];
   try {
-    badges = await getInlineUserBadges(user.id, user.locale, 2);
+    const effective = await getEffectivePermissions({
+      id: user.id,
+      role: user.role,
+      permissionGroupId: user.permissionGroupId,
+    });
+    permissions = Array.from(effective).filter((p) => p !== "*") as PermissionKey[];
   } catch (error) {
-    console.error("[getNavUser] badges", error);
+    console.error("[getNavUser] permissions", error);
   }
 
   return {
@@ -22,6 +27,6 @@ export async function getNavUser(): Promise<NavUser | null> {
     avatarUrl: resolveAssetUrl(user.avatarUrl),
     role: user.role,
     isPremium: hasPremiumAccess(user),
-    badges,
+    permissions,
   };
 }

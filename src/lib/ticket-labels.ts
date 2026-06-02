@@ -28,6 +28,7 @@ export const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
   MODERATOR: "Moderator",
   SUPPORT: "Support",
+  PARTNER: "Partner",
   CREATOR: "Creator",
   DESIGNER: "Designer",
   PREMIUM: "Premium",

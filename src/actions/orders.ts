@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionUser, requireActionStaff } from "@/lib/action-utils";
+import { fail, ok, requireActionPermission, requireActionUser } from "@/lib/action-utils";
 import { customOrderSchema } from "@/lib/validations";
 import { hasPermission } from "@/lib/permissions";
 import { logToDiscordWebhook } from "@/lib/discord";
@@ -149,7 +149,7 @@ export async function createCustomOrderFromForm(formData: FormData) {
 }
 
 export async function quoteCustomOrder(orderId: string, amountCents: number, note?: string) {
-  const { error } = await requireActionStaff();
+  const { error } = await requireActionPermission("orders.write");
   if (error) return error;
 
   const order = await prisma.customOrder.update({
@@ -172,7 +172,7 @@ export async function quoteCustomOrder(orderId: string, amountCents: number, not
 }
 
 export async function uploadOrderDelivery(orderId: string, formData: FormData) {
-  const { error } = await requireActionStaff();
+  const { error } = await requireActionPermission("orders.write");
   if (error) return error;
 
   const file = formData.get("file");
@@ -226,7 +226,7 @@ export async function markOrderPaidManual(
   method: OrderPaymentMethod,
   reference?: string
 ) {
-  const { error } = await requireActionStaff();
+  const { error } = await requireActionPermission("orders.write");
   if (error) return error;
 
   await prisma.customOrder.update({
@@ -303,7 +303,7 @@ export async function updateOrderStatus(
   status: "PENDING" | "QUOTED" | "IN_PROGRESS" | "REVIEW" | "COMPLETED" | "CANCELED",
   assigneeId?: string
 ) {
-  const { error } = await requireActionStaff();
+  const { error } = await requireActionPermission("orders.write");
   if (error) return error;
 
   await prisma.customOrder.update({
@@ -316,7 +316,7 @@ export async function updateOrderStatus(
 }
 
 export async function getAdminOrders(status?: string) {
-  const { error } = await requireActionStaff();
+  const { error } = await requireActionPermission("orders.read");
   if (error) return error;
 
   const orders = await prisma.customOrder.findMany({

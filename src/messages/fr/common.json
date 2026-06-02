@@ -44,6 +44,10 @@
     "learnMore": "En savoir plus",
     "noResults": "Rien pour le moment",
     "error": "Une erreur est survenue",
+    "errorPageHint": "Une erreur inattendue s'est produite. Réessayez ou retournez à l'accueil.",
+    "notFoundTitle": "Page introuvable",
+    "notFoundHint": "La page que vous recherchez n'existe pas ou a été déplacée.",
+    "backHome": "Retour à l'accueil",
     "retry": "Réessayer",
     "back": "Retour"
   }

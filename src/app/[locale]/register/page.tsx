@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import { sendRegistrationWelcomeEmail } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -34,6 +35,7 @@ export default function RegisterPage() {
       setError(err.message);
       return;
     }
+    void sendRegistrationWelcomeEmail(email);
     router.push(`/${locale}/dashboard`);
     router.refresh();
   }

@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
+import { userHasPermission } from "@/lib/permission-store";
+import { formatDisplayName } from "@/lib/display-name";
+import type { PermissionKey } from "@/lib/permissions";
+
 const allLinks = [
   { href: "", label: "Overview", permission: "analytics.read" as const },
   { href: "/users", label: "Users", permission: "users.read" as const },
   { href: "/tickets", label: "Tickets", permission: "tickets.read" as const },
   { href: "/mods", label: "Mods", permission: "mods.read" as const },
-  { href: "/games", label: "Games", permission: "games.write" as const },
+  { href: "/games", label: "Supported Games", permission: "games.write" as const },
   { href: "/analytics", label: "Analytics", permission: "analytics.read" as const },
   { href: "/subscriptions", label: "Purchases", permission: "subscriptions.read" as const },
   { href: "/coupons", label: "Coupons", permission: "coupons.write" as const },
@@ -23,11 +26,23 @@ const allLinks = [
   { href: "/achievements", label: "Achievements", permission: "settings.write" as const },
   { href: "/leaderboards", label: "Leaderboards", permission: "settings.write" as const },
   { href: "/ads", label: "Advertising", permission: "settings.write" as const },
+  { href: "/email", label: "Email Settings", permission: "settings.write" as const },
+  { href: "/email/templates", label: "Email Templates", permission: "settings.write" as const },
   { href: "/branding", label: "Branding", permission: "settings.write" as const },
   { href: "/groups", label: "Groups & Permissions", permission: "settings.write" as const },
   { href: "/localization", label: "AI Localization", permission: "settings.write" as const },
   { href: "/settings/media", label: "Media Settings", permission: "settings.write" as const },
 ];
+
+async function filterLinks(user: { id: string; role: Parameters<typeof userHasPermission>[0]["role"]; permissionGroupId?: string | null }) {
+  const links: typeof allLinks = [];
+  for (const link of allLinks) {
+    if (await userHasPermission(user, link.permission as PermissionKey)) {
+      links.push(link);
+    }
+  }
+  return links;
+}
 
 export default async function AdminLayout({
   children,
@@ -37,14 +52,14 @@ export default async function AdminLayout({
   params: { locale: string };
 }) {
   const user = await requireStaff();
-  const links = allLinks.filter((l) => hasPermission(user.role, l.permission));
+  const links = await filterLinks(user);
 
   return (
     <div className="mx-auto flex max-w-7xl gap-6 px-4 py-8 sm:px-6">
       <aside className="w-52 shrink-0 hidden md:block">
         <div className="glass rounded-xl p-4 sticky top-24">
           <p className="font-bold text-neon-purple mb-1">Admin</p>
-          <p className="text-xs text-muted-foreground mb-4">@{user.username}</p>
+          <p className="text-xs text-muted-foreground mb-4 truncate">{formatDisplayName(user)}</p>
           <nav className="space-y-1 text-sm">
             {links.map((l) => (
               <Link

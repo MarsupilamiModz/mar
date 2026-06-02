@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { markNotificationRead, markAllNotificationsRead } from "@/actions/notifications";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useTransition } from "react";
+import { formatDateTime } from "@/lib/format-locale";
 
 type Notification = {
   id: string;
@@ -15,7 +17,8 @@ type Notification = {
   createdAt: Date;
 };
 
-export function NotificationsList({ notifications }: { notifications: Notification[] }) {
+export function NotificationsList({ notifications, locale }: { notifications: Notification[]; locale: string }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   if (notifications.length === 0) {
@@ -31,7 +34,7 @@ export function NotificationsList({ notifications }: { notifications: Notificati
         onClick={() =>
           startTransition(async () => {
             await markAllNotificationsRead();
-            window.location.reload();
+            router.refresh();
           })
         }
       >
@@ -61,7 +64,7 @@ export function NotificationsList({ notifications }: { notifications: Notificati
               </>
             )}
             <p className="text-xs text-muted-foreground mt-2">
-              {new Date(n.createdAt).toLocaleString()}
+              {formatDateTime(n.createdAt, locale)}
             </p>
           </Card>
         ))}

@@ -1,8 +1,9 @@
 import { requireStaff } from "@/lib/auth";
 import { getAdminPaymentSettings, listRecentStripeCheckouts } from "@/actions/admin/payments";
 import { PaymentsAdminPanel } from "@/components/admin/payments-admin-panel";
+import type { Locale } from "@/i18n/config";
 
-export default async function AdminPaymentsPage() {
+export default async function AdminPaymentsPage({ params: { locale } }: { params: { locale: Locale } }) {
   await requireStaff();
   const [settingsResult, txResult] = await Promise.all([
     getAdminPaymentSettings(),
@@ -24,9 +25,9 @@ export default async function AdminPaymentsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Payment Settings</h1>
-      <p className="text-muted-foreground">Configure Stripe, PayPal, and view recent transactions.</p>
-      <PaymentsAdminPanel settings={settings} transactions={transactions} />
+      <h1 className="text-2xl font-bold">Payments</h1>
+      <p className="text-muted-foreground">Provider status, webhooks, and recent checkout activity.</p>
+      <PaymentsAdminPanel settings={settings} transactions={transactions} locale={locale} />
     </div>
   );
 }
