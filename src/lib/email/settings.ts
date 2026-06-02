@@ -1,4 +1,4 @@
-import { getSiteSetting, setSiteSetting } from "@/lib/site-settings";
+import { getSiteSetting, setSiteSettingSafe } from "@/lib/site-settings";
 import { SITE } from "@/lib/site";
 
 export type SmtpEncryption = "SSL" | "TLS" | "STARTTLS" | "NONE";
@@ -76,7 +76,8 @@ export async function saveEmailSettings(input: Partial<EmailSettings>) {
       ? input.smtpPassword
       : current.smtpPassword,
   };
-  await setSiteSetting(KEY, next);
+  const saved = await setSiteSettingSafe(KEY, next);
+  if (!saved.ok) throw new Error(saved.error);
   return getEmailSettingsPublic();
 }
 

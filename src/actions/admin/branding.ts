@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionPermission } from "@/lib/action-utils";
+import { actionTry, fail, ok, requireActionPermission } from "@/lib/action-utils";
 import { invalidatePermissionCache } from "@/lib/permission-store";
 import type { Prisma } from "@prisma/client";
 import { DEFAULT_BRANDING, saveBrandingSettings, saveGameCoverOverride, type BrandingSettings } from "@/lib/branding";
@@ -19,9 +19,11 @@ export async function getAdminBranding() {
 export async function saveAdminBranding(settings: BrandingSettings) {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
-  await saveBrandingSettings({ ...DEFAULT_BRANDING, ...settings });
-  revalidatePath("/");
-  return ok(undefined);
+  return actionTry(async () => {
+    await saveBrandingSettings({ ...DEFAULT_BRANDING, ...settings });
+    revalidatePath("/");
+    revalidatePath("/admin/branding");
+  }, "branding:save");
 }
 
 export async function uploadBrandingAsset(formData: FormData) {
@@ -105,18 +107,20 @@ export async function getAdminPermissionGroups() {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
-  let groups = await prisma.permissionGroup.findMany({ orderBy: { name: "asc" } });
-  if (groups.length === 0) {
-    await prisma.permissionGroup.createMany({
-      data: [
-        { slug: "staff-full", name: "Staff Full Access", permissions: ["*"], isSystem: true },
-        { slug: "creator-standard", name: "Creator Standard", permissions: ["mods.read", "assets.read", "analytics.creator", "licenses.write"], isSystem: true },
-        { slug: "partner-standard", name: "Partner Standard", permissions: ["analytics.creator", "coupons.write"], isSystem: true },
-      ],
-    });
-    groups = await prisma.permissionGroup.findMany({ orderBy: { name: "asc" } });
-  }
-  return ok(groups);
+  return actionTry(async () => {
+    let groups = await prisma.permissionGroup.findMany({ orderBy: { name: "asc" } });
+    if (groups.length === 0) {
+      await prisma.permissionGroup.createMany({
+        data: [
+          { slug: "staff-full", name: "Staff Full Access", permissions: ["*"], isSystem: true },
+          { slug: "creator-standard", name: "Creator Standard", permissions: ["mods.read", "assets.read", "analytics.creator", "licenses.write"], isSystem: true },
+          { slug: "partner-standard", name: "Partner Standard", permissions: ["analytics.creator", "coupons.write"], isSystem: true },
+        ],
+      });
+      groups = await prisma.permissionGroup.findMany({ orderBy: { name: "asc" } });
+    }
+    return groups;
+  }, "permissions:list-groups");
 }
 
 export async function savePermissionGroup(input: {
@@ -129,28 +133,29 @@ export async function savePermissionGroup(input: {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
-  if (input.id) {
-    const existing = await prisma.permissionGroup.findUnique({ where: { id: input.id } });
-    if (existing?.isSystem) return fail("System groups cannot be edited");
-    await prisma.permissionGroup.update({
-      where: { id: input.id },
-      data: {
-        name: input.name,
-        description: input.description,
-        permissions: input.permissions as Prisma.InputJsonValue,
-      },
-    });
-  } else {
-    await prisma.permissionGroup.create({
-      data: {
-        slug: input.slug,
-        name: input.name,
-        description: input.description,
-        permissions: input.permissions as Prisma.InputJsonValue,
-      },
-    });
-  }
-  invalidatePermissionCache();
-  revalidatePath("/admin/groups");
-  return ok(undefined);
+  return actionTry(async () => {
+    if (input.id) {
+      const existing = await prisma.permissionGroup.findUnique({ where: { id: input.id } });
+      if (existing?.isSystem) throw new Error("System groups cannot be edited");
+      await prisma.permissionGroup.update({
+        where: { id: input.id },
+        data: {
+          name: input.name,
+          description: input.description,
+          permissions: input.permissions as Prisma.InputJsonValue,
+        },
+      });
+    } else {
+      await prisma.permissionGroup.create({
+        data: {
+          slug: input.slug,
+          name: input.name,
+          description: input.description,
+          permissions: input.permissions as Prisma.InputJsonValue,
+        },
+      });
+    }
+    invalidatePermissionCache();
+    revalidatePath("/admin/groups");
+  }, "permissions:save-group");
 }

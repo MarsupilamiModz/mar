@@ -56,28 +56,33 @@ async function seedRolePermissionsIfEmpty() {
 
 const loadRolePermissionMap = unstable_cache(
   async (): Promise<Record<UserRole, PermissionKey[]>> => {
-    await ensurePermissionCatalog();
-    await seedRolePermissionsIfEmpty();
+    try {
+      await ensurePermissionCatalog();
+      await seedRolePermissionsIfEmpty();
 
-    const rows = await prisma.rolePermission.findMany({
-      include: { permission: { select: { key: true } } },
-    });
+      const rows = await prisma.rolePermission.findMany({
+        include: { permission: { select: { key: true } } },
+      });
 
-    const dbByRole = new Map<UserRole, PermissionKey[]>();
-    for (const row of rows) {
-      const key = row.permission.key as PermissionKey;
-      const list = dbByRole.get(row.role) ?? [];
-      if (!list.includes(key)) list.push(key);
-      dbByRole.set(row.role, list);
-    }
-
-    const result = { ...DEFAULT_ROLE_PERMISSIONS };
-    for (const role of Object.keys(DEFAULT_ROLE_PERMISSIONS) as UserRole[]) {
-      if (dbByRole.has(role)) {
-        result[role] = dbByRole.get(role)!;
+      const dbByRole = new Map<UserRole, PermissionKey[]>();
+      for (const row of rows) {
+        const key = row.permission.key as PermissionKey;
+        const list = dbByRole.get(row.role) ?? [];
+        if (!list.includes(key)) list.push(key);
+        dbByRole.set(row.role, list);
       }
+
+      const result = { ...DEFAULT_ROLE_PERMISSIONS };
+      for (const role of Object.keys(DEFAULT_ROLE_PERMISSIONS) as UserRole[]) {
+        if (dbByRole.has(role)) {
+          result[role] = dbByRole.get(role)!;
+        }
+      }
+      return result;
+    } catch (err) {
+      console.error("[permissions] falling back to defaults", err);
+      return DEFAULT_ROLE_PERMISSIONS;
     }
-    return result;
   },
   ["role-permission-map-v2"],
   { tags: [PERMISSION_CACHE_TAG], revalidate: 30 }
@@ -85,12 +90,17 @@ const loadRolePermissionMap = unstable_cache(
 
 const loadGroupPermissionMap = unstable_cache(
   async (): Promise<Map<string, string[]>> => {
-    const groups = await prisma.permissionGroup.findMany({
-      select: { id: true, permissions: true },
-    });
-    return new Map(
-      groups.map((g) => [g.id, parseGroupPermissions(g.permissions)])
-    );
+    try {
+      const groups = await prisma.permissionGroup.findMany({
+        select: { id: true, permissions: true },
+      });
+      return new Map(
+        groups.map((g) => [g.id, parseGroupPermissions(g.permissions)])
+      );
+    } catch (err) {
+      console.error("[permissions] group map fallback", err);
+      return new Map();
+    }
   },
   ["permission-group-map-v1"],
   { tags: [PERMISSION_CACHE_TAG], revalidate: 30 }
@@ -120,8 +130,14 @@ export async function userHasPermission(
   user: PermissionUser,
   permission: PermissionKey
 ): Promise<boolean> {
-  const effective = await getEffectivePermissions(user);
-  return permissionSetIncludes(effective, permission);
+  try {
+    const effective = await getEffectivePermissions(user);
+    return permissionSetIncludes(effective, permission);
+  } catch (err) {
+    console.error("[permissions] userHasPermission fallback", err);
+    const defaults = DEFAULT_ROLE_PERMISSIONS[user.role] ?? [];
+    return permissionSetIncludes(new Set(defaults.map(String)), permission);
+  }
 }
 
 export async function getRolePermissionsForAdmin(role: UserRole): Promise<PermissionKey[]> {

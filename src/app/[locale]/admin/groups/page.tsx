@@ -1,10 +1,10 @@
-import { requireAdmin } from "@/lib/auth";
+import { requirePagePermission } from "@/lib/auth";
 import { getAdminPermissionGroups } from "@/actions/admin/branding";
 import { getAdminRolePermissions } from "@/actions/admin/permissions";
 import { GroupsAdminPanel } from "@/components/admin/groups-admin-panel";
 
 export default async function AdminGroupsPage() {
-  await requireAdmin();
+  await requirePagePermission("settings.write");
   const [groupsResult, rolesResult] = await Promise.all([
     getAdminPermissionGroups(),
     getAdminRolePermissions(),

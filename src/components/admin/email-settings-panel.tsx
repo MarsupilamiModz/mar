@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   updateAdminEmailSettings,
@@ -28,6 +28,26 @@ type EmailLog = {
   createdAt: Date;
 };
 
+function readEmailForm(form: HTMLFormElement) {
+  const fd = new FormData(form);
+  return {
+    enabled: fd.get("enabled") === "on",
+    smtpHost: fd.get("smtpHost") as string,
+    smtpPort: Number(fd.get("smtpPort") || 587),
+    smtpUser: fd.get("smtpUser") as string,
+    smtpPassword: (fd.get("smtpPassword") as string) || undefined,
+    senderEmail: fd.get("senderEmail") as string,
+    senderName: fd.get("senderName") as string,
+    encryption: fd.get("encryption") as "SSL" | "TLS" | "STARTTLS" | "NONE",
+    supportEmail: fd.get("supportEmail") as string,
+    ticketNotificationEmail: fd.get("ticketNotificationEmail") as string,
+    customOrderEmail: fd.get("customOrderEmail") as string,
+    paymentNotificationEmail: fd.get("paymentNotificationEmail") as string,
+    adminNotificationEmail: fd.get("adminNotificationEmail") as string,
+    contactFormEmail: fd.get("contactFormEmail") as string,
+  };
+}
+
 export function EmailSettingsPanel({
   settings,
   logs,
@@ -39,6 +59,7 @@ export function EmailSettingsPanel({
 }) {
   const appToast = useAppToast();
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [testTo, setTestTo] = useState(settings.senderEmail || "");
 
@@ -58,27 +79,12 @@ export function EmailSettingsPanel({
         </div>
 
         <form
+          ref={formRef}
           className="grid gap-3 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault();
-            const fd = new FormData(e.currentTarget);
             startTransition(async () => {
-              const r = await updateAdminEmailSettings({
-                enabled: fd.get("enabled") === "on",
-                smtpHost: fd.get("smtpHost") as string,
-                smtpPort: Number(fd.get("smtpPort") || 587),
-                smtpUser: fd.get("smtpUser") as string,
-                smtpPassword: (fd.get("smtpPassword") as string) || undefined,
-                senderEmail: fd.get("senderEmail") as string,
-                senderName: fd.get("senderName") as string,
-                encryption: fd.get("encryption") as "SSL" | "TLS" | "STARTTLS" | "NONE",
-                supportEmail: fd.get("supportEmail") as string,
-                ticketNotificationEmail: fd.get("ticketNotificationEmail") as string,
-                customOrderEmail: fd.get("customOrderEmail") as string,
-                paymentNotificationEmail: fd.get("paymentNotificationEmail") as string,
-                adminNotificationEmail: fd.get("adminNotificationEmail") as string,
-                contactFormEmail: fd.get("contactFormEmail") as string,
-              });
+              const r = await updateAdminEmailSettings(readEmailForm(e.currentTarget));
               if (r.success) {
                 appToast.saved();
                 router.refresh();
@@ -118,13 +124,15 @@ export function EmailSettingsPanel({
               type="button"
               variant="outline"
               disabled={pending}
-              onClick={() =>
+              onClick={() => {
+                const form = formRef.current;
+                if (!form) return;
                 startTransition(async () => {
-                  const r = await testAdminEmailConnection();
+                  const r = await testAdminEmailConnection(readEmailForm(form));
                   if (r.success) appToast.saved();
                   else appToast.error(r.error);
-                })
-              }
+                });
+              }}
             >
               Validate SMTP
             </Button>

@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionPermission } from "@/lib/action-utils";
+import {
+  actionTry,
+  fail,
+  formatZodError,
+  ok,
+  requireActionPermission,
+} from "@/lib/action-utils";
 import {
   getEmailSettings,
   getEmailSettingsPublic,
@@ -49,18 +55,25 @@ export async function updateAdminEmailSettings(input: z.infer<typeof settingsSch
   if (error) return error;
 
   const parsed = settingsSchema.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.message);
+  if (!parsed.success) return fail(formatZodError(parsed.error));
 
-  const saved = await saveEmailSettings(parsed.data as Partial<EmailSettings>);
-  revalidatePath("/admin/email");
-  return ok(saved);
+  return actionTry(async () => {
+    const saved = await saveEmailSettings(parsed.data as Partial<EmailSettings>);
+    revalidatePath("/admin/email");
+    return saved;
+  }, "email:save-settings");
 }
 
 export async function testAdminEmailConnection(input?: z.infer<typeof settingsSchema>) {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
-  try {
+  if (input) {
+    const parsed = settingsSchema.safeParse(input);
+    if (!parsed.success) return fail(formatZodError(parsed.error));
+  }
+
+  return actionTry(async () => {
     if (input) {
       const current = await getEmailSettings();
       await testSmtpConnection({
@@ -72,10 +85,8 @@ export async function testAdminEmailConnection(input?: z.infer<typeof settingsSc
     } else {
       await testSmtpConnection();
     }
-    return ok({ connected: true });
-  } catch (err) {
-    return fail(err instanceof Error ? err.message : "SMTP connection failed");
-  }
+    return { connected: true };
+  }, "email:test-smtp");
 }
 
 export async function sendAdminTestEmail(to: string) {
@@ -84,15 +95,15 @@ export async function sendAdminTestEmail(to: string) {
 
   if (!to.includes("@")) return fail("Invalid email address");
 
-  const sent = await sendEmail({
-    to,
-    subject: `${SITE.name} — Test Email`,
-    html: `<p>This is a test email from ${SITE.name}.</p><p>Sent by admin ${user.username}.</p>`,
-    templateKey: "test",
-  });
-
-  if (!sent) return fail("Failed to send test email. Check SMTP settings and logs.");
-  return ok(undefined);
+  return actionTry(async () => {
+    const sent = await sendEmail({
+      to,
+      subject: `${SITE.name} — Test Email`,
+      html: `<p>This is a test email from ${SITE.name}.</p><p>Sent by admin ${user.username}.</p>`,
+      templateKey: "test",
+    });
+    if (!sent) throw new Error("Failed to send test email. Check SMTP settings and logs.");
+  }, "email:send-test");
 }
 
 export async function getAdminEmailTemplates() {
@@ -109,45 +120,46 @@ export async function updateAdminEmailTemplate(
   if (error) return error;
 
   const parsed = templateSchema.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.message);
+  if (!parsed.success) return fail(formatZodError(parsed.error));
 
-  await saveEmailTemplate(key, parsed.data);
-  revalidatePath("/admin/email/templates");
-  return ok(undefined);
+  return actionTry(async () => {
+    await saveEmailTemplate(key, parsed.data);
+    revalidatePath("/admin/email/templates");
+  }, "email:save-template");
 }
 
 export async function listAdminEmailLogs(limit = 50) {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
-  const logs = await prisma.emailLog.findMany({
-    orderBy: { createdAt: "desc" },
-    take: Math.min(limit, 100),
-    select: {
-      id: true,
-      to: true,
-      subject: true,
-      templateKey: true,
-      status: true,
-      error: true,
-      attempts: true,
-      sentAt: true,
-      createdAt: true,
-    },
-  });
-
-  return ok(logs);
+  return actionTry(
+    () =>
+      prisma.emailLog.findMany({
+        orderBy: { createdAt: "desc" },
+        take: Math.min(limit, 100),
+        select: {
+          id: true,
+          to: true,
+          subject: true,
+          templateKey: true,
+          status: true,
+          error: true,
+          attempts: true,
+          sentAt: true,
+          createdAt: true,
+        },
+      }),
+    "email:list-logs"
+  );
 }
 
 export async function retryAdminEmailLog(logId: string) {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
-  try {
+  return actionTry(async () => {
     const sent = await retryFailedEmail(logId);
     revalidatePath("/admin/email");
-    return sent ? ok(undefined) : fail("Retry failed");
-  } catch (err) {
-    return fail(err instanceof Error ? err.message : "Retry failed");
-  }
+    if (!sent) throw new Error("Retry failed");
+  }, "email:retry-log");
 }

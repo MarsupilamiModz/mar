@@ -1,4 +1,4 @@
-import { getSiteSetting, setSiteSetting } from "@/lib/site-settings";
+import { getSiteSetting, setSiteSettingSafe } from "@/lib/site-settings";
 import { SITE } from "@/lib/site";
 
 export type EmailTemplateKey =
@@ -108,7 +108,8 @@ export async function saveEmailTemplate(
     {}
   );
   stored[key] = data;
-  await setSiteSetting(KEY, stored);
+  const saved = await setSiteSettingSafe(KEY, stored);
+  if (!saved.ok) throw new Error(saved.error);
 }
 
 export function renderTemplate(

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { prismaErrorMessage } from "@/lib/errors";
 
 export async function getSiteSetting<T>(key: string, fallback: T): Promise<T> {
   try {
@@ -16,4 +17,18 @@ export async function setSiteSetting(key: string, value: unknown) {
     create: { key, value: value as object },
     update: { value: value as object },
   });
+}
+
+export async function setSiteSettingSafe(
+  key: string,
+  value: unknown
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await setSiteSetting(key, value);
+    return { ok: true };
+  } catch (err) {
+    const { logPlatformError } = await import("@/lib/platform-log");
+    void logPlatformError(`site-setting:${key}`, err);
+    return { ok: false, error: prismaErrorMessage(err) };
+  }
 }

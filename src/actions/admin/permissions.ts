@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionPermission } from "@/lib/action-utils";
+import { actionTry, fail, ok, requireActionPermission } from "@/lib/action-utils";
 import {
   getRolePermissionMap,
   getRolePermissionsForAdmin,
@@ -35,9 +35,10 @@ export async function updateAdminRolePermissions(role: UserRole, permissions: st
   const validKeys = new Set(Object.keys(await import("@/lib/permissions").then((m) => m.PERMISSIONS)));
   const cleaned = permissions.filter((p) => p === "*" || validKeys.has(p));
 
-  await saveRolePermissions(role, cleaned);
-  revalidatePath("/admin/groups");
-  return ok(undefined);
+  return actionTry(async () => {
+    await saveRolePermissions(role, cleaned);
+    revalidatePath("/admin/groups");
+  }, "permissions:save-role");
 }
 
 export async function getAdminRolePermissionsForRole(role: UserRole) {
@@ -55,14 +56,15 @@ export async function deletePermissionGroup(id: string) {
   if (!group) return fail("Group not found");
   if (group.isSystem) return fail("System groups cannot be deleted");
 
-  await prisma.user.updateMany({
-    where: { permissionGroupId: id },
-    data: { permissionGroupId: null },
-  });
-  await prisma.permissionGroup.delete({ where: { id } });
-  invalidatePermissionCache();
-  revalidatePath("/admin/groups");
-  return ok(undefined);
+  return actionTry(async () => {
+    await prisma.user.updateMany({
+      where: { permissionGroupId: id },
+      data: { permissionGroupId: null },
+    });
+    await prisma.permissionGroup.delete({ where: { id } });
+    invalidatePermissionCache();
+    revalidatePath("/admin/groups");
+  }, "permissions:delete-group");
 }
 
 export type { PermissionKey };

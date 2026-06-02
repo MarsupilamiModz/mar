@@ -32,13 +32,18 @@ const allLinks = [
   { href: "/groups", label: "Groups & Permissions", permission: "settings.write" as const },
   { href: "/localization", label: "AI Localization", permission: "settings.write" as const },
   { href: "/settings/media", label: "Media Settings", permission: "settings.write" as const },
+  { href: "/system", label: "System Logs", permission: "settings.write" as const },
 ];
 
 async function filterLinks(user: { id: string; role: Parameters<typeof userHasPermission>[0]["role"]; permissionGroupId?: string | null }) {
   const links: typeof allLinks = [];
   for (const link of allLinks) {
-    if (await userHasPermission(user, link.permission as PermissionKey)) {
-      links.push(link);
+    try {
+      if (await userHasPermission(user, link.permission as PermissionKey)) {
+        links.push(link);
+      }
+    } catch {
+      // skip link if permission check fails
     }
   }
   return links;

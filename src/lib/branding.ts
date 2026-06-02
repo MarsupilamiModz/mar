@@ -1,4 +1,4 @@
-import { getSiteSetting, setSiteSetting } from "@/lib/site-settings";
+import { getSiteSetting, setSiteSettingSafe } from "@/lib/site-settings";
 
 export type BrandingSettings = {
   siteTitle: string;
@@ -37,7 +37,8 @@ export async function getBrandingSettings() {
 }
 
 export async function saveBrandingSettings(settings: BrandingSettings) {
-  await setSiteSetting("branding", settings);
+  const saved = await setSiteSettingSafe("branding", settings);
+  if (!saved.ok) throw new Error(saved.error);
 }
 
 export type GameCoverSettings = {
@@ -55,5 +56,6 @@ export async function getGameCoverOverrides(): Promise<Record<string, GameCoverS
 export async function saveGameCoverOverride(gameId: string, data: GameCoverSettings) {
   const current = await getGameCoverOverrides();
   current[gameId] = { ...current[gameId], ...data, gameId };
-  await setSiteSetting("game_covers", current);
+  const saved = await setSiteSettingSafe("game_covers", current);
+  if (!saved.ok) throw new Error(saved.error);
 }

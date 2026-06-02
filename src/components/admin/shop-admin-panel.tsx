@@ -40,7 +40,7 @@ export function ShopAdminPanel({ products, locale }: { products: Product[]; loca
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<Product | null>(null);
-  const [creditsPreview, setCreditsPreview] = useState(editing?.creditsAmount ?? 0);
+  const [creditsPreview, setCreditsPreview] = useState(0);
 
   return (
     <div className="space-y-6">
@@ -50,6 +50,7 @@ export function ShopAdminPanel({ products, locale }: { products: Product[]; loca
           Kurs: 10 € = 1.000 Credits · z. B. 500 Credits = 5,00 €
         </p>
         <form
+          key={editing?.id ?? "new"}
           className="grid gap-3 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault();

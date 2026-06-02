@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionPermission } from "@/lib/action-utils";
+import {
+  actionTry,
+  fail,
+  formatZodError,
+  requireActionPermission,
+} from "@/lib/action-utils";
 import { slugify } from "@/lib/utils";
 import type { ShopProductCategory, ShopProductType } from "@prisma/client";
 
@@ -15,6 +20,7 @@ const productSchema = z.object({
   productType: z.enum(["CREDIT_PACK", "MEMBERSHIP", "MOD", "EXCLUSIVE", "BUNDLE", "SUBSCRIPTION", "ACCESS"]),
   creditPrice: z.number().int().min(0).default(0),
   priceCents: z.number().int().min(0).default(0),
+  creditsAmount: z.number().int().min(0).optional().nullable(),
   stripePriceId: z.string().max(120).optional().nullable(),
   modId: z.string().cuid().optional().nullable(),
   membershipPlanId: z.string().cuid().optional().nullable(),
@@ -32,15 +38,18 @@ export async function listAdminShopProducts() {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
-  const products = await prisma.shopProduct.findMany({
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    include: {
-      mod: { select: { title: true, slug: true } },
-      membershipPlan: { select: { name: true, slug: true } },
-      _count: { select: { purchases: true } },
-    },
-  });
-  return ok(products);
+  return actionTry(
+    () =>
+      prisma.shopProduct.findMany({
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+        include: {
+          mod: { select: { title: true, slug: true } },
+          membershipPlan: { select: { name: true, slug: true } },
+          _count: { select: { purchases: true } },
+        },
+      }),
+    "shop:list"
+  );
 }
 
 export async function createShopProduct(input: z.infer<typeof productSchema>) {
@@ -48,29 +57,32 @@ export async function createShopProduct(input: z.infer<typeof productSchema>) {
   if (error) return error;
 
   const parsed = productSchema.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.message);
+  if (!parsed.success) return fail(formatZodError(parsed.error));
 
-  const slug = parsed.data.slug ?? slugify(parsed.data.name);
-  let uniqueSlug = slug;
-  let i = 0;
-  while (await prisma.shopProduct.findUnique({ where: { slug: uniqueSlug } })) {
-    uniqueSlug = `${slug}-${++i}`;
-  }
+  return actionTry(async () => {
+    const slug = parsed.data.slug ?? slugify(parsed.data.name);
+    let uniqueSlug = slug;
+    let i = 0;
+    while (await prisma.shopProduct.findUnique({ where: { slug: uniqueSlug } })) {
+      uniqueSlug = `${slug}-${++i}`;
+    }
 
-  const product = await prisma.shopProduct.create({
-    data: {
-      ...parsed.data,
-      slug: uniqueSlug,
-      modId: parsed.data.modId || null,
-      membershipPlanId: parsed.data.membershipPlanId || null,
-      stripePriceId: parsed.data.stripePriceId || null,
-      stock: parsed.data.stock ?? null,
-    },
-  });
+    const product = await prisma.shopProduct.create({
+      data: {
+        ...parsed.data,
+        slug: uniqueSlug,
+        modId: parsed.data.modId || null,
+        membershipPlanId: parsed.data.membershipPlanId || null,
+        stripePriceId: parsed.data.stripePriceId || null,
+        creditsAmount: parsed.data.creditsAmount ?? null,
+        stock: parsed.data.stock ?? null,
+      },
+    });
 
-  revalidatePath("/admin/shop");
-  revalidatePath("/shop");
-  return ok(product);
+    revalidatePath("/admin/shop");
+    revalidatePath("/shop");
+    return product;
+  }, "shop:create");
 }
 
 export async function updateShopProduct(id: string, input: Partial<z.infer<typeof productSchema>>) {
@@ -78,33 +90,38 @@ export async function updateShopProduct(id: string, input: Partial<z.infer<typeo
   if (error) return error;
 
   const parsed = productSchema.partial().safeParse(input);
-  if (!parsed.success) return fail(parsed.error.message);
+  if (!parsed.success) return fail(formatZodError(parsed.error));
 
-  const product = await prisma.shopProduct.update({
-    where: { id },
-    data: {
-      ...parsed.data,
-      modId: parsed.data.modId === undefined ? undefined : parsed.data.modId || null,
-      membershipPlanId:
-        parsed.data.membershipPlanId === undefined ? undefined : parsed.data.membershipPlanId || null,
-      stripePriceId:
-        parsed.data.stripePriceId === undefined ? undefined : parsed.data.stripePriceId || null,
-    },
-  });
+  return actionTry(async () => {
+    const product = await prisma.shopProduct.update({
+      where: { id },
+      data: {
+        ...parsed.data,
+        modId: parsed.data.modId === undefined ? undefined : parsed.data.modId || null,
+        membershipPlanId:
+          parsed.data.membershipPlanId === undefined ? undefined : parsed.data.membershipPlanId || null,
+        stripePriceId:
+          parsed.data.stripePriceId === undefined ? undefined : parsed.data.stripePriceId || null,
+        creditsAmount:
+          parsed.data.creditsAmount === undefined ? undefined : parsed.data.creditsAmount ?? null,
+      },
+    });
 
-  revalidatePath("/admin/shop");
-  revalidatePath("/shop");
-  return ok(product);
+    revalidatePath("/admin/shop");
+    revalidatePath("/shop");
+    return product;
+  }, "shop:update");
 }
 
 export async function deleteShopProduct(id: string) {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
-  await prisma.shopProduct.delete({ where: { id } });
-  revalidatePath("/admin/shop");
-  revalidatePath("/shop");
-  return ok(undefined);
+  return actionTry(async () => {
+    await prisma.shopProduct.delete({ where: { id } });
+    revalidatePath("/admin/shop");
+    revalidatePath("/shop");
+  }, "shop:delete");
 }
 
 export type { ShopProductCategory, ShopProductType };

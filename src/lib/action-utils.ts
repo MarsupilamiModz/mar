@@ -1,5 +1,7 @@
+import type { ZodError } from "zod";
 import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
+import { prismaErrorMessage } from "@/lib/errors";
 import { isAdmin, isStaff, type PermissionKey } from "@/lib/permissions";
 import { userHasPermission } from "@/lib/permission-store";
 
@@ -13,6 +15,30 @@ export function ok<T>(data: T): ActionResult<T> {
 
 export function fail(error: string): ActionResult<never> {
   return { success: false, error };
+}
+
+export function formatZodError(error: ZodError): string {
+  const first = error.errors[0];
+  if (!first) return "Validation failed";
+  const path = first.path.join(".");
+  return path ? `${path}: ${first.message}` : first.message;
+}
+
+export { prismaErrorMessage } from "@/lib/errors";
+
+export async function actionTry<T>(
+  fn: () => Promise<T>,
+  context?: string
+): Promise<ActionResult<T>> {
+  try {
+    return ok(await fn());
+  } catch (err) {
+    if (context) {
+      const { logPlatformError } = await import("@/lib/platform-log");
+      void logPlatformError(context, err);
+    }
+    return fail(prismaErrorMessage(err));
+  }
 }
 
 export async function requireActionUser() {

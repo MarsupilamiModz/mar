@@ -53,10 +53,15 @@ export function CategoryTreeEditor({
       }
       return c;
     });
+    const prevFlat = flat;
     setFlat(nextFlat);
 
     startTransition(async () => {
-      await reorderCategories(gameId, reordered.map((c) => c.id));
+      const r = await reorderCategories(gameId, reordered.map((c) => c.id));
+      if (!r.success) {
+        setFlat(prevFlat);
+        toast({ title: r.error, variant: "destructive" });
+      }
     });
   }
 
@@ -92,7 +97,7 @@ export function CategoryTreeEditor({
                         prev.map((c) => (c.id === cat.id ? { ...c, name: e.target.value } : c))
                       );
                       toast({ title: t("categorySaved") });
-                    }
+                    } else toast({ title: r.error, variant: "destructive" });
                   });
                 }}
               />
@@ -100,14 +105,17 @@ export function CategoryTreeEditor({
                 <input
                   type="checkbox"
                   defaultChecked={cat.isVisible}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const checked = e.target.checked;
                     startTransition(async () => {
-                      await updateGameCategory(cat.id, { isVisible: e.target.checked });
-                      setFlat((prev) =>
-                        prev.map((c) => (c.id === cat.id ? { ...c, isVisible: e.target.checked } : c))
-                      );
-                    })
-                  }
+                      const r = await updateGameCategory(cat.id, { isVisible: checked });
+                      if (r.success) {
+                        setFlat((prev) =>
+                          prev.map((c) => (c.id === cat.id ? { ...c, isVisible: checked } : c))
+                        );
+                      } else toast({ title: r.error, variant: "destructive" });
+                    });
+                  }}
                 />
                 {t("visible")}
               </label>
