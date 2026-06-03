@@ -13,6 +13,15 @@ const protectedPrefixes = ["/dashboard", "/admin", "/creator", "/designer", "/ba
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  if (pathname.startsWith("/api")) {
+    if (pathname.startsWith("/api/auth/callback")) {
+      return NextResponse.next();
+    }
+    return updateSession(request);
+  }
+
+  const sessionResponse = await updateSession(request);
   const localeMatch = pathname.match(localeRegex);
   const locale = localeMatch?.[1] ?? defaultLocale;
   const pathWithoutLocale = pathname.replace(localeRegex, "") || "/";
@@ -20,7 +29,6 @@ export async function middleware(request: NextRequest) {
   const isProtected = protectedPrefixes.some((p) => pathWithoutLocale.startsWith(p));
 
   if (isProtected) {
-    await updateSession(request);
     const hasSession = request.cookies
       .getAll()
       .some((c) => c.name.includes("auth-token") || c.name.includes("sb-"));
@@ -30,13 +38,17 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
-    return intlMiddleware(request);
   }
 
-  const response = intlMiddleware(request);
-  return response;
+  const intlResponse = intlMiddleware(request);
+
+  sessionResponse.cookies.getAll().forEach((cookie) => {
+    intlResponse.cookies.set(cookie.name, cookie.value);
+  });
+
+  return intlResponse;
 }
 
 export const config = {
-  matcher: ["/((?!api|_next|.*\\..*).*)"],
+  matcher: ["/((?!_next|.*\\..*).*)"],
 };

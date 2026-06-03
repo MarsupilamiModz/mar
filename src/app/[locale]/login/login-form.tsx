@@ -21,6 +21,16 @@ export function LoginForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const authError = searchParams.get("error");
+  const authErrorMessage =
+    authError === "db_sync"
+      ? "Account sync failed. Please try again or contact support."
+      : authError === "auth_exchange"
+        ? "Discord sign-in failed. Please try again."
+        : authError
+          ? "Sign-in failed. Please try again."
+          : "";
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -37,13 +47,23 @@ export function LoginForm() {
   }
 
   async function loginWithDiscord() {
+    setLoading(true);
+    setError("");
     const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
+    const callbackUrl = new URL("/api/auth/callback", window.location.origin);
+    callbackUrl.searchParams.set("next", searchParams.get("redirect") ?? `/${locale}/dashboard`);
+    callbackUrl.searchParams.set("locale", locale);
+
+    const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "discord",
       options: {
-        redirectTo: `${window.location.origin}/${locale}/dashboard`,
+        redirectTo: callbackUrl.toString(),
       },
     });
+    if (err) {
+      setError(err.message);
+      setLoading(false);
+    }
   }
 
   return (
@@ -66,11 +86,12 @@ export function LoginForm() {
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="mt-1" />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
+          {!error && authErrorMessage && <p className="text-sm text-destructive">{authErrorMessage}</p>}
           <Button variant="neon" className="w-full" type="submit" disabled={loading}>
             {t("login")}
           </Button>
         </form>
-        <Button variant="outline" className="w-full mt-4" onClick={loginWithDiscord}>
+        <Button variant="outline" className="w-full mt-4" onClick={loginWithDiscord} disabled={loading}>
           {t("discord")}
         </Button>
         <p className="mt-4 text-center text-sm text-muted-foreground">

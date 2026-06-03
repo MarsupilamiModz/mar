@@ -34,11 +34,15 @@ export function AdminGamesList({ locale, games: initial }: { locale: string; gam
     const target = index + direction;
     if (target < 0 || target >= next.length) return;
     [next[index], next[target]] = [next[target], next[index]];
+    const prev = games;
     setGames(next);
     startTransition(async () => {
       const r = await reorderGames(next.map((g) => g.id));
       if (r.success) router.refresh();
-      else appToast.error(r.error);
+      else {
+        setGames(prev);
+        appToast.error(r.error);
+      }
     });
   }
 

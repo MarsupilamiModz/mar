@@ -12,7 +12,14 @@ import type { NavUser } from "@/components/layout/user-nav";
 import type { Locale } from "@/i18n/config";
 
 async function HeaderWithUser({ locale }: { locale: string }) {
-  const [user, t] = await Promise.all([getNavUser(), getTranslations("nav")]);
+  let user: NavUser | null = null;
+  try {
+    user = await getNavUser();
+  } catch (err) {
+    console.error("[header] getNavUser failed", err);
+  }
+
+  const t = await getTranslations("nav");
   const defaults = NAV_LABEL_DEFAULTS[locale as Locale] ?? NAV_LABEL_DEFAULTS.en;
 
   const navLabels: NavLabels = {

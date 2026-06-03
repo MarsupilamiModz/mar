@@ -25,14 +25,35 @@ export async function getAdminSystemHealth() {
   const checks: { name: string; ok: boolean; detail?: string }[] = [];
 
   try {
-    const { prisma } = await import("@/lib/db");
-    await prisma.$queryRaw`SELECT 1`;
-    checks.push({ name: "Database", ok: true });
+    const { checkDbHealth } = await import("@/lib/db");
+    const db = await checkDbHealth();
+    checks.push({
+      name: "Database (Prisma)",
+      ok: db.ok,
+      detail: db.ok ? "Connected" : db.detail,
+    });
   } catch (err) {
     checks.push({
-      name: "Database",
+      name: "Database (Prisma)",
       ok: false,
       detail: err instanceof Error ? err.message : "Connection failed",
+    });
+  }
+
+  try {
+    const { createClient } = await import("@/lib/supabase/server");
+    const supabase = await createClient();
+    const { error } = await supabase.auth.getUser();
+    checks.push({
+      name: "Supabase Auth",
+      ok: !error,
+      detail: error ? error.message : "Reachable",
+    });
+  } catch (err) {
+    checks.push({
+      name: "Supabase Auth",
+      ok: false,
+      detail: err instanceof Error ? err.message : "Unreachable",
     });
   }
 

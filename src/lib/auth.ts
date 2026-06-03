@@ -2,83 +2,44 @@ import { cache } from "react";
 import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
-import { prisma } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin, isStaff, isDesigner, canAccessStudio } from "@/lib/permissions";
 import { userHasPermission } from "@/lib/permission-store";
+import { ensurePrismaUser } from "@/lib/user-sync";
+import { logPlatformError } from "@/lib/platform-log";
 import type { PermissionKey } from "@/lib/permissions";
 
 export const getSession = cache(async () => {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (error) {
+      console.error("[getSession]", error.message);
+      return null;
+    }
+    return user;
+  } catch (err) {
+    console.error("[getSession]", err);
+    return null;
+  }
 });
 
 export const getCurrentUser = cache(async () => {
   const session = await getSession();
   if (!session) return null;
 
-  let user = await prisma.user.findUnique({
-    where: { supabaseId: session.id },
-    include: {
-      creatorProfile: true,
-      designerProfile: true,
-      subscriptions: { where: { status: "ACTIVE" }, select: { status: true } },
-    },
-  });
-
-  if (user?.deletedAt) return null;
-
-  if (!user) {
-    const email =
-      session.email?.trim() ||
-      session.user_metadata?.email?.trim() ||
-      `${session.id}@auth.local`;
-
-    const usernameBase =
-      session.email?.split("@")[0] ??
-      session.user_metadata?.preferred_username ??
-      session.user_metadata?.full_name ??
-      `user_${session.id.slice(0, 8)}`;
-    const base = String(usernameBase).replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "user";
-    let uniqueUsername = base;
-    let i = 0;
-    while (await prisma.user.findUnique({ where: { username: uniqueUsername } })) {
-      uniqueUsername = `${base}${++i}`;
-    }
-
-    try {
-      user = await prisma.user.create({
-        data: {
-          supabaseId: session.id,
-          email,
-          username: uniqueUsername,
-          displayName: session.user_metadata?.full_name ?? uniqueUsername,
-          avatarUrl: session.user_metadata?.avatar_url,
-          emailVerified: !!session.email_confirmed_at,
-          discordId: session.user_metadata?.provider_id,
-        },
-        include: {
-          creatorProfile: true,
-          designerProfile: true,
-          subscriptions: { where: { status: "ACTIVE" }, select: { status: true } },
-        },
-      });
-    } catch (error) {
-      // Race: another request may have created the user first.
-      user = await prisma.user.findUnique({
-        where: { supabaseId: session.id },
-        include: {
-          creatorProfile: true,
-          designerProfile: true,
-          subscriptions: { where: { status: "ACTIVE" }, select: { status: true } },
-        },
-      });
-      if (!user) throw error;
-    }
+  try {
+    const user = await ensurePrismaUser(session);
+    if (user?.deletedAt) return null;
+    return user;
+  } catch (err) {
+    void logPlatformError("auth:get-current-user", err);
+    console.error("[getCurrentUser]", err);
+    return null;
   }
-
-  return user;
 });
 
 export async function requireAuth(redirectTo?: string) {

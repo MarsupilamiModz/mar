@@ -4,7 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
-import { fail, ok, requireActionPermission } from "@/lib/action-utils";
+import { fail, ok, requireActionPermission, actionTry, formatZodError } from "@/lib/action-utils";
 import { uploadAsset } from "@/lib/asset-storage";
 import { extensionForMime, validateUploadFile } from "@/lib/upload-validation";
 import { CACHE_TAGS } from "@/lib/cache";
@@ -26,12 +26,14 @@ export async function getAdminGames() {
   const { error } = await requireActionPermission("games.write");
   if (error) return error;
 
-  const games = await prisma.game.findMany({
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    include: { _count: { select: { mods: true, categories: true } } },
-  });
-
-  return ok(games);
+  return actionTry(
+    () =>
+      prisma.game.findMany({
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        include: { _count: { select: { mods: true, categories: true } } },
+      }),
+    "games:list"
+  );
 }
 
 export async function getAdminGame(id: string) {
@@ -53,37 +55,39 @@ export async function createGame(input: z.infer<typeof gameSchema>) {
   if (error) return error;
 
   const parsed = gameSchema.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.message);
+  if (!parsed.success) return fail(formatZodError(parsed.error));
 
-  const slug = parsed.data.slug ?? slugify(parsed.data.name);
-  const exists = await prisma.game.findUnique({ where: { slug } });
-  if (exists) return fail("Slug already exists");
+  return actionTry(async () => {
+    const slug = parsed.data.slug ?? slugify(parsed.data.name);
+    const exists = await prisma.game.findUnique({ where: { slug } });
+    if (exists) throw new Error("Slug already exists");
 
-  const game = await prisma.game.create({
-    data: {
-      name: parsed.data.name,
-      slug,
-      description: parsed.data.description,
-      shortDescription: parsed.data.shortDescription,
-      seoTitle: parsed.data.seoTitle ?? parsed.data.name,
-      seoDescription: parsed.data.seoDescription ?? parsed.data.description?.slice(0, 160),
-      isFeatured: parsed.data.isFeatured ?? false,
-      isActive: parsed.data.isActive ?? true,
-      sortOrder: parsed.data.sortOrder ?? 0,
-    },
-  });
+    const game = await prisma.game.create({
+      data: {
+        name: parsed.data.name,
+        slug,
+        description: parsed.data.description,
+        shortDescription: parsed.data.shortDescription,
+        seoTitle: parsed.data.seoTitle ?? parsed.data.name,
+        seoDescription: parsed.data.seoDescription ?? parsed.data.description?.slice(0, 160),
+        isFeatured: parsed.data.isFeatured ?? false,
+        isActive: parsed.data.isActive ?? true,
+        sortOrder: parsed.data.sortOrder ?? 0,
+      },
+    });
 
-  await createAuditLog({
-    actorId: user.id,
-    action: "game.create",
-    entityType: "Game",
-    entityId: game.id,
-  });
+    await createAuditLog({
+      actorId: user.id,
+      action: "game.create",
+      entityType: "Game",
+      entityId: game.id,
+    });
 
-  revalidatePath("/");
-  revalidatePath("/games");
-  revalidatePath("/admin/games");
-  return ok(game);
+    revalidatePath("/");
+    revalidatePath("/games");
+    revalidatePath("/admin/games");
+    return game;
+  }, "games:create");
 }
 
 export async function updateGame(id: string, input: z.infer<typeof gameSchema>) {
@@ -91,56 +95,59 @@ export async function updateGame(id: string, input: z.infer<typeof gameSchema>) 
   if (error) return error;
 
   const parsed = gameSchema.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.message);
+  if (!parsed.success) return fail(formatZodError(parsed.error));
 
-  const game = await prisma.game.update({
-    where: { id },
-    data: {
-      name: parsed.data.name,
-      ...(parsed.data.slug && { slug: parsed.data.slug }),
-      description: parsed.data.description,
-      shortDescription: parsed.data.shortDescription,
-      seoTitle: parsed.data.seoTitle,
-      seoDescription: parsed.data.seoDescription,
-      isFeatured: parsed.data.isFeatured,
-      isActive: parsed.data.isActive,
-      sortOrder: parsed.data.sortOrder,
-    },
-  });
+  return actionTry(async () => {
+    const game = await prisma.game.update({
+      where: { id },
+      data: {
+        name: parsed.data.name,
+        ...(parsed.data.slug && { slug: parsed.data.slug }),
+        description: parsed.data.description,
+        shortDescription: parsed.data.shortDescription,
+        seoTitle: parsed.data.seoTitle,
+        seoDescription: parsed.data.seoDescription,
+        isFeatured: parsed.data.isFeatured,
+        isActive: parsed.data.isActive,
+        sortOrder: parsed.data.sortOrder,
+      },
+    });
 
-  await createAuditLog({
-    actorId: user.id,
-    action: "game.update",
-    entityType: "Game",
-    entityId: id,
-  });
+    await createAuditLog({
+      actorId: user.id,
+      action: "game.update",
+      entityType: "Game",
+      entityId: id,
+    });
 
-  revalidatePath("/");
-  revalidatePath("/games");
-  revalidatePath(`/games/${game.slug}`);
-  revalidatePath("/admin/games");
-  return ok(game);
+    revalidatePath("/");
+    revalidatePath("/games");
+    revalidatePath(`/games/${game.slug}`);
+    revalidatePath("/admin/games");
+    return game;
+  }, "games:update");
 }
 
 export async function deleteGame(id: string) {
   const { user, error } = await requireActionPermission("games.write");
   if (error) return error;
 
-  const modCount = await prisma.mod.count({ where: { gameId: id } });
-  if (modCount > 0) return fail("Cannot delete game with existing mods");
+  return actionTry(async () => {
+    const modCount = await prisma.mod.count({ where: { gameId: id } });
+    if (modCount > 0) throw new Error("Cannot delete game with existing mods");
 
-  await prisma.game.delete({ where: { id } });
+    await prisma.game.delete({ where: { id } });
 
-  await createAuditLog({
-    actorId: user.id,
-    action: "game.delete",
-    entityType: "Game",
-    entityId: id,
-  });
+    await createAuditLog({
+      actorId: user.id,
+      action: "game.delete",
+      entityType: "Game",
+      entityId: id,
+    });
 
-  revalidatePath("/");
-  revalidatePath("/admin/games");
-  return ok(undefined);
+    revalidatePath("/");
+    revalidatePath("/admin/games");
+  }, "games:delete");
 }
 
 export async function uploadGameAsset(
@@ -306,19 +313,20 @@ export async function reorderGames(ids: string[]) {
   const { user, error } = await requireActionPermission("games.write");
   if (error) return error;
 
-  await prisma.$transaction(
-    ids.map((id, index) => prisma.game.update({ where: { id }, data: { sortOrder: index } }))
-  );
+  return actionTry(async () => {
+    await prisma.$transaction(
+      ids.map((id, index) => prisma.game.update({ where: { id }, data: { sortOrder: index } }))
+    );
 
-  await createAuditLog({
-    actorId: user.id,
-    action: "game.reorder",
-    entityType: "Game",
-    entityId: "bulk",
-  });
+    await createAuditLog({
+      actorId: user.id,
+      action: "game.reorder",
+      entityType: "Game",
+      entityId: "bulk",
+    });
 
-  revalidatePath("/");
-  revalidatePath("/admin/games");
-  revalidateTag(CACHE_TAGS.games);
-  return ok(undefined);
+    revalidatePath("/");
+    revalidatePath("/admin/games");
+    revalidateTag(CACHE_TAGS.games);
+  }, "games:reorder");
 }
