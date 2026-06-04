@@ -10,6 +10,8 @@ import { formatDisplayName } from "@/lib/display-name";
 import { FollowButton } from "@/components/creator/follow-button";
 import { CreatorLevelBadge } from "@/components/creator/creator-level-badge";
 import { getAppUrl } from "@/lib/app-url";
+import { getShowcasedAchievements } from "@/lib/achievements";
+import { ProfileShowcase } from "@/components/achievements/profile-showcase";
 import type { Locale } from "@/i18n/config";
 
 export const revalidate = REVALIDATE.catalog;
@@ -30,6 +32,8 @@ export default async function PartnerProfilePage({
     },
   });
   if (!profile) notFound();
+
+  const showcased = await getShowcasedAchievements(profile.userId, locale);
 
   const referralLink = profile.affiliateCode
     ? `${getAppUrl()}/${locale}?ref=${profile.affiliateCode}`
@@ -81,11 +85,14 @@ export default async function PartnerProfilePage({
           </div>
         </div>
       </section>
-      {profile.description && (
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      {(showcased.length > 0 || profile.description) && (
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-6">
+          {showcased.length > 0 && <ProfileShowcase achievements={showcased} />}
+          {profile.description && (
           <Card className="glass p-6">
             <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{profile.description}</p>
           </Card>
+          )}
         </div>
       )}
     </div>

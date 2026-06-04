@@ -7,6 +7,7 @@ import type { AchievementRarity, CreatorRankTier } from "@prisma/client";
 type ShowcaseAchievement = {
   id: string;
   name: string;
+  description?: string | null;
   icon?: string | null;
   rarity: AchievementRarity;
   animated?: boolean;
@@ -40,9 +41,10 @@ export function ProfileShowcase({
         <div className="flex flex-wrap gap-3">
           {achievements.map((a) => (
             <AchievementBadge
-              key={a.id}
-              name={a.name}
-              icon={a.icon}
+            key={a.id}
+            name={a.name}
+            description={a.description}
+            icon={a.icon}
               rarity={a.rarity}
               animated={a.animated}
               glowEffect={a.glowEffect}

@@ -37,6 +37,9 @@ type TicketRow = {
   priority: TicketPriority;
   status: TicketStatus;
   updatedAt: Date;
+  slaResponseDueAt: Date | null;
+  slaResolveDueAt: Date | null;
+  firstResponseAt: Date | null;
   user: { username: string };
   assignee: { username: string } | null;
   _count: { messages: number };
@@ -78,7 +81,27 @@ export function TicketsTable({
   }
 
   const priorityColor = (p: TicketPriority) =>
-    p === "URGENT" ? "destructive" : p === "HIGH" ? "premium" : "outline";
+    p === "CRITICAL" || p === "URGENT"
+      ? "destructive"
+      : p === "HIGH"
+        ? "premium"
+        : "outline";
+
+  function isSlaOverdue(t: TicketRow) {
+    const now = Date.now();
+    if (!t.firstResponseAt && t.slaResponseDueAt && new Date(t.slaResponseDueAt).getTime() < now) {
+      return true;
+    }
+    if (
+      t.status !== "CLOSED" &&
+      t.status !== "RESOLVED" &&
+      t.slaResolveDueAt &&
+      new Date(t.slaResolveDueAt).getTime() < now
+    ) {
+      return true;
+    }
+    return false;
+  }
 
   return (
     <div className="space-y-4">
@@ -146,7 +169,12 @@ export function TicketsTable({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{TICKET_STATUS_LABELS[t.status]}</Badge>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Badge variant="outline">{TICKET_STATUS_LABELS[t.status]}</Badge>
+                      {isSlaOverdue(t) && (
+                        <Badge variant="destructive" className="text-[10px]">SLA overdue</Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(t.updatedAt).toLocaleDateString()}

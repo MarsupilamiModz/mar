@@ -4,6 +4,8 @@ import { useTransition } from "react";
 import { TicketPriority, TicketStatus } from "@prisma/client";
 import {
   assignTicket,
+  claimTicket,
+  escalateTicket,
   updateTicketPriority,
   updateTicketStatus,
 } from "@/actions/tickets";
@@ -15,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { TICKET_PRIORITY_LABELS, TICKET_STATUS_LABELS } from "@/lib/ticket-labels";
 
@@ -24,12 +27,16 @@ export function TicketAdminPanel({
   priority,
   assigneeId,
   staffUsers,
+  slaResponseDueAt,
+  slaResolveDueAt,
 }: {
   ticketId: string;
   status: TicketStatus;
   priority: TicketPriority;
   assigneeId: string | null;
   staffUsers: { id: string; username: string }[];
+  slaResponseDueAt?: Date | null;
+  slaResolveDueAt?: Date | null;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -49,6 +56,39 @@ export function TicketAdminPanel({
         <CardTitle className="text-sm">Admin Controls</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {(slaResponseDueAt || slaResolveDueAt) && (
+          <div className="rounded-lg border border-border/40 bg-background/30 p-3 text-xs space-y-1">
+            <p className="font-medium text-muted-foreground">SLA</p>
+            {slaResponseDueAt && (
+              <p>Response due: {new Date(slaResponseDueAt).toLocaleString()}</p>
+            )}
+            {slaResolveDueAt && (
+              <p>Resolve due: {new Date(slaResolveDueAt).toLocaleString()}</p>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => run(() => claimTicket(ticketId), "Ticket claimed")}
+          >
+            Claim ticket
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => run(() => escalateTicket(ticketId), "Ticket escalated")}
+          >
+            Escalate
+          </Button>
+        </div>
+
         <div>
           <label className="text-xs text-muted-foreground">Status</label>
           <Select

@@ -129,12 +129,19 @@ enum TicketStatus {
   OPEN
   IN_PROGRESS
   WAITING_FOR_USER
+  WAITING_FOR_STAFF
+  ESCALATED
+  RESOLVED
   CLOSED
 }
 
 enum TicketCategory {
+  GENERAL_SUPPORT
+  TECHNICAL_SUPPORT
   BILLING
   PREMIUM_ACCESS
+  CREATOR_SUPPORT
+  PARTNER_SUPPORT
   BUG_REPORT
   CUSTOM_ORDERS
   MOD_ISSUES
@@ -146,6 +153,36 @@ enum TicketPriority {
   NORMAL
   HIGH
   URGENT
+  CRITICAL
+}
+
+enum BannerDisplayType {
+  SMALL
+  FEATURED
+  CUSTOM
+}
+
+enum BannerAlign {
+  CENTER
+  TOP
+  BOTTOM
+  LEFT
+  RIGHT
+}
+
+enum NotificationType {
+  MESSAGE
+  TICKET_REPLY
+  CREATOR_ANNOUNCEMENT
+  PARTNER_ANNOUNCEMENT
+  MOD_UPDATE
+  ORDER_UPDATE
+  PREMIUM_ACTIVATED
+  PREMIUM_EXPIRING
+  NEW_FOLLOWER
+  COMMENT_REPLY
+  MENTION
+  SYSTEM
 }
 
 enum BillingType {
@@ -360,6 +397,12 @@ model Game {
   coverUrl        String?
   bannerUrl       String?
   iconUrl         String?
+  bannerDisplayType BannerDisplayType @default(FEATURED)
+  bannerHeightPx  Int?
+  bannerFocusX    Float             @default(50)
+  bannerFocusY    Float             @default(50)
+  bannerZoom      Float             @default(1)
+  bannerAlign     BannerAlign       @default(CENTER)
   seoTitle        String?
   seoDescription  String?
   isFeatured      Boolean  @default(false)
@@ -973,14 +1016,21 @@ model OrderAttachment {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(SYSTEM)
+  category  String?
   title     String
   body      String
   link      String?
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  read      Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@index([userId, type])
 }
 
 model AuditLog {
@@ -1024,6 +1074,12 @@ model SupportTicket {
   category     TicketCategory
   priority     TicketPriority @default(NORMAL)
   status       TicketStatus   @default(OPEN)
+  tags         Json?
+  slaResponseDueAt DateTime?
+  slaResolveDueAt  DateTime?
+  firstResponseAt  DateTime?
+  escalatedAt      DateTime?
+  mergedIntoId     String?
   closedAt     DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
@@ -1037,6 +1093,8 @@ model SupportTicket {
   @@index([assigneeId])
   @@index([priority])
   @@index([createdAt])
+  @@index([slaResponseDueAt])
+  @@index([slaResolveDueAt])
 }
 
 model TicketMessage {
@@ -1047,6 +1105,7 @@ model TicketMessage {
   sender    User     @relation(fields: [senderId], references: [id])
   content   String   @db.Text
   isStaff   Boolean  @default(false)
+  isInternal Boolean @default(false)
   createdAt DateTime @default(now())
 
   attachments TicketAttachment[]

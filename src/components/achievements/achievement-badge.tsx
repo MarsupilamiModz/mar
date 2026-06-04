@@ -6,6 +6,7 @@ import type { AchievementRarity } from "@prisma/client";
 
 type AchievementBadgeProps = {
   name: string;
+  description?: string | null;
   icon?: string | null;
   rarity: AchievementRarity;
   animated?: boolean;
@@ -17,6 +18,7 @@ type AchievementBadgeProps = {
 
 export function AchievementBadge({
   name,
+  description,
   icon,
   rarity,
   animated = false,
@@ -31,7 +33,7 @@ export function AchievementBadge({
   return (
     <div
       className={cn("group relative inline-flex flex-col items-center", className)}
-      title={`${name}${unlockedAt ? ` · ${unlockedAt.toLocaleDateString()}` : ""}`}
+      title={`${name}${description ? ` — ${description}` : ""}${unlockedAt ? ` · ${unlockedAt.toLocaleDateString()}` : ""}`}
     >
       <div
         className={cn(
@@ -46,8 +48,10 @@ export function AchievementBadge({
       </div>
       <span className="mt-1 max-w-[72px] truncate text-[10px] text-muted-foreground text-center">{name}</span>
       <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <div className="glass rounded px-2 py-1 text-xs whitespace-nowrap border" style={{ borderColor: `${style.color}60` }}>
+        <div className="glass rounded px-2 py-1 text-xs max-w-[200px] border" style={{ borderColor: `${style.color}60` }}>
           <span style={{ color: style.color }}>{style.label}</span> · {name}
+          {description && <p className="text-muted-foreground mt-0.5 line-clamp-2">{description}</p>}
+          {unlockedAt && <p className="text-[10px] text-muted-foreground mt-0.5">{unlockedAt.toLocaleDateString()}</p>}
         </div>
       </div>
     </div>

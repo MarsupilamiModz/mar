@@ -9,6 +9,8 @@ import { fail, ok, requireActionPermission, requireActionUser, type ActionResult
 import { hasPermission } from "@/lib/permissions";
 import { ALLOWED_UPLOAD_TYPES, uploadToR2 } from "@/lib/r2";
 import { sendTicketNotification } from "@/lib/email";
+import { notifyTicketReply } from "@/lib/notifications-service";
+import { computeSlaDueDates, isSlaOverdue } from "@/lib/sla";
 import { randomBytes } from "crypto";
 
 const createTicketSchema = z.object({
@@ -21,6 +23,7 @@ const createTicketSchema = z.object({
 const replySchema = z.object({
   ticketId: z.string().cuid(),
   content: z.string().min(1).max(10000),
+  isInternal: z.boolean().optional(),
 });
 
 async function generateTicketNumber() {
@@ -43,13 +46,18 @@ export async function createTicket(input: {
   if (!parsed.success) return fail(parsed.error.message);
 
   const ticketNumber = await generateTicketNumber();
+  const priority = parsed.data.priority ?? "NORMAL";
+  const sla = computeSlaDueDates(priority);
+
   const ticket = await prisma.supportTicket.create({
     data: {
       ticketNumber,
       userId: user.id,
       subject: parsed.data.subject,
       category: parsed.data.category,
-      priority: parsed.data.priority ?? "NORMAL",
+      priority,
+      slaResponseDueAt: sla.slaResponseDueAt,
+      slaResolveDueAt: sla.slaResolveDueAt,
       messages: {
         create: {
           senderId: user.id,
@@ -80,17 +88,18 @@ export async function createTicket(input: {
 export async function replyToTicket(
   ticketId: string,
   content: string,
-  isStaffOverride?: boolean
+  isStaffOverride?: boolean,
+  isInternal = false
 ) {
   const { user, error } = await requireActionUser();
   if (error) return error;
 
-  const parsed = replySchema.safeParse({ ticketId, content });
+  const parsed = replySchema.safeParse({ ticketId, content, isInternal });
   if (!parsed.success) return fail("Invalid message");
 
   const ticket = await prisma.supportTicket.findUnique({
     where: { id: ticketId },
-    include: { user: { select: { username: true, email: true, displayName: true } } },
+    include: { user: { select: { id: true, username: true, email: true, displayName: true } } },
   });
   if (!ticket) return fail("Ticket not found");
 
@@ -98,6 +107,7 @@ export async function replyToTicket(
 
   if (!isStaff && ticket.userId !== user.id) return fail("Forbidden");
   if (ticket.status === "CLOSED" && !isStaff) return fail("Ticket is closed");
+  if (isInternal && !isStaff) return fail("Forbidden");
 
   await prisma.ticketMessage.create({
     data: {
@@ -105,25 +115,55 @@ export async function replyToTicket(
       senderId: user.id,
       content: parsed.data.content,
       isStaff,
+      isInternal: isInternal && isStaff,
     },
   });
 
-  const newStatus: TicketStatus = isStaff ? "WAITING_FOR_USER" : "IN_PROGRESS";
+  const newStatus: TicketStatus = isInternal
+    ? ticket.status
+    : isStaff
+      ? "WAITING_FOR_USER"
+      : "WAITING_FOR_STAFF";
+
+  const updateData: {
+    status: TicketStatus;
+    updatedAt: Date;
+    firstResponseAt?: Date;
+  } = {
+    status: newStatus,
+    updatedAt: new Date(),
+  };
+
+  if (isStaff && !ticket.firstResponseAt && !isInternal) {
+    updateData.firstResponseAt = new Date();
+  }
+
   await prisma.supportTicket.update({
     where: { id: ticketId },
-    data: { status: newStatus, updatedAt: new Date() },
+    data: updateData,
   });
 
-  void sendTicketNotification({
-    type: "reply",
-    ticketNumber: ticket.ticketNumber,
-    subject: ticket.subject,
-    message: parsed.data.content,
-    username: isStaff
-      ? user.displayName ?? user.username
-      : ticket.user.displayName ?? ticket.user.username,
-    userEmail: isStaff ? ticket.user.email : undefined,
-  });
+  if (!isInternal) {
+    void sendTicketNotification({
+      type: "reply",
+      ticketNumber: ticket.ticketNumber,
+      subject: ticket.subject,
+      message: parsed.data.content,
+      username: isStaff
+        ? user.displayName ?? user.username
+        : ticket.user.displayName ?? ticket.user.username,
+      userEmail: isStaff ? ticket.user.email : undefined,
+    });
+
+    if (isStaff) {
+      void notifyTicketReply({
+        userId: ticket.user.id,
+        ticketNumber: ticket.ticketNumber,
+        subject: ticket.subject,
+        ticketId,
+      });
+    }
+  }
 
   revalidatePath(`/dashboard/support/${ticketId}`);
   revalidatePath(`/admin/tickets/${ticketId}`);
@@ -204,9 +244,14 @@ export async function updateTicketPriority(
   const { error } = await requireActionPermission("tickets.write");
   if (error) return error;
 
+  const sla = computeSlaDueDates(priority);
   await prisma.supportTicket.update({
     where: { id: ticketId },
-    data: { priority },
+    data: {
+      priority,
+      slaResponseDueAt: sla.slaResponseDueAt,
+      slaResolveDueAt: sla.slaResolveDueAt,
+    },
   });
 
   revalidatePath(`/admin/tickets/${ticketId}`);
@@ -271,7 +316,7 @@ export async function uploadTicketAttachment(formData: FormData) {
   }
 
   if (!ALLOWED_UPLOAD_TYPES.includes(file.type)) return fail("File type not allowed");
-  if (file.size > 10 * 1024 * 1024) return fail("File too large (max 10MB)");
+  if (file.size > 25 * 1024 * 1024) return fail("File too large (max 25MB)");
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const key = `tickets/${ticketId}/${randomBytes(8).toString("hex")}-${file.name}`;
@@ -390,5 +435,97 @@ export async function getTicketDetail(ticketId: string) {
     ticket.userId === user.id || hasPermission(user.role, "tickets.read");
   if (!canView) return fail("Forbidden");
 
-  return ok({ ticket });
+  const isStaff = hasPermission(user.role, "tickets.read");
+  const filteredMessages = isStaff
+    ? ticket.messages
+    : ticket.messages.filter((m) => !m.isInternal);
+
+  return ok({ ticket: { ...ticket, messages: filteredMessages } });
+}
+
+export async function claimTicket(ticketId: string) {
+  const { user, error } = await requireActionPermission("tickets.write");
+  if (error) return error;
+
+  await prisma.supportTicket.update({
+    where: { id: ticketId },
+    data: { assigneeId: user.id, status: "IN_PROGRESS" },
+  });
+
+  await createAuditLog({
+    actorId: user.id,
+    action: "ticket.claim",
+    entityType: "SupportTicket",
+    entityId: ticketId,
+  });
+
+  revalidatePath(`/admin/tickets/${ticketId}`);
+  return ok(undefined);
+}
+
+export async function escalateTicket(ticketId: string) {
+  const { user, error } = await requireActionPermission("tickets.write");
+  if (error) return error;
+
+  await prisma.supportTicket.update({
+    where: { id: ticketId },
+    data: {
+      status: "ESCALATED",
+      priority: "URGENT",
+      escalatedAt: new Date(),
+    },
+  });
+
+  await createAuditLog({
+    actorId: user.id,
+    action: "ticket.escalate",
+    entityType: "SupportTicket",
+    entityId: ticketId,
+  });
+
+  revalidatePath(`/admin/tickets/${ticketId}`);
+  return ok(undefined);
+}
+
+export async function addTicketTags(ticketId: string, tags: string[]) {
+  const { error } = await requireActionPermission("tickets.write");
+  if (error) return error;
+
+  const cleaned = Array.from(new Set(tags.map((t) => t.trim()).filter(Boolean))).slice(0, 20);
+  await prisma.supportTicket.update({
+    where: { id: ticketId },
+    data: { tags: cleaned },
+  });
+
+  revalidatePath(`/admin/tickets/${ticketId}`);
+  return ok(undefined);
+}
+
+export async function addInternalNote(ticketId: string, content: string) {
+  return replyToTicket(ticketId, content, true, true);
+}
+
+export async function getTicketSlaStatus(ticketId: string) {
+  const { error } = await requireActionPermission("tickets.read");
+  if (error) return error;
+
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    select: {
+      slaResponseDueAt: true,
+      slaResolveDueAt: true,
+      firstResponseAt: true,
+      status: true,
+    },
+  });
+  if (!ticket) return fail("Ticket not found");
+
+  const resolved = ticket.status === "RESOLVED" || ticket.status === "CLOSED";
+  return ok({
+    responseOverdue: isSlaOverdue(ticket.slaResponseDueAt, !!ticket.firstResponseAt || resolved),
+    resolveOverdue: isSlaOverdue(ticket.slaResolveDueAt, resolved),
+    slaResponseDueAt: ticket.slaResponseDueAt,
+    slaResolveDueAt: ticket.slaResolveDueAt,
+    firstResponseAt: ticket.firstResponseAt,
+  });
 }

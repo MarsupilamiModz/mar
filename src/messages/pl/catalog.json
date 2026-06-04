@@ -4,6 +4,7 @@
     "subtitle": "Wybierz grę, aby przeglądać mody, kategorie i wyróżnione pozycje.",
     "empty": "Brak aktywnych gier. Admini mogą dodać je w panelu.",
     "modsCount": "{count} modów",
+    "creatorsCount": "{count} twórców",
     "featured": "Wyróżnione",
     "trending": "Trendy",
     "premiumSection": "Wybór Premium",

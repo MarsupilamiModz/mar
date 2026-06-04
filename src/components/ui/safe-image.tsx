@@ -13,6 +13,7 @@ type SafeImageProps = {
   width?: number;
   height?: number;
   className?: string;
+  style?: React.CSSProperties;
   sizes?: string;
   priority?: boolean;
   loading?: "lazy" | "eager";
@@ -29,6 +30,7 @@ export function SafeImage({
   width,
   height,
   className,
+  style,
   sizes,
   priority,
   loading = "lazy",
@@ -61,6 +63,7 @@ export function SafeImage({
         alt={alt}
         fill
         className={className}
+        style={style}
         sizes={sizes ?? "100vw"}
         priority={priority}
         loading={priority ? undefined : loading}

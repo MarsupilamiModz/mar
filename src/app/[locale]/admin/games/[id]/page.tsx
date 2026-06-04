@@ -4,9 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAdminGame } from "@/actions/admin/games";
 import { GameForm } from "@/components/admin/game-form";
+import { GameBannerSettings } from "@/components/admin/game-banner-settings";
 import { CategoryTreeEditor } from "@/components/admin/category-tree-editor";
-import { GameCoverPanel } from "@/components/admin/game-cover-panel";
-import { getGameCoverOverrides } from "@/lib/branding";
 import type { Locale } from "@/i18n/config";
 
 export default async function EditGamePage({
@@ -21,8 +20,6 @@ export default async function EditGamePage({
   if (!result.success) notFound();
 
   const game = result.data;
-  const covers = await getGameCoverOverrides();
-  const coverOverride = covers[game.id] ?? null;
 
   return (
     <div className="space-y-8">
@@ -51,11 +48,18 @@ export default async function EditGamePage({
           coverUrl: game.coverUrl,
         }}
       />
-      <GameCoverPanel
+      <GameBannerSettings
         gameId={game.id}
-        gameName={game.name}
-        currentBanner={game.bannerUrl}
-        coverOverride={coverOverride}
+        bannerUrl={game.bannerUrl}
+        coverUrl={game.coverUrl}
+        settings={{
+          bannerDisplayType: game.bannerDisplayType,
+          bannerHeightPx: game.bannerHeightPx,
+          bannerFocusX: game.bannerFocusX,
+          bannerFocusY: game.bannerFocusY,
+          bannerZoom: game.bannerZoom,
+          bannerAlign: game.bannerAlign,
+        }}
       />
       <CategoryTreeEditor gameId={game.id} categories={game.categories} />
     </div>

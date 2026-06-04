@@ -6,6 +6,7 @@ import { syncDiscordRoles, logToDiscordWebhook } from "@/lib/discord";
 import { trackAffiliateConversion } from "@/actions/affiliate";
 import { grantMembershipPurchase } from "@/lib/membership";
 import { sendPaymentNotification, sendPremiumActivationEmail } from "@/lib/email/send";
+import { notifyPremiumActivated } from "@/lib/notifications-service";
 import type Stripe from "stripe";
 
 export async function POST(req: Request) {
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
                 username: user.displayName ?? user.username,
               });
             }
+            void notifyPremiumActivated(userId);
           }
 
           const refCode = session.metadata?.refCode;

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getAdminAnalytics } from "@/actions/admin/analytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { formatRoleLabel } from "@/lib/role-display";
 import { TICKET_STATUS_LABELS } from "@/lib/ticket-labels";
 import type { Locale } from "@/i18n/config";
 
@@ -92,7 +93,7 @@ export default async function AdminOverviewPage({ params: { locale } }: { params
                 className="flex justify-between text-sm hover:text-neon-purple"
               >
                 <span>@{u.username}</span>
-                <span className="text-muted-foreground">{u.role}</span>
+                <span className="text-muted-foreground">{formatRoleLabel(u.role)}</span>
               </Link>
             ))}
           </CardContent>

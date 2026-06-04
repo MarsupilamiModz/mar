@@ -4,6 +4,7 @@
     "subtitle": "Choisissez un jeu pour parcourir mods, catégories et sélections.",
     "empty": "Aucun jeu actif. Les admins peuvent en ajouter depuis le panel.",
     "modsCount": "{count} mods",
+    "creatorsCount": "{count} créateurs",
     "featured": "À la une",
     "trending": "Tendances",
     "premiumSection": "Sélection Premium",

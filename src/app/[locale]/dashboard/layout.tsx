@@ -13,10 +13,13 @@ import {
   Coins,
   Users,
   BookOpen,
+  Trophy,
 } from "lucide-react";
+import { formatRoleLabel } from "@/lib/role-display";
 
 const nav = [
   { href: "", icon: LayoutDashboard, label: "Overview" },
+  { href: "/achievements", icon: Trophy, label: "Achievements" },
   { href: "/support", icon: LifeBuoy, label: "Support" },
   { href: "/orders", icon: Package, label: "Custom Orders" },
   { href: "/library", icon: BookOpen, label: "Library" },
@@ -50,7 +53,7 @@ export default async function DashboardLayout({
       <aside className="hidden w-56 shrink-0 lg:block">
         <div className="glass rounded-xl p-4 sticky top-24">
           <p className="font-semibold truncate">{user.displayName ?? user.username}</p>
-          <p className="text-xs text-muted-foreground mb-4">{user.role}</p>
+          <p className="text-xs text-muted-foreground mb-4">{formatRoleLabel(user.role)}</p>
           <nav className="space-y-1">
             {navWithShop.map((item) => (
               <Link

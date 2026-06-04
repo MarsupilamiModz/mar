@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAppToast } from "@/hooks/use-app-toast";
-import { ROLE_LABELS } from "@/lib/ticket-labels";
+import { formatRoleLabel, formatGroupLabel, ROLE_HIERARCHY_LABEL } from "@/lib/role-display";
 
 type Group = {
   id: string;
@@ -109,17 +109,21 @@ export function GroupsAdminPanel({
                 type="button"
                 onClick={() => selectRole(role)}
                 className={`w-full text-left rounded-md px-3 py-2 text-sm transition-colors ${
-                  activeRole === role ? "bg-neon-purple/15 text-neon-purple" : "hover:bg-accent/20"
+                  activeRole === role
+                    ? role === "OWNER"
+                      ? "bg-neon-purple/25 text-neon-purple font-semibold"
+                      : "bg-neon-purple/15 text-neon-purple"
+                    : "hover:bg-accent/20"
                 }`}
               >
-                {ROLE_LABELS[role] ?? role}
+                {formatRoleLabel(role)}
               </button>
             ))}
           </Card>
 
           <Card className="glass p-5 space-y-4 lg:col-span-2">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-semibold">{ROLE_LABELS[activeRole] ?? activeRole} permissions</h3>
+              <h3 className="font-semibold">{formatRoleLabel(activeRole)} permissions</h3>
               <Badge variant="outline">{inheritedPreview().length} effective (with inheritance)</Badge>
             </div>
             <div className="max-h-64 overflow-y-auto space-y-1 text-sm grid sm:grid-cols-2 gap-x-4">
@@ -135,7 +139,7 @@ export function GroupsAdminPanel({
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              Higher roles inherit permissions from lower tiers: {ROLE_HIERARCHY.join(" → ")}
+              Higher roles inherit permissions from lower tiers: {ROLE_HIERARCHY_LABEL}
             </p>
             <Button
               variant="neon"
@@ -164,7 +168,7 @@ export function GroupsAdminPanel({
                 onClick={() => startEdit(g)}
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">{g.name}</h3>
+                  <h3 className="font-semibold">{formatGroupLabel(g.name, g.slug)}</h3>
                   {g.isSystem && <Badge variant="outline">System</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground font-mono">{g.slug}</p>

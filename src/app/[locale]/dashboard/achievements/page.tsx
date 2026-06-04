@@ -1,0 +1,39 @@
+import { requireAuth } from "@/lib/auth";
+import { evaluateUserAchievements, getUserAchievements, getUserProgress } from "@/lib/achievements";
+import { AchievementShowcasePanel } from "@/components/dashboard/achievement-showcase-panel";
+import type { Locale } from "@/i18n/config";
+
+export default async function AchievementsPage({ params: { locale } }: { params: { locale: Locale } }) {
+  const user = await requireAuth(`/${locale}/login`);
+  void evaluateUserAchievements(user.id).catch(() => undefined);
+
+  const [achievements, progress] = await Promise.all([
+    getUserAchievements(user.id, locale),
+    getUserProgress(user.id),
+  ]);
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold">Achievements</h1>
+      <p className="text-muted-foreground mt-1">Choose up to 3 achievements to display on your public profile.</p>
+      <div className="mt-8">
+        <AchievementShowcasePanel
+          achievements={achievements.map((a) => ({
+            id: a.id,
+            name: a.name,
+            description: a.description,
+            icon: a.icon,
+            rarity: a.rarity,
+            animated: a.animated,
+            glowEffect: a.glowEffect,
+            unlockedAt: a.unlockedAt,
+            isShowcased: a.isShowcased,
+            showcaseOrder: a.showcaseOrder,
+          }))}
+          xp={progress?.xp ?? 0}
+          level={progress?.level ?? 1}
+        />
+      </div>
+    </div>
+  );
+}

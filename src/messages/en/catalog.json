@@ -4,6 +4,7 @@
     "subtitle": "Pick a title to browse mods, categories, and featured releases.",
     "empty": "No active games in the catalog. Staff can add titles from the admin panel.",
     "modsCount": "{count} mods",
+    "creatorsCount": "{count} creators",
     "featured": "Featured",
     "trending": "Trending",
     "premiumSection": "Premium picks",

@@ -5,6 +5,7 @@ export const CACHE_TAGS = {
   announcements: "announcements",
   creators: "creators",
   partners: "partners",
+  achievements: (userId: string) => `achievements-${userId}`,
 } as const;
 
 export const REVALIDATE = {

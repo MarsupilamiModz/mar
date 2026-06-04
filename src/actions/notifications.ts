@@ -1,19 +1,45 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db";
-import { ok, requireActionUser } from "@/lib/action-utils";
+import { actionTry, ok, requireActionUser } from "@/lib/action-utils";
+import {
+  getUnreadNotificationCount,
+  notifyUser,
+  type CreateNotificationInput,
+} from "@/lib/notifications-service";
 
-export async function getNotifications() {
+export async function getNotifications(params?: { search?: string; category?: string; limit?: number }) {
   const { user, error } = await requireActionUser();
   if (error) return error;
 
-  const notifications = await prisma.notification.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
-  return ok(notifications);
+  const limit = Math.min(params?.limit ?? 50, 100);
+  const where = {
+    userId: user.id,
+    ...(params?.category && params.category !== "all" && { category: params.category }),
+    ...(params?.search && {
+      OR: [
+        { title: { contains: params.search, mode: "insensitive" as const } },
+        { body: { contains: params.search, mode: "insensitive" as const } },
+      ],
+    }),
+  };
+
+  return actionTry(
+    () =>
+      prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: limit,
+      }),
+    "notifications:list"
+  );
+}
+
+export async function getUnreadNotificationsCount() {
+  const { user, error } = await requireActionUser();
+  if (error) return error;
+  return ok(await getUnreadNotificationCount(user.id));
 }
 
 export async function markNotificationRead(id: string) {
@@ -25,6 +51,7 @@ export async function markNotificationRead(id: string) {
     data: { read: true },
   });
 
+  revalidateTag(`notifications-${user.id}`);
   revalidatePath("/dashboard/notifications");
   return ok(undefined);
 }
@@ -38,15 +65,24 @@ export async function markAllNotificationsRead() {
     data: { read: true },
   });
 
+  revalidateTag(`notifications-${user.id}`);
   revalidatePath("/dashboard/notifications");
   return ok(undefined);
 }
 
-export async function createNotification(params: {
-  userId: string;
-  title: string;
-  body: string;
-  link?: string;
-}) {
-  await prisma.notification.create({ data: params });
+export async function deleteNotification(id: string) {
+  const { user, error } = await requireActionUser();
+  if (error) return error;
+
+  await prisma.notification.deleteMany({
+    where: { id, userId: user.id },
+  });
+
+  revalidateTag(`notifications-${user.id}`);
+  revalidatePath("/dashboard/notifications");
+  return ok(undefined);
+}
+
+export async function createNotification(params: CreateNotificationInput) {
+  await notifyUser(params);
 }

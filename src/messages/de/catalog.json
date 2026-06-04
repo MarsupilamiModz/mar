@@ -4,6 +4,7 @@
     "subtitle": "Wähle ein Spiel, um Mods, Kategorien und Highlights zu durchsuchen.",
     "empty": "Keine aktiven Spiele im Katalog. Admins können Titel im Admin-Bereich hinzufügen.",
     "modsCount": "{count} Mods",
+    "creatorsCount": "{count} Creators",
     "featured": "Highlights",
     "trending": "Trending",
     "premiumSection": "Premium-Auswahl",

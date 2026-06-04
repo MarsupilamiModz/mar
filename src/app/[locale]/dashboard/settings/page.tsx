@@ -48,6 +48,7 @@ export default async function SettingsPage({ params: { locale } }: { params: { l
           glowEffect: a.glowEffect,
           unlockedAt: a.unlockedAt,
           isShowcased: a.isShowcased,
+          showcaseOrder: a.showcaseOrder,
         }))}
         xp={progress?.xp ?? 0}
         level={progress?.level ?? 1}

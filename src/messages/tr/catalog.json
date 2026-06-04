@@ -4,6 +4,7 @@
     "subtitle": "Modları, kategorileri ve öne çıkanları görmek için bir oyun seç.",
     "empty": "Aktif oyun yok. Yöneticiler panelden ekleyebilir.",
     "modsCount": "{count} mod",
+    "creatorsCount": "{count} creator",
     "featured": "Öne çıkan",
     "trending": "Trend",
     "premiumSection": "Premium seçkisi",

@@ -325,13 +325,17 @@ export async function getGamePageData(slug: string) {
   const game = await getGameBySlug(slug);
   if (!game) return null;
 
-  const [featured, trending, premium] = await Promise.all([
+  const [featured, trending, premium, creatorCount] = await Promise.all([
     getFeaturedMods(8, game.id),
     getTrendingMods(12, game.id),
     getPremiumMods(8, game.id),
+    prisma.mod.groupBy({
+      by: ["authorId"],
+      where: { gameId: game.id, status: "PUBLISHED" },
+    }).then((rows) => rows.length),
   ]);
 
-  return { game, featured, trending, premium };
+  return { game, featured, trending, premium, creatorCount };
 }
 
 export async function getGamesAndCategories() {

@@ -44,7 +44,7 @@ import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
 import { ASSIGNABLE_ROLES } from "@/lib/permission-types";
 import { formatDisplayName } from "@/lib/display-name";
-import { ROLE_LABELS } from "@/lib/ticket-labels";
+import { formatRoleLabel, roleBadgeVariant } from "@/lib/role-display";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type UserRow = {
@@ -151,9 +151,9 @@ export function UsersTable({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All roles</SelectItem>
-            {Object.keys(ROLE_LABELS).map((r) => (
+            {ASSIGNABLE_ROLES.map((r) => (
               <SelectItem key={r} value={r}>
-                {ROLE_LABELS[r]}
+                {formatRoleLabel(r)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -220,7 +220,7 @@ export function UsersTable({
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{ROLE_LABELS[u.role]}</Badge>
+                    <Badge variant={roleBadgeVariant(u.role)}>{formatRoleLabel(u.role)}</Badge>
                     {u.isPremium && <Badge variant="premium" className="ml-1">PRO</Badge>}
                   </TableCell>
                   <TableCell>
@@ -252,11 +252,11 @@ export function UsersTable({
                               onClick={() =>
                                 handleAction(
                                   () => updateUserRole(u.id, role),
-                                  `Role updated to ${ROLE_LABELS[role]}`
+                                  `Role updated to ${formatRoleLabel(role)}`
                                 )
                               }
                             >
-                              Set {ROLE_LABELS[role]}
+                              Set {formatRoleLabel(role)}
                             </DropdownMenuItem>
                           )
                         )}

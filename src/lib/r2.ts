@@ -60,6 +60,8 @@ export const ALLOWED_UPLOAD_TYPES = [
   "application/zip",
   "application/x-zip-compressed",
   "application/octet-stream",
+  "application/pdf",
+  "text/plain",
 ];
 
 export const MAX_UPLOAD_SIZE = 500 * 1024 * 1024;

@@ -1,9 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { fail, ok, requireActionUser } from "@/lib/action-utils";
 import { evaluateUserAchievements } from "@/lib/achievements";
+import { SHOWCASE_MAX } from "@/lib/achievement-constants";
+import { revalidateAchievementShowcase } from "@/lib/showcase-revalidate";
 
 export async function toggleAchievementShowcase(userAchievementId: string, showcased: boolean) {
   const { user, error } = await requireActionUser();
@@ -14,7 +15,7 @@ export async function toggleAchievementShowcase(userAchievementId: string, showc
 
   if (showcased) {
     const count = await prisma.userAchievement.count({ where: { userId: user.id, isShowcased: true } });
-    if (count >= 6) return fail("Maximum 6 showcased achievements");
+    if (count >= SHOWCASE_MAX) return fail(`Maximum ${SHOWCASE_MAX} featured achievements`);
   }
 
   const showcaseCount = showcased
@@ -29,7 +30,7 @@ export async function toggleAchievementShowcase(userAchievementId: string, showc
     },
   });
 
-  revalidatePath("/dashboard/settings");
+  await revalidateAchievementShowcase(user.id);
   return ok(undefined);
 }
 
@@ -37,7 +38,7 @@ export async function refreshMyAchievements() {
   const { user, error } = await requireActionUser();
   if (error) return error;
   const unlocked = await evaluateUserAchievements(user.id);
-  revalidatePath("/dashboard/settings");
+  await revalidateAchievementShowcase(user.id);
   return ok({ unlocked });
 }
 
@@ -45,14 +46,15 @@ export async function setShowcaseOrder(orderedIds: string[]) {
   const { user, error } = await requireActionUser();
   if (error) return error;
 
+  const trimmed = orderedIds.slice(0, SHOWCASE_MAX);
   await prisma.$transaction(
-    orderedIds.map((id, i) =>
+    trimmed.map((id, i) =>
       prisma.userAchievement.updateMany({
-        where: { id, userId: user.id },
-        data: { showcaseOrder: i, isShowcased: true },
+        where: { id, userId: user.id, isShowcased: true },
+        data: { showcaseOrder: i },
       })
     )
   );
-  revalidatePath("/dashboard/settings");
+  await revalidateAchievementShowcase(user.id);
   return ok(undefined);
 }

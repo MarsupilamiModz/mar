@@ -16,12 +16,12 @@ import {
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { TICKET_CATEGORY_LABELS } from "@/lib/ticket-labels";
+import { TICKET_CATEGORY_LABELS, TICKET_DEPARTMENTS } from "@/lib/ticket-labels";
 
 export function CreateTicketForm({ locale }: { locale: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [category, setCategory] = useState<TicketCategory>("ACCOUNT_SUPPORT");
+  const [category, setCategory] = useState<TicketCategory>("GENERAL_SUPPORT");
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -51,7 +51,7 @@ export function CreateTicketForm({ locale }: { locale: string }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(TICKET_CATEGORY_LABELS) as TicketCategory[]).map((c) => (
+              {TICKET_DEPARTMENTS.map((c) => (
                 <SelectItem key={c} value={c}>
                   {TICKET_CATEGORY_LABELS[c]}
                 </SelectItem>

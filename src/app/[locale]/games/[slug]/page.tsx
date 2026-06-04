@@ -3,9 +3,8 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ModCard } from "@/components/mods/mod-card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { SafeImage } from "@/components/ui/safe-image";
 import { CategoryNav } from "@/components/games/category-nav";
+import { GameHeroBanner } from "@/components/games/game-hero-banner";
 import { getGamePageData, getMods } from "@/lib/data";
 import { getGameCoverOverrides } from "@/lib/branding";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
@@ -49,10 +48,9 @@ export default async function GameDetailPage({
   const pageData = await getGamePageData(slug);
   if (!pageData) notFound();
 
-  const { game, featured, trending, premium } = pageData;
+  const { game, featured, trending, premium, creatorCount } = pageData;
   const covers = await getGameCoverOverrides();
   const cover = covers[game.id];
-  const bannerUrl = cover?.heroBannerUrl ?? game.bannerUrl;
   const heroStyle = cover?.backgroundGradient
     ? { background: cover.backgroundGradient }
     : undefined;
@@ -67,31 +65,29 @@ export default async function GameDetailPage({
 
   return (
     <div>
-      <section className="relative border-b border-border/40" style={heroStyle}>
-        <div className="absolute inset-0 bg-gradient-to-b from-neon-purple/10 to-background" />
-        {bannerUrl && (
-          <div className="absolute inset-0 opacity-20">
-            <SafeImage src={bannerUrl} alt="" fill className="object-cover" priority sizes="100vw" />
-          </div>
-        )}
-        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6">
-          <div className="flex flex-wrap items-center gap-4">
-            {game.iconUrl ? (
-              <div className="relative h-20 w-20 rounded-2xl overflow-hidden border border-neon-purple/30 shadow-neon">
-                <SafeImage src={game.iconUrl} alt={game.name} fill className="object-cover" sizes="80px" />
-              </div>
-            ) : null}
-            <div>
-              {game.isFeatured && <Badge variant="premium" className="mb-2">{tg("featured")}</Badge>}
-              <h1 className="text-4xl font-bold text-gradient">{game.name}</h1>
-              {game.description && (
-                <p className="mt-2 max-w-2xl text-muted-foreground">{game.description}</p>
-              )}
-              <p className="mt-2 text-sm text-neon-blue">{tg("modsCount", { count: game._count.mods })}</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <GameHeroBanner
+        name={game.name}
+        description={game.description}
+        shortDescription={game.shortDescription}
+        iconUrl={game.iconUrl}
+        bannerUrl={cover?.heroBannerUrl ?? game.bannerUrl}
+        coverUrl={game.coverUrl}
+        isFeatured={game.isFeatured}
+        modCount={game._count.mods}
+        creatorCount={creatorCount}
+        featuredLabel={tg("featured")}
+        modsLabel={tg("modsCount", { count: game._count.mods })}
+        creatorsLabel={tg("creatorsCount", { count: creatorCount })}
+        banner={{
+          bannerDisplayType: game.bannerDisplayType,
+          bannerHeightPx: game.bannerHeightPx,
+          bannerFocusX: game.bannerFocusX,
+          bannerFocusY: game.bannerFocusY,
+          bannerZoom: game.bannerZoom,
+          bannerAlign: game.bannerAlign,
+        }}
+        gradientStyle={heroStyle}
+      />
 
       {game.categories.length > 0 && (
         <CategoryNav

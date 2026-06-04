@@ -5,6 +5,8 @@ import { logPlatformError } from "@/lib/platform-log";
 import { getAppUrl } from "@/lib/app-url";
 import { syncDiscordRoles } from "@/lib/discord";
 import { hasPremiumAccess } from "@/lib/auth";
+import { logAuthEvent } from "@/lib/auth-log";
+import { warmDbConnection, withDbRetry, prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,39 +26,64 @@ export async function GET(req: Request) {
   const destination = safeNextPath(next, locale);
 
   if (!code) {
+    logAuthEvent("callback_missing_code", { locale }, "warn");
     return NextResponse.redirect(`${origin}/${locale}/login?error=auth_missing_code`);
   }
 
   try {
+    await warmDbConnection();
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error || !data.user) {
-      console.error("[auth/callback] exchange failed", error);
+      logAuthEvent("callback_exchange_failed", { message: error?.message }, "error");
       return NextResponse.redirect(`${origin}/${locale}/login?error=auth_exchange`);
     }
 
+    logAuthEvent("callback_exchange_ok", { userId: data.user.id });
+
+    let dbUser = null;
     try {
-      const dbUser = await ensurePrismaUser(data.user);
-      if (dbUser?.discordId) {
-        const roles: string[] = [];
-        if (hasPremiumAccess(dbUser)) roles.push("premium");
-        if (dbUser.role === "CREATOR") roles.push("creator");
-        if (["MODERATOR", "ADMIN", "OWNER"].includes(dbUser.role)) roles.push("moderator");
-        void syncDiscordRoles(dbUser.discordId, roles);
-      }
+      dbUser = await withDbRetry(
+        () => ensurePrismaUser(data.user),
+        { retries: 5, delayMs: 300, label: "auth:callback-sync" }
+      );
     } catch (syncErr) {
       void logPlatformError("auth:callback-sync", syncErr);
-      console.error("[auth/callback] prisma sync failed", syncErr);
-      return NextResponse.redirect(
-        `${origin}/${locale}/login?error=db_sync`
+      logAuthEvent("callback_sync_failed", { userId: data.user.id }, "error");
+
+      dbUser = await withDbRetry(
+        () =>
+          prisma.user.findUnique({
+            where: { supabaseId: data.user.id },
+            include: {
+              creatorProfile: true,
+              designerProfile: true,
+              partnerProfile: true,
+              subscriptions: { where: { status: "ACTIVE" }, select: { status: true } },
+            },
+          }),
+        { retries: 2, label: "auth:callback-fallback" }
       );
+
+      if (!dbUser) {
+        return NextResponse.redirect(`${origin}/${locale}/login?error=db_sync`);
+      }
+      logAuthEvent("callback_sync_recovered", { userId: data.user.id }, "warn");
+    }
+
+    if (dbUser?.discordId) {
+      const roles: string[] = [];
+      if (hasPremiumAccess(dbUser)) roles.push("premium");
+      if (dbUser.role === "CREATOR") roles.push("creator");
+      if (["MODERATOR", "ADMIN", "OWNER"].includes(dbUser.role)) roles.push("moderator");
+      void syncDiscordRoles(dbUser.discordId, roles);
     }
 
     return NextResponse.redirect(`${origin}${destination}`);
   } catch (err) {
     void logPlatformError("auth:callback", err);
-    console.error("[auth/callback]", err);
+    logAuthEvent("callback_fatal", { message: err instanceof Error ? err.message : String(err) }, "error");
     return NextResponse.redirect(`${origin}/${locale}/login?error=auth_callback`);
   }
 }

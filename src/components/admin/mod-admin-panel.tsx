@@ -19,6 +19,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAppToast } from "@/hooks/use-app-toast";
 import { formatCategoryOptions, type FlatCategory } from "@/lib/categories";
+import { formatRoleLabel } from "@/lib/role-display";
 
 type Game = { id: string; name: string; categories: FlatCategory[] };
 type Author = { id: string; username: string; displayName: string | null; role: string };
@@ -290,7 +291,7 @@ export function ModAdminPanel({
             <SelectTrigger><SelectValue placeholder={t("assignAuthor")} /></SelectTrigger>
             <SelectContent>
               {authors.map((a) => (
-                <SelectItem key={a.id} value={a.id}>@{a.username} ({a.role})</SelectItem>
+                <SelectItem key={a.id} value={a.id}>@{a.username} ({formatRoleLabel(a.role)})</SelectItem>
               ))}
             </SelectContent>
           </Select>

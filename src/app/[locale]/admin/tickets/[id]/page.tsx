@@ -43,6 +43,8 @@ export default async function AdminTicketDetailPage({
             priority={ticket.priority}
             assigneeId={ticket.assignee?.id ?? null}
             staffUsers={staffUsers}
+            slaResponseDueAt={ticket.slaResponseDueAt}
+            slaResolveDueAt={ticket.slaResolveDueAt}
           />
           <div className="glass rounded-xl p-4 text-sm">
             <p className="text-muted-foreground">Submitted by</p>

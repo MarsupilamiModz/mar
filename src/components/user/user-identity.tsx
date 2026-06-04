@@ -34,6 +34,7 @@ export function UserIdentity({
           <AchievementBadge
             key={b.id}
             name={b.name}
+            description={b.description}
             icon={b.icon}
             rarity={b.rarity}
             animated={b.animated}

@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
-import { ROLE_LABELS, TICKET_STATUS_LABELS } from "@/lib/ticket-labels";
+import { formatRoleLabel, roleBadgeVariant } from "@/lib/role-display";
+import { TICKET_STATUS_LABELS } from "@/lib/ticket-labels";
 import { formatDisplayName } from "@/lib/display-name";
 import { ASSIGNABLE_ROLES } from "@/lib/permission-types";
 import Link from "next/link";
@@ -88,7 +89,7 @@ export function UserDetailPanel({
           <h1 className="text-2xl font-bold">{formatDisplayName(user)}</h1>
           <p className="text-muted-foreground">{user.email}</p>
           <div className="mt-2 flex gap-2">
-            <Badge variant="outline">{ROLE_LABELS[user.role]}</Badge>
+            <Badge variant={roleBadgeVariant(user.role)}>{formatRoleLabel(user.role)}</Badge>
             {user.isBanned && <Badge variant="destructive">Banned</Badge>}
             {user.deletedAt && <Badge variant="destructive">Deleted</Badge>}
           </div>
@@ -137,7 +138,7 @@ export function UserDetailPanel({
               }
             >
               {ASSIGNABLE_ROLES.map((role) => (
-                <option key={role} value={role}>{ROLE_LABELS[role] ?? role}</option>
+                <option key={role} value={role}>{formatRoleLabel(role)}</option>
               ))}
             </select>
           </div>

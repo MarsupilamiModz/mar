@@ -1,6 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+  prismaConnecting: Promise<void> | undefined;
+};
 
 function createPrismaClient() {
   return new PrismaClient({
@@ -12,6 +15,14 @@ export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
+}
+
+/** Warm connection before critical auth paths (pooler cold start). */
+export async function warmDbConnection() {
+  if (!globalForPrisma.prismaConnecting) {
+    globalForPrisma.prismaConnecting = prisma.$queryRaw`SELECT 1`.then(() => undefined);
+  }
+  await globalForPrisma.prismaConnecting;
 }
 
 const RETRYABLE =
@@ -30,7 +41,7 @@ export async function withDbRetry<T>(
   fn: () => Promise<T>,
   options: { retries?: number; delayMs?: number; label?: string } = {}
 ): Promise<T> {
-  const { retries = 3, delayMs = 200, label = "db" } = options;
+  const { retries = 4, delayMs = 250, label = "db" } = options;
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -40,6 +51,15 @@ export async function withDbRetry<T>(
       lastError = err;
       if (!isRetryableDbError(err) || attempt === retries) throw err;
       console.warn(`[${label}] retry ${attempt + 1}/${retries}`, err instanceof Error ? err.message : err);
+      if (attempt === 1) {
+        try {
+          await prisma.$disconnect();
+          globalForPrisma.prismaConnecting = undefined;
+          await warmDbConnection();
+        } catch {
+          /* reconnect best-effort */
+        }
+      }
       await new Promise((r) => setTimeout(r, delayMs * (attempt + 1)));
     }
   }
@@ -49,7 +69,8 @@ export async function withDbRetry<T>(
 
 export async function checkDbHealth(): Promise<{ ok: boolean; detail?: string }> {
   try {
-    await withDbRetry(() => prisma.$queryRaw`SELECT 1`, { retries: 1, label: "health" });
+    await warmDbConnection();
+    await withDbRetry(() => prisma.$queryRaw`SELECT 1`, { retries: 2, label: "health" });
     return { ok: true };
   } catch (err) {
     return {

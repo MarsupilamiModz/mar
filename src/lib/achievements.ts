@@ -1,5 +1,14 @@
 import { prisma } from "@/lib/db";
+import { unstable_cache } from "next/cache";
 import type { AchievementCategory, AchievementRarity, Prisma } from "@prisma/client";
+import { CACHE_TAGS } from "@/lib/cache";
+import { SHOWCASE_MAX } from "@/lib/achievement-constants";
+
+export { SHOWCASE_MAX } from "@/lib/achievement-constants";
+
+export function achievementCacheTag(userId: string) {
+  return CACHE_TAGS.achievements(userId);
+}
 
 export type UnlockRule = {
   type:
@@ -227,22 +236,28 @@ export async function getUserAchievements(userId: string, locale = "en") {
   }));
 }
 
-export async function getShowcasedAchievements(userId: string, locale = "en", limit = 6) {
-  const rows = await prisma.userAchievement.findMany({
-    where: { userId, isShowcased: true },
-    include: { achievement: true },
-    orderBy: [{ showcaseOrder: "asc" }, { unlockedAt: "desc" }],
-    take: limit,
-  });
-  return rows.map((r) => ({
-    id: r.id,
-    unlockedAt: r.unlockedAt,
-    ...localizedAchievement(r.achievement, locale),
-    rarity: r.achievement.rarity,
-    icon: r.achievement.icon,
-    animated: r.achievement.animated,
-    glowEffect: r.achievement.glowEffect,
-  }));
+export async function getShowcasedAchievements(userId: string, locale = "en", limit = SHOWCASE_MAX) {
+  return unstable_cache(
+    async () => {
+      const rows = await prisma.userAchievement.findMany({
+        where: { userId, isShowcased: true },
+        include: { achievement: true },
+        orderBy: [{ showcaseOrder: "asc" }, { unlockedAt: "desc" }],
+        take: limit,
+      });
+      return rows.map((r) => ({
+        id: r.id,
+        unlockedAt: r.unlockedAt,
+        ...localizedAchievement(r.achievement, locale),
+        rarity: r.achievement.rarity,
+        icon: r.achievement.icon,
+        animated: r.achievement.animated,
+        glowEffect: r.achievement.glowEffect,
+      }));
+    },
+    ["showcased-achievements", userId, locale, String(limit)],
+    { revalidate: 60, tags: [achievementCacheTag(userId)] }
+  )();
 }
 
 export async function getUserProgress(userId: string) {

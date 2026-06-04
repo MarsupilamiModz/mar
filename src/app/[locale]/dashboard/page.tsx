@@ -1,32 +1,19 @@
+import { Suspense } from "react";
 import { requireAuth, hasPremiumAccess } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Heart, Crown, Trophy, Coins } from "lucide-react";
 import { evaluateUserAchievements } from "@/lib/achievements";
 import { syncCreatorRanks } from "@/lib/leaderboards";
-import { getWalletBalance, formatCredits, getCreditHistory } from "@/lib/credits";
+import { getCreditHistory, formatCredits } from "@/lib/credits";
 import { formatDisplayName } from "@/lib/display-name";
 import { CreditHistoryPanel } from "@/components/dashboard/credit-history-panel";
+import { getDashboardStats } from "@/lib/dashboard-stats";
 
-export default async function DashboardPage() {
-  const user = await requireAuth();
-  await Promise.all([evaluateUserAchievements(user.id), syncCreatorRanks()]);
-  const [downloads, favorites, notifications, progress, creditBalance, creditWallet] = await Promise.all([
-    prisma.download.count({ where: { userId: user.id } }),
-    prisma.modFavorite.count({ where: { userId: user.id } }),
-    prisma.notification.count({ where: { userId: user.id, read: false } }),
-    prisma.userProgress.findUnique({ where: { userId: user.id } }),
-    getWalletBalance(user.id),
-    getCreditHistory(user.id, 8),
-  ]);
-
-  const isPremium = hasPremiumAccess(user);
+async function DashboardStats({ userId, isPremium }: { userId: string; isPremium: boolean }) {
+  const stats = await getDashboardStats(userId);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Dashboard</h1>
-      <p className="text-muted-foreground">Welcome back, {formatDisplayName(user)}</p>
-
+    <>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="glass">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -34,7 +21,7 @@ export default async function DashboardPage() {
             <Download className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{downloads}</p>
+            <p className="text-2xl font-bold">{stats.downloads}</p>
           </CardContent>
         </Card>
         <Card className="glass">
@@ -43,7 +30,7 @@ export default async function DashboardPage() {
             <Heart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{favorites}</p>
+            <p className="text-2xl font-bold">{stats.favorites}</p>
           </CardContent>
         </Card>
         <Card className="glass">
@@ -61,7 +48,7 @@ export default async function DashboardPage() {
             <Coins className="h-4 w-4 text-neon-purple" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-gradient">{formatCredits(creditBalance)}</p>
+            <p className="text-2xl font-bold text-gradient">{formatCredits(stats.creditBalance)}</p>
           </CardContent>
         </Card>
         <Card className="glass">
@@ -70,25 +57,58 @@ export default async function DashboardPage() {
             <Trophy className="h-4 w-4 text-neon-blue" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">Lv.{progress?.level ?? 1}</p>
-            <p className="text-xs text-muted-foreground">{(progress?.xp ?? 0).toLocaleString()} XP</p>
+            <p className="text-2xl font-bold">Lv.{stats.progress?.level ?? 1}</p>
+            <p className="text-xs text-muted-foreground">{(stats.progress?.xp ?? 0).toLocaleString()} XP</p>
           </CardContent>
         </Card>
       </div>
 
-      {notifications > 0 && (
+      {stats.unreadNotifications > 0 && (
         <Card className="glass mt-6 border-neon-blue/30">
-          <CardContent className="pt-6">
-            <p className="text-sm">You have {notifications} unread notifications.</p>
+          <CardContent className="py-4 text-sm">
+            You have <strong>{stats.unreadNotifications}</strong> unread notification
+            {stats.unreadNotifications === 1 ? "" : "s"}.
           </CardContent>
         </Card>
       )}
+    </>
+  );
+}
 
-      <div className="mt-6">
+function StatsSkeleton() {
+  return (
+    <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Card key={i} className="glass h-24 animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+export default async function DashboardPage() {
+  const user = await requireAuth();
+  void Promise.all([evaluateUserAchievements(user.id), syncCreatorRanks()]).catch(() => undefined);
+
+  const isPremium = hasPremiumAccess(user);
+  const [creditWallet, stats] = await Promise.all([
+    getCreditHistory(user.id, 8),
+    getDashboardStats(user.id),
+  ]);
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <p className="text-muted-foreground">Welcome back, {formatDisplayName(user)}</p>
+
+      <Suspense fallback={<StatsSkeleton />}>
+        <DashboardStats userId={user.id} isPremium={isPremium} />
+      </Suspense>
+
+      <div className="mt-8">
         <CreditHistoryPanel
-          balance={creditBalance}
+          balance={creditWallet?.balance ?? stats.creditBalance}
           transactions={creditWallet?.transactions ?? []}
-          locale={user.locale}
+          locale="en"
         />
       </div>
     </div>

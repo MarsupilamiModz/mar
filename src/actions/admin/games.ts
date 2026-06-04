@@ -9,6 +9,7 @@ import { uploadAsset } from "@/lib/asset-storage";
 import { extensionForMime, validateUploadFile } from "@/lib/upload-validation";
 import { CACHE_TAGS } from "@/lib/cache";
 import { slugify } from "@/lib/utils";
+import type { BannerAlign, BannerDisplayType } from "@prisma/client";
 
 const gameSchema = z.object({
   name: z.string().min(2).max(80),
@@ -329,4 +330,50 @@ export async function reorderGames(ids: string[]) {
     revalidatePath("/admin/games");
     revalidateTag(CACHE_TAGS.games);
   }, "games:reorder");
+}
+
+const bannerSettingsSchema = z.object({
+  bannerDisplayType: z.enum(["SMALL", "FEATURED", "CUSTOM"]),
+  bannerHeightPx: z.number().int().min(120).max(800).nullable().optional(),
+  bannerFocusX: z.number().min(0).max(100),
+  bannerFocusY: z.number().min(0).max(100),
+  bannerZoom: z.number().min(1).max(2),
+  bannerAlign: z.enum(["CENTER", "TOP", "BOTTOM", "LEFT", "RIGHT"]),
+});
+
+export async function updateGameBannerSettings(
+  id: string,
+  input: z.infer<typeof bannerSettingsSchema>
+) {
+  const { user, error } = await requireActionPermission("games.write");
+  if (error) return error;
+
+  const parsed = bannerSettingsSchema.safeParse(input);
+  if (!parsed.success) return fail(formatZodError(parsed.error));
+
+  return actionTry(async () => {
+    const game = await prisma.game.update({
+      where: { id },
+      data: {
+        bannerDisplayType: parsed.data.bannerDisplayType as BannerDisplayType,
+        bannerHeightPx: parsed.data.bannerHeightPx ?? null,
+        bannerFocusX: parsed.data.bannerFocusX,
+        bannerFocusY: parsed.data.bannerFocusY,
+        bannerZoom: parsed.data.bannerZoom,
+        bannerAlign: parsed.data.bannerAlign as BannerAlign,
+      },
+    });
+
+    await createAuditLog({
+      actorId: user.id,
+      action: "game.banner_settings",
+      entityType: "Game",
+      entityId: id,
+    });
+
+    revalidatePath("/admin/games");
+    revalidatePath(`/games/${game.slug}`);
+    revalidateTag(CACHE_TAGS.games);
+    return game;
+  }, "games:banner-settings");
 }

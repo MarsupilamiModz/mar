@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -27,6 +28,11 @@ import { isStaff, isDesigner, isCreator, isPartner } from "@/lib/permissions";
 import type { UserRole } from "@prisma/client";
 import { formatDisplayName } from "@/lib/display-name";
 
+const NotificationCenter = dynamic(
+  () => import("@/components/layout/notification-center").then((m) => m.NotificationCenter),
+  { ssr: false, loading: () => null }
+);
+
 export type NavUser = {
   id: string;
   username: string;
@@ -50,8 +56,10 @@ export function UserNav({ locale, user }: { locale: string; user: NavUser }) {
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <div className="flex items-center gap-1 sm:gap-2">
+      <NotificationCenter locale={locale} userId={user.id} />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="flex items-center gap-2 px-2">
           <Avatar className="h-8 w-8 border border-neon-purple/30">
             <AvatarImage src={user.avatarUrl ?? undefined} alt={user.username} />
@@ -111,6 +119,7 @@ export function UserNav({ locale, user }: { locale: string; user: NavUser }) {
           <LogOut className="mr-2 h-4 w-4" /> Log out
         </DropdownMenuItem>
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+    </div>
   );
 }
