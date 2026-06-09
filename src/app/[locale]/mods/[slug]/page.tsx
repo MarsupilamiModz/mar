@@ -2,14 +2,17 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Download, Star } from "lucide-react";
+import { Star, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ModCard } from "@/components/mods/mod-card";
 import { ModDetailMedia } from "@/components/mods/mod-detail-media";
 import { FavoriteButton } from "@/components/mods/favorite-button";
 import { ReviewForm } from "@/components/mods/review-form";
+import { ModDependenciesPanel } from "@/components/mods/mod-dependencies-panel";
+import { ModVersionsPanel } from "@/components/mods/mod-versions-panel";
+import { ModDownloadButton } from "@/components/mods/mod-download-button";
+import { checkMissingDependencies } from "@/lib/mod-dependencies";
 import { getModBySlug, getTrendingMods } from "@/lib/data";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -82,7 +85,7 @@ export default async function ModDetailPage({
   const reviewUserIds = mod.reviews.map((r) => r.userId);
   const authorId = mod.author.id;
 
-  const [favorited, related, badgeMap, owned] = await Promise.all([
+  const [favorited, related, badgeMap, owned, depCheck] = await Promise.all([
     user
       ? prisma.modFavorite.findUnique({
           where: { modId_userId: { modId: mod.id, userId: user.id } },
@@ -97,6 +100,7 @@ export default async function ModDetailPage({
           })
           .catch(() => null)
       : null,
+    checkMissingDependencies(mod.id, user?.id ?? null),
   ]);
 
   const relatedMods = related.filter((m) => m.id !== mod.id).slice(0, 4);
@@ -132,19 +136,14 @@ export default async function ModDetailPage({
             </p>
           </div>
 
-          {mod.versions.length > 0 && (
-            <Card className="glass">
-              <CardHeader><CardTitle>Versions</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                {mod.versions.map((v) => (
-                  <div key={v.id} className="flex justify-between text-sm border-b border-border/30 py-2 last:border-0">
-                    <span className="font-medium">v{v.version}</span>
-                    <span className="text-muted-foreground">{v.gameVersion ?? "All versions"}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+          <ModVersionsPanel modId={mod.id} versions={mod.versions} />
+
+          <ModDependenciesPanel
+            locale={locale}
+            required={depCheck.required}
+            optional={depCheck.optional}
+            missing={depCheck.missing}
+          />
 
           <Card className="glass">
             <CardHeader><CardTitle>{t("reviews")}</CardTitle></CardHeader>
@@ -186,11 +185,7 @@ export default async function ModDetailPage({
               </span>
             </div>
             <div className="flex gap-2">
-              <form action={`/api/mods/${mod.id}/download`} method="POST" className="flex-1">
-                <Button variant="neon" className="w-full" type="submit">
-                  {t("download")}
-                </Button>
-              </form>
+              <ModDownloadButton modId={mod.id} label={t("download")} />
               <FavoriteButton modId={mod.id} initialFavorited={!!favorited} />
             </div>
             {mod.pricing === "PAID" && mod.priceCents && mod.priceCents > 0 && user && (

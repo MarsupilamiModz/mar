@@ -86,7 +86,24 @@ const modDetailInclude = {
     orderBy: { createdAt: "desc" as const },
     include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
   },
-  dependencies: { include: { dependency: { select: { slug: true, title: true } } } },
+  dependencies: {
+    include: {
+      dependency: {
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          status: true,
+          game: { select: { name: true, slug: true } },
+          versions: {
+            where: { isPrimary: true },
+            take: 1,
+            select: { version: true, gameVersion: true },
+          },
+        },
+      },
+    },
+  },
 };
 
 const modDetailIncludeNoMedia = {

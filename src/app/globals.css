@@ -25,6 +25,8 @@
     --input: 240 6% 18%;
     --ring: 270 91% 65%;
     --radius: 0.75rem;
+    --neon-purple: #a855f7;
+    --neon-blue: #60a5fa;
   }
 
   * {
@@ -37,26 +39,78 @@
   }
 
   /* Dark Reader / extension compatibility */
-  html:not([data-darkreader-mode]) img,
-  html:not([data-darkreader-mode]) svg,
-  html:not([data-darkreader-mode]) video {
-    filter: none !important;
-  }
-
-  [data-darkreader-scheme] {
+  html[data-darkreader-mode],
+  html[data-darkreader-scheme] {
+    color-scheme: dark;
     --background: 240 10% 4%;
     --foreground: 0 0% 98%;
     --card: 240 10% 8%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 8%;
+    --popover-foreground: 0 0% 98%;
     --primary: 270 91% 65%;
     --secondary: 217 91% 60%;
     --muted: 240 5% 18%;
-    --border: 240 6% 18%;
+    --muted-foreground: 240 5% 72%;
+    --accent: 270 50% 20%;
+    --border: 240 6% 22%;
+    --input: 240 6% 14%;
+  }
+
+  html[data-darkreader-mode] img,
+  html[data-darkreader-mode] svg:not([data-neon-lock]),
+  html[data-darkreader-mode] video,
+  html[data-darkreader-scheme] img,
+  html[data-darkreader-scheme] svg:not([data-neon-lock]),
+  html[data-darkreader-scheme] video {
+    filter: none !important;
+  }
+
+  html[data-darkreader-mode] .logo-protected,
+  html[data-darkreader-scheme] .logo-protected,
+  html[data-darkreader-mode] [data-brand-lock],
+  html[data-darkreader-scheme] [data-brand-lock] {
+    filter: none !important;
+    mix-blend-mode: normal !important;
+  }
+
+  html[data-darkreader-mode] input,
+  html[data-darkreader-mode] textarea,
+  html[data-darkreader-mode] select,
+  html[data-darkreader-scheme] input,
+  html[data-darkreader-scheme] textarea,
+  html[data-darkreader-scheme] select {
+    background-color: hsl(var(--input)) !important;
+    color: hsl(var(--foreground)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  html[data-darkreader-mode] table,
+  html[data-darkreader-scheme] table {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  html[data-darkreader-mode] .glass,
+  html[data-darkreader-scheme] .glass {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(16px);
+  }
+
+  html[data-darkreader-mode] [role="dialog"],
+  html[data-darkreader-scheme] [role="dialog"] {
+    background-color: hsl(var(--popover)) !important;
+    color: hsl(var(--popover-foreground)) !important;
   }
 
   .dark-reader-lock,
   .text-gradient,
   [data-neon-lock] {
     -webkit-text-fill-color: initial;
+  }
+
+  [data-neon-lock] {
+    color: var(--neon-purple);
   }
 }
 
@@ -71,5 +125,9 @@
 
   .bg-hero-glow {
     background: radial-gradient(ellipse 70% 55% at 50% -10%, rgba(168, 85, 247, 0.18), transparent 65%);
+  }
+
+  .logo-protected {
+    filter: none !important;
   }
 }

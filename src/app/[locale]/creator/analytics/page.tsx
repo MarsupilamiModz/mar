@@ -2,8 +2,10 @@ import { requireAuth } from "@/lib/auth";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   getCreatorAnalytics,
+  getCreatorVersionAnalytics,
   getDailyChartData,
   getUserCommissionSummary,
+  type VersionAnalyticsRow,
 } from "@/lib/analytics/ecosystem";
 import { StatGrid, ConversionChart, RevenueChart } from "@/components/analytics/ecosystem-charts";
 import { Card } from "@/components/ui/card";
@@ -15,7 +17,7 @@ export default async function CreatorAnalyticsPage({ params: { locale } }: { par
   const t = await getTranslations("ecosystem");
   const user = await requireAuth();
 
-  const [analytics, commission, chart] = await Promise.all([
+  const [analytics, commission, chart, versionStats] = await Promise.all([
     getCreatorAnalytics(user.id).catch(() => null),
     getUserCommissionSummary(user.id).catch(() => ({
       pendingCents: 0,
@@ -25,6 +27,7 @@ export default async function CreatorAnalyticsPage({ params: { locale } }: { par
       payouts: [],
     })),
     getDailyChartData(user.id).catch(() => []),
+    getCreatorVersionAnalytics(user.id).catch((): VersionAnalyticsRow[] => []),
   ]);
 
   return (
@@ -44,6 +47,23 @@ export default async function CreatorAnalyticsPage({ params: { locale } }: { par
         <ConversionChart data={chart} title={t("engagement")} />
         <RevenueChart data={chart} title={t("revenueChart")} />
       </div>
+
+      {versionStats.length > 0 && (
+        <Card className="glass p-4">
+          <h3 className="font-medium mb-3">Version downloads</h3>
+          <div className="space-y-2">
+            {versionStats.map((v) => (
+              <div key={`${v.modSlug}-${v.version}`} className="flex justify-between text-sm border-b border-border/30 pb-2 last:border-0">
+                <span>
+                  {v.modTitle} v{v.version}
+                  {v.isPrimary && " (latest)"}
+                </span>
+                <span className="text-muted-foreground">{v.totalDownloads.toLocaleString()} downloads</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {analytics?.mods && analytics.mods.length > 0 && (
         <Card className="glass p-4">

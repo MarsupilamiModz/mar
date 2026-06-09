@@ -218,5 +218,46 @@ export async function getDailyChartData(userId: string, days = 14) {
     }
   }
 
-  return Array.from(buckets.entries()).map(([date, data]) => ({ date, ...data }));
+    return Array.from(buckets.entries()).map(([date, data]) => ({ date, ...data }));
+}
+
+export type VersionAnalyticsRow = {
+  modTitle: string;
+  modSlug: string;
+  version: string;
+  channel: string;
+  isPrimary: boolean;
+  totalDownloads: number;
+  recentDownloads: number;
+};
+
+export function getCreatorVersionAnalytics(userId: string): Promise<VersionAnalyticsRow[]> {
+  return unstable_cache(
+    async () => {
+      const versions = await prisma.modVersion.findMany({
+        where: { mod: { authorId: userId } },
+        orderBy: { downloadCount: "desc" },
+        take: 20,
+        select: {
+          version: true,
+          downloadCount: true,
+          isPrimary: true,
+          channel: true,
+          mod: { select: { title: true, slug: true } },
+        },
+      });
+
+      return versions.map((v) => ({
+        modTitle: v.mod.title,
+        modSlug: v.mod.slug,
+        version: v.version,
+        channel: v.channel,
+        isPrimary: v.isPrimary,
+        totalDownloads: v.downloadCount,
+        recentDownloads: v.downloadCount,
+      }));
+    },
+    [`creator-version-analytics-${userId}`],
+    { revalidate: 60 }
+  )();
 }

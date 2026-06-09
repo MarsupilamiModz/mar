@@ -2,6 +2,7 @@
   "nav": {
     "games": "Games",
     "mods": "Mods",
+    "collections": "Collections",
     "creators": "Creators",
     "partners": "Partners",
     "shop": "Shop",
@@ -14,6 +15,7 @@
     "getStarted": "Create account",
     "dashboard": "Dashboard",
     "search": "Search mods",
+    "developers": "Developers",
     "language": "Language"
   },
   "footer": {

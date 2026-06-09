@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { requireAuth, hasPremiumAccess } from "@/lib/auth";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Heart, Crown, Trophy, Coins } from "lucide-react";
 import { evaluateUserAchievements } from "@/lib/achievements";
@@ -9,7 +10,14 @@ import { formatDisplayName } from "@/lib/display-name";
 import { CreditHistoryPanel } from "@/components/dashboard/credit-history-panel";
 import { getDashboardStats } from "@/lib/dashboard-stats";
 
-async function DashboardStats({ userId, isPremium }: { userId: string; isPremium: boolean }) {
+async function DashboardStats({
+  userId,
+  isPremium,
+}: {
+  userId: string;
+  isPremium: boolean;
+}) {
+  const t = await getTranslations("dashboard");
   const stats = await getDashboardStats(userId);
 
   return (
@@ -17,7 +25,7 @@ async function DashboardStats({ userId, isPremium }: { userId: string; isPremium
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="glass">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Downloads</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("downloads")}</CardTitle>
             <Download className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -26,7 +34,7 @@ async function DashboardStats({ userId, isPremium }: { userId: string; isPremium
         </Card>
         <Card className="glass">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Favorites</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("favorites")}</CardTitle>
             <Heart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -35,16 +43,16 @@ async function DashboardStats({ userId, isPremium }: { userId: string; isPremium
         </Card>
         <Card className="glass">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Premium</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("premium")}</CardTitle>
             <Crown className="h-4 w-4 text-neon-purple" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{isPremium ? "Active" : "Free"}</p>
+            <p className="text-2xl font-bold">{isPremium ? t("active") : t("free")}</p>
           </CardContent>
         </Card>
         <Card className="glass border-neon-purple/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Credits</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("credits")}</CardTitle>
             <Coins className="h-4 w-4 text-neon-purple" />
           </CardHeader>
           <CardContent>
@@ -53,7 +61,7 @@ async function DashboardStats({ userId, isPremium }: { userId: string; isPremium
         </Card>
         <Card className="glass">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Level</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("level")}</CardTitle>
             <Trophy className="h-4 w-4 text-neon-blue" />
           </CardHeader>
           <CardContent>
@@ -66,8 +74,7 @@ async function DashboardStats({ userId, isPremium }: { userId: string; isPremium
       {stats.unreadNotifications > 0 && (
         <Card className="glass mt-6 border-neon-blue/30">
           <CardContent className="py-4 text-sm">
-            You have <strong>{stats.unreadNotifications}</strong> unread notification
-            {stats.unreadNotifications === 1 ? "" : "s"}.
+            You have <strong>{stats.unreadNotifications}</strong> {t("notifications").toLowerCase()}.
           </CardContent>
         </Card>
       )}
@@ -85,7 +92,13 @@ function StatsSkeleton() {
   );
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  params: { locale },
+}: {
+  params: { locale: string };
+}) {
+  setRequestLocale(locale);
+  const t = await getTranslations("dashboard");
   const user = await requireAuth();
   void Promise.all([evaluateUserAchievements(user.id), syncCreatorRanks()]).catch(() => undefined);
 
@@ -97,8 +110,8 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Dashboard</h1>
-      <p className="text-muted-foreground">Welcome back, {formatDisplayName(user)}</p>
+      <h1 className="text-2xl font-bold">{t("title")}</h1>
+      <p className="text-muted-foreground">{t("welcome", { name: formatDisplayName(user) })}</p>
 
       <Suspense fallback={<StatsSkeleton />}>
         <DashboardStats userId={user.id} isPremium={isPremium} />

@@ -1,49 +1,52 @@
 import Link from "next/link";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireStaff } from "@/lib/auth";
 import { userHasPermission } from "@/lib/permission-store";
 import { formatDisplayName } from "@/lib/display-name";
 import type { PermissionKey } from "@/lib/permissions";
 
-const allLinks = [
-  { href: "", label: "Overview", permission: "analytics.read" as const },
-  { href: "/users", label: "Users", permission: "users.read" as const },
-  { href: "/tickets", label: "Tickets", permission: "tickets.read" as const },
-  { href: "/mods", label: "Mods", permission: "mods.read" as const },
-  { href: "/games", label: "Supported Games", permission: "games.write" as const },
-  { href: "/analytics", label: "Analytics", permission: "analytics.read" as const },
-  { href: "/subscriptions", label: "Purchases", permission: "subscriptions.read" as const },
-  { href: "/coupons", label: "Coupons", permission: "coupons.write" as const },
-  { href: "/creators", label: "Creators", permission: "users.read" as const },
-  { href: "/partners", label: "Partners", permission: "users.read" as const },
-  { href: "/commissions", label: "Commissions", permission: "settings.write" as const },
-  { href: "/licenses", label: "License Keys", permission: "licenses.write" as const },
-  { href: "/orders", label: "Orders", permission: "orders.read" as const },
-  { href: "/audit", label: "Audit Logs", permission: "audit.read" as const },
-  { href: "/announcements", label: "Announcements", permission: "settings.write" as const },
-  { href: "/memberships", label: "Membership Pricing", permission: "settings.write" as const },
-  { href: "/shop", label: "Shop", permission: "settings.write" as const },
-  { href: "/payments", label: "Payments", permission: "settings.write" as const },
-  { href: "/achievements", label: "Achievements", permission: "settings.write" as const },
-  { href: "/leaderboards", label: "Leaderboards", permission: "settings.write" as const },
-  { href: "/ads", label: "Advertising", permission: "settings.write" as const },
-  { href: "/email", label: "Email Settings", permission: "settings.write" as const },
-  { href: "/email/templates", label: "Email Templates", permission: "settings.write" as const },
-  { href: "/branding", label: "Branding", permission: "settings.write" as const },
-  { href: "/groups", label: "Groups & Permissions", permission: "settings.write" as const },
-  { href: "/localization", label: "AI Localization", permission: "settings.write" as const },
-  { href: "/settings/media", label: "Media Settings", permission: "settings.write" as const },
-  { href: "/system", label: "System Logs", permission: "settings.write" as const },
-];
+const linkDefs = [
+  { href: "", labelKey: "overview", permission: "analytics.read" as const },
+  { href: "/users", labelKey: "users", permission: "users.read" as const },
+  { href: "/tickets", labelKey: "tickets", permission: "tickets.read" as const },
+  { href: "/mods", labelKey: "mods", permission: "mods.read" as const },
+  { href: "/games", labelKey: "games", permission: "games.write" as const },
+  { href: "/analytics", labelKey: "analytics", permission: "analytics.read" as const },
+  { href: "/subscriptions", labelKey: "subscriptions", permission: "subscriptions.read" as const },
+  { href: "/coupons", labelKey: "coupons", permission: "coupons.write" as const },
+  { href: "/creators", labelKey: "creators", permission: "users.read" as const },
+  { href: "/partners", labelKey: "partners", permission: "users.read" as const },
+  { href: "/commissions", labelKey: "commissions", permission: "settings.write" as const },
+  { href: "/licenses", labelKey: "licenses", permission: "licenses.write" as const },
+  { href: "/orders", labelKey: "orders", permission: "orders.read" as const },
+  { href: "/audit", labelKey: "audit", permission: "audit.read" as const },
+  { href: "/announcements", labelKey: "announcements", permission: "settings.write" as const },
+  { href: "/memberships", labelKey: "memberships", permission: "settings.write" as const },
+  { href: "/shop", labelKey: "shop", permission: "settings.write" as const },
+  { href: "/payments", labelKey: "payments", permission: "settings.write" as const },
+  { href: "/achievements", labelKey: "achievements", permission: "settings.write" as const },
+  { href: "/leaderboards", labelKey: "leaderboards", permission: "settings.write" as const },
+  { href: "/ads", labelKey: "ads", permission: "settings.write" as const },
+  { href: "/email", labelKey: "emailSettings", permission: "settings.write" as const },
+  { href: "/email/templates", labelKey: "emailTemplates", permission: "settings.write" as const },
+  { href: "/branding", labelKey: "branding", permission: "settings.write" as const },
+  { href: "/groups", labelKey: "groups", permission: "settings.write" as const },
+  { href: "/localization", labelKey: "localization", permission: "settings.write" as const },
+  { href: "/settings/media", labelKey: "mediaSettings", permission: "settings.write" as const },
+  { href: "/system", labelKey: "systemHealth", permission: "settings.write" as const },
+  { href: "/security", labelKey: "securityCenter", permission: "settings.write" as const },
+  { href: "/api-keys", labelKey: "apiKeys", permission: "settings.write" as const },
+] as const;
 
 async function filterLinks(user: { id: string; role: Parameters<typeof userHasPermission>[0]["role"]; permissionGroupId?: string | null }) {
-  const links: typeof allLinks = [];
-  for (const link of allLinks) {
+  const links: typeof linkDefs[number][] = [];
+  for (const link of linkDefs) {
     try {
       if (await userHasPermission(user, link.permission as PermissionKey)) {
         links.push(link);
       }
     } catch {
-      // skip link if permission check fails
+      /* skip */
     }
   }
   return links;
@@ -56,14 +59,15 @@ export default async function AdminLayout({
   children: React.ReactNode;
   params: { locale: string };
 }) {
+  setRequestLocale(locale);
   const user = await requireStaff();
-  const links = await filterLinks(user);
+  const [links, t] = await Promise.all([filterLinks(user), getTranslations("admin")]);
 
   return (
     <div className="mx-auto flex max-w-7xl gap-6 px-4 py-8 sm:px-6">
       <aside className="w-52 shrink-0 hidden md:block">
-        <div className="glass rounded-xl p-4 sticky top-24">
-          <p className="font-bold text-neon-purple mb-1">Admin</p>
+        <div className="glass rounded-xl p-4 sticky top-24 dark-reader-lock">
+          <p className="font-bold text-neon-purple mb-1">{t("panelTitle")}</p>
           <p className="text-xs text-muted-foreground mb-4 truncate">{formatDisplayName(user)}</p>
           <nav className="space-y-1 text-sm">
             {links.map((l) => (
@@ -72,7 +76,7 @@ export default async function AdminLayout({
                 href={`/${locale}/admin${l.href}`}
                 className="block rounded px-2 py-1.5 text-muted-foreground hover:bg-accent/20 hover:text-foreground"
               >
-                {l.label}
+                {t(l.labelKey)}
               </Link>
             ))}
           </nav>

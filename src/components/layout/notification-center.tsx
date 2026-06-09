@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Bell, Check, Trash2 } from "lucide-react";
 import {
   deleteNotification,
@@ -32,15 +33,16 @@ type NotificationRow = {
   createdAt: Date;
 };
 
-const CATEGORIES = [
-  { id: "all", label: "All" },
-  { id: "support", label: "Support" },
-  { id: "orders", label: "Orders" },
-  { id: "premium", label: "Premium" },
-  { id: "system", label: "System" },
-];
+const CATEGORY_KEYS = [
+  { id: "all", labelKey: "categoriesAll" },
+  { id: "support", labelKey: "categoriesSupport" },
+  { id: "orders", labelKey: "categoriesOrders" },
+  { id: "premium", labelKey: "categoriesPremium" },
+  { id: "system", labelKey: "categoriesSystem" },
+] as const;
 
 export function NotificationCenter({ locale, userId }: { locale: string; userId: string }) {
+  const td = useTranslations("dashboard");
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<NotificationRow[]>([]);
@@ -103,7 +105,7 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId:
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[min(100vw-2rem,380px)] p-0 glass">
         <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
-          <p className="font-semibold text-sm">Notifications</p>
+          <p className="font-semibold text-sm">{td("notifications")}</p>
           <Button
             variant="ghost"
             size="sm"
@@ -116,19 +118,19 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId:
               })
             }
           >
-            <Check className="h-3.5 w-3.5 mr-1" /> Mark all read
+            <Check className="h-3.5 w-3.5 mr-1" /> {td("markAllRead")}
           </Button>
         </div>
 
         <div className="px-3 py-2 space-y-2 border-b border-border/30">
           <Input
-            placeholder="Search…"
+            placeholder={td("searchNotifications")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-8 text-xs"
           />
           <div className="flex flex-wrap gap-1">
-            {CATEGORIES.map((c) => (
+            {CATEGORY_KEYS.map((c) => (
               <button
                 key={c.id}
                 type="button"
@@ -139,7 +141,7 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId:
                     : "border-border/50 text-muted-foreground"
                 }`}
               >
-                {c.label}
+                {td(c.labelKey)}
               </button>
             ))}
           </div>
@@ -147,7 +149,7 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId:
 
         <div className="max-h-80 overflow-y-auto">
           {items.length === 0 ? (
-            <p className="p-6 text-center text-sm text-muted-foreground">No notifications</p>
+            <p className="p-6 text-center text-sm text-muted-foreground">{td("noNotifications")}</p>
           ) : (
             items.map((n) => (
               <div
@@ -201,7 +203,7 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId:
         <div className="border-t border-border/40 p-2">
           <Button variant="ghost" size="sm" className="w-full text-xs" asChild>
             <Link href={`/${locale}/dashboard/notifications`} onClick={() => setOpen(false)}>
-              View all notifications
+              {td("viewAllNotifications")}
             </Link>
           </Button>
         </div>

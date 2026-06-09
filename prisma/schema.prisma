@@ -40,6 +40,27 @@ enum ModStatus {
   ARCHIVED
 }
 
+enum FileScanStatus {
+  PENDING
+  CLEAN
+  SUSPICIOUS
+  MALWARE
+  MANUAL_REVIEW
+  FAILED
+}
+
+enum VersionChannel {
+  STABLE
+  BETA
+  ARCHIVED
+}
+
+enum CollectionVisibility {
+  PUBLIC
+  PRIVATE
+  FEATURED
+}
+
 enum SubscriptionStatus {
   ACTIVE
   CANCELED
@@ -363,6 +384,9 @@ model User {
   userProgress      UserProgress?
   creditWallet      CreditWallet?
   shopPurchases     ShopPurchase[]
+  modCollections    ModCollection[]
+  collectionFollows ModCollectionFollow[]
+  apiKeys           ApiKey[]
 
   @@index([email])
   @@index([username])
@@ -477,6 +501,7 @@ model CreatorProfile {
   updatedAt           DateTime       @updatedAt
 
   socialLinks SocialLink[]
+  collections ModCollection[]
 
   @@index([isVerified, isFeatured])
   @@index([isPublic, sortOrder])
@@ -602,6 +627,8 @@ model Mod {
 
   exclusivePrograms ExclusiveProgram[]
 
+  collections ModCollectionItem[]
+
   @@index([status, visibility, downloadCount])
   @@index([gameId, status])
   @@index([isFeatured, status])
@@ -610,21 +637,31 @@ model Mod {
 }
 
 model ModVersion {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   modId       String
-  mod         Mod      @relation(fields: [modId], references: [id], onDelete: Cascade)
+  mod         Mod            @relation(fields: [modId], references: [id], onDelete: Cascade)
   version     String
-  changelog   String?  @db.Text
+  changelog   String?        @db.Text
   fileKey     String
   fileSize    Int
   fileName    String
   gameVersion String?
-  isPrimary   Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  sha256      String?
+  scanStatus  FileScanStatus @default(PENDING)
+  scanReport  Json?
+  scannedAt   DateTime?
+  channel     VersionChannel @default(STABLE)
+  isPrimary   Boolean        @default(false)
+  isArchived  Boolean        @default(false)
+  downloadCount Int          @default(0)
+  createdAt   DateTime       @default(now())
 
   downloads Download[]
+  scanLogs  FileScanLog[]
 
   @@unique([modId, version])
+  @@index([modId, isPrimary])
+  @@index([scanStatus])
 }
 
 enum ModMediaType {
@@ -676,11 +713,14 @@ model ModTag {
 }
 
 model ModDependency {
-  id           String @id @default(cuid())
+  id           String  @id @default(cuid())
   modId        String
-  mod          Mod    @relation("ModDeps", fields: [modId], references: [id], onDelete: Cascade)
+  mod          Mod     @relation("ModDeps", fields: [modId], references: [id], onDelete: Cascade)
   dependencyId String
-  dependency   Mod    @relation("ModDependents", fields: [dependencyId], references: [id], onDelete: Cascade)
+  dependency   Mod     @relation("ModDependents", fields: [dependencyId], references: [id], onDelete: Cascade)
+  isRequired   Boolean @default(true)
+  minVersion   String?
+  notes        String?
 
   @@unique([modId, dependencyId])
 }
@@ -1536,4 +1576,92 @@ model ShopPurchase {
   createdAt       DateTime    @default(now())
 
   @@index([userId, createdAt])
+}
+
+model FileScanLog {
+  id            String         @id @default(cuid())
+  modVersionId  String?
+  modVersion    ModVersion?    @relation(fields: [modVersionId], references: [id], onDelete: SetNull)
+  modId         String?
+  fileName      String
+  fileSize      Int
+  sha256        String
+  status        FileScanStatus
+  detections    Int            @default(0)
+  totalEngines  Int            @default(0)
+  provider      String         @default("virustotal")
+  report        Json?
+  blocked       Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+
+  @@index([status, createdAt])
+  @@index([sha256])
+  @@index([modId])
+}
+
+model ModCollection {
+  id            String               @id @default(cuid())
+  slug          String               @unique
+  title         String
+  description   String?              @db.Text
+  coverUrl      String?
+  visibility    CollectionVisibility @default(PUBLIC)
+  isFeatured    Boolean              @default(false)
+  ownerId       String
+  owner         User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  creatorId     String?
+  creator       CreatorProfile?      @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  viewCount     Int                  @default(0)
+  downloadCount Int                  @default(0)
+  followerCount Int                  @default(0)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  items     ModCollectionItem[]
+  followers ModCollectionFollow[]
+
+  @@index([visibility, isFeatured])
+  @@index([ownerId])
+}
+
+model ModCollectionItem {
+  id           String        @id @default(cuid())
+  collectionId String
+  collection   ModCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  modId        String
+  mod          Mod           @relation(fields: [modId], references: [id], onDelete: Cascade)
+  sortOrder    Int           @default(0)
+  note         String?
+
+  @@unique([collectionId, modId])
+  @@index([collectionId, sortOrder])
+}
+
+model ModCollectionFollow {
+  id           String        @id @default(cuid())
+  collectionId String
+  collection   ModCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+
+  @@unique([collectionId, userId])
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyHash     String    @unique
+  keyPrefix   String
+  scopes      String[]
+  rateLimit   Int       @default(1000)
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@index([keyHash])
+  @@index([isActive])
 }

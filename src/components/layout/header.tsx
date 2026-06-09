@@ -24,6 +24,7 @@ export function Header({
   const links = [
     { href: `/${locale}/games`, label: navLabels.games },
     { href: `/${locale}/mods`, label: navLabels.mods },
+    { href: `/${locale}/collections`, label: navLabels.collections },
     { href: `/${locale}/creators`, label: navLabels.creators },
     { href: `/${locale}/partners`, label: navLabels.partners },
     { href: `/${locale}/shop`, label: navLabels.shop },

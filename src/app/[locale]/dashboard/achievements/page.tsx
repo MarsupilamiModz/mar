@@ -1,9 +1,12 @@
 import { requireAuth } from "@/lib/auth";
 import { evaluateUserAchievements, getUserAchievements, getUserProgress } from "@/lib/achievements";
 import { AchievementShowcasePanel } from "@/components/dashboard/achievement-showcase-panel";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/config";
 
 export default async function AchievementsPage({ params: { locale } }: { params: { locale: Locale } }) {
+  setRequestLocale(locale);
+  const t = await getTranslations("dashboard");
   const user = await requireAuth(`/${locale}/login`);
   void evaluateUserAchievements(user.id).catch(() => undefined);
 
@@ -14,8 +17,8 @@ export default async function AchievementsPage({ params: { locale } }: { params:
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Achievements</h1>
-      <p className="text-muted-foreground mt-1">Choose up to 3 achievements to display on your public profile.</p>
+      <h1 className="text-2xl font-bold">{t("achievementsTitle")}</h1>
+      <p className="text-muted-foreground mt-1">{t("achievementsSubtitle")}</p>
       <div className="mt-8">
         <AchievementShowcasePanel
           achievements={achievements.map((a) => ({

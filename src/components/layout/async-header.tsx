@@ -25,12 +25,14 @@ async function HeaderWithUser({ locale }: { locale: string }) {
   const navLabels: NavLabels = {
     games: resolveNavLabel(t("games"), defaults.games),
     mods: resolveNavLabel(t("mods"), defaults.mods),
+    collections: resolveNavLabel(t("collections"), defaults.collections),
     creators: resolveNavLabel(t("creators"), defaults.creators),
     partners: resolveNavLabel(t("partners"), defaults.partners),
     shop: resolveNavLabel(t("shop"), defaults.shop),
     leaderboards: resolveNavLabel(t("leaderboards"), defaults.leaderboards),
     premium: resolveNavLabel(t("premium"), defaults.premium),
     customOrders: resolveNavLabel(t("customOrders"), defaults.customOrders),
+    developers: resolveNavLabel(t("developers"), defaults.developers),
     search: resolveNavLabel(t("search"), defaults.search),
   };
 

@@ -23,7 +23,13 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
           startTransition(async () => {
             const r = await uploadModVersion(modId, fd);
             if (r.success) {
-              toast({ title: "Version uploaded" });
+              const msg =
+                r.data && "message" in r.data
+                  ? String(r.data.message)
+                  : r.data && "scanStatus" in r.data && r.data.scanStatus !== "CLEAN"
+                    ? `Uploaded — ${r.data.scanStatus}`
+                    : "Version uploaded";
+              toast({ title: msg });
               router.refresh();
             } else toast({ title: "Error", description: r.error, variant: "destructive" });
           });
@@ -32,6 +38,10 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
       >
         <Input name="version" placeholder="1.0.0" required />
         <Input name="gameVersion" placeholder="Game version (optional)" />
+        <select name="channel" className="h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm">
+          <option value="STABLE">Stable release</option>
+          <option value="BETA">Beta release</option>
+        </select>
         <Textarea name="changelog" placeholder="Changelog" rows={3} />
         <Input name="file" type="file" required />
         <Button type="submit" variant="neon" disabled={pending}>

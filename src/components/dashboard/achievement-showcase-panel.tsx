@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Star, StarOff, RefreshCw, ChevronUp, ChevronDown, GripVertical } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export function AchievementShowcasePanel({
   level: number;
 }) {
   const router = useRouter();
+  const t = useTranslations("dashboard");
   const appToast = useAppToast();
   const [pending, startTransition] = useTransition();
   const [filter, setFilter] = useState<"all" | "featured" | "locked">("all");
@@ -93,9 +95,9 @@ export function AchievementShowcasePanel({
     <Card className="glass max-w-3xl">
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
-          <CardTitle>My Achievements</CardTitle>
+          <CardTitle>{t("achievementsTitle")}</CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Level {level} · {xp.toLocaleString()} XP · {showcased.length}/{SHOWCASE_MAX} featured on your public profile
+            Level {level} · {xp.toLocaleString()} XP · {t("featuredCount", { count: showcased.length })}
           </p>
         </div>
         <Button
@@ -115,13 +117,13 @@ export function AchievementShowcasePanel({
             })
           }
         >
-          <RefreshCw className="h-4 w-4 mr-1" /> Sync
+          <RefreshCw className="h-4 w-4 mr-1" /> {t("sync")}
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         {showcased.length > 0 && (
           <div className="rounded-lg border border-neon-purple/30 bg-neon-purple/5 p-3">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Featured order (public)</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">{t("featuredShowcase")}</p>
             <div className="flex flex-wrap gap-2">
               {showcasedIds.map((id, i) => {
                 const a = achievements.find((x) => x.id === id);
@@ -158,17 +160,17 @@ export function AchievementShowcasePanel({
           <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
             <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="featured">Featured</SelectItem>
-              <SelectItem value="locked">Not featured</SelectItem>
+              <SelectItem value="all">{t("filterAll")}</SelectItem>
+              <SelectItem value="featured">{t("filterFeatured")}</SelectItem>
+              <SelectItem value="locked">{t("filterNotFeatured")}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
             <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="date">Newest</SelectItem>
-              <SelectItem value="rarity">Rarity</SelectItem>
-              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="date">{t("sortNewest")}</SelectItem>
+              <SelectItem value="rarity">{t("sortRarity")}</SelectItem>
+              <SelectItem value="name">{t("sortName")}</SelectItem>
             </SelectContent>
           </Select>
         </div>

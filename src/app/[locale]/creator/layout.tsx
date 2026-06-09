@@ -36,6 +36,7 @@ export default async function CreatorLayout({
     { href: "/licenses", label: t("licenses") },
     { href: "/payouts", label: t("payouts") },
     { href: "/exclusive", label: "Exclusive Access" },
+    { href: "/collections", label: "Collections" },
     { href: "/settings", label: t("profileSettings") },
     { href: "/mods/new", label: t("upload") },
   ];

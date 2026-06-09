@@ -1,15 +1,18 @@
-import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { getFollowedCreators } from "@/lib/follows";
 import { getInlineBadgesForUsers } from "@/lib/user-badges";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Card } from "@/components/ui/card";
 import { SafeImage } from "@/components/ui/safe-image";
 import { AchievementBadge } from "@/components/achievements/achievement-badge";
 import { formatDisplayName } from "@/lib/display-name";
 import { resolveAssetUrl } from "@/lib/assets";
+import Link from "next/link";
 import type { Locale } from "@/i18n/config";
 
 export default async function FollowingPage({ params: { locale } }: { params: { locale: Locale } }) {
+  setRequestLocale(locale);
+  const t = await getTranslations("dashboard");
   const user = await requireAuth(`/${locale}/login`);
   const followed = await getFollowedCreators(user.id);
   const badgeMap = await getInlineBadgesForUsers(
@@ -20,14 +23,14 @@ export default async function FollowingPage({ params: { locale } }: { params: { 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Following</h1>
-        <p className="text-muted-foreground">Creators you follow</p>
+        <h1 className="text-2xl font-bold">{t("following")}</h1>
+        <p className="text-muted-foreground">{t("following")}</p>
       </div>
       {followed.length === 0 ? (
         <Card className="glass p-8 text-center text-muted-foreground">
-          You are not following any creators yet.{" "}
+          {t("emptyFollowing")}{" "}
           <Link href={`/${locale}/creators`} className="text-neon-purple hover:underline">
-            Discover creators
+            {t("discoverCreators")}
           </Link>
         </Card>
       ) : (
@@ -67,9 +70,6 @@ export default async function FollowingPage({ params: { locale } }: { params: { 
                         ))}
                       </div>
                     )}
-                    <p className="text-xs text-neon-purple mt-1">
-                      {c.creatorProfile?.followerCount.toLocaleString()} followers
-                    </p>
                   </div>
                 </Card>
               </Link>

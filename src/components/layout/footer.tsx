@@ -26,7 +26,9 @@ export function Footer({ locale }: { locale: string }) {
           <h4 className="font-semibold mb-3">{t("platform")}</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li><Link href={`/${locale}/mods`} prefetch className="hover:text-foreground transition-colors">{t("browseMods")}</Link></li>
+            <li><Link href={`/${locale}/collections`} prefetch className="hover:text-foreground transition-colors">Collections</Link></li>
             <li><Link href={`/${locale}/games`} prefetch className="hover:text-foreground transition-colors">{t("games")}</Link></li>
+            <li><Link href={`/${locale}/developers`} prefetch className="hover:text-foreground transition-colors">Developers</Link></li>
             <li><Link href={`/${locale}/creators`} prefetch className="hover:text-foreground transition-colors">{t("creators")}</Link></li>
             <li><Link href={`/${locale}/leaderboards`} prefetch className="hover:text-foreground transition-colors">{t("leaderboards")}</Link></li>
             <li><Link href={`/${locale}/premium`} prefetch className="hover:text-foreground transition-colors">{t("premium")}</Link></li>

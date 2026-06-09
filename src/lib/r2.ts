@@ -19,6 +19,14 @@ const r2 = new S3Client({
 
 const BUCKET = STORAGE.bucket;
 
+export function quarantineKey(modSlug: string, version: string, fileName: string) {
+  return storageKey(`quarantine/mods/${modSlug}/${version}/${fileName}`);
+}
+
+export function modFileKey(modSlug: string, version: string, fileName: string) {
+  return storageKey(`mods/${modSlug}/${version}/${fileName}`);
+}
+
 export async function uploadToR2(
   key: string,
   body: Buffer | Uint8Array,

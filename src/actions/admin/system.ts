@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { ok, requireActionPermission } from "@/lib/action-utils";
 import { clearPlatformErrors, listPlatformErrors } from "@/lib/platform-log";
+import { auditTranslationKeys } from "@/lib/i18n-audit";
+import { runPlatformAudit } from "@/lib/platform-audit";
 
 export async function getAdminSystemLogs() {
   const { error } = await requireActionPermission("settings.write");
@@ -43,11 +45,11 @@ export async function getAdminSystemHealth() {
   try {
     const { createClient } = await import("@/lib/supabase/server");
     const supabase = await createClient();
-    const { error } = await supabase.auth.getUser();
+    const { error: authErr } = await supabase.auth.getUser();
     checks.push({
       name: "Supabase Auth",
-      ok: !error,
-      detail: error ? error.message : "Reachable",
+      ok: !authErr,
+      detail: authErr ? authErr.message : "Reachable",
     });
   } catch (err) {
     checks.push({
@@ -76,13 +78,74 @@ export async function getAdminSystemHealth() {
   try {
     const { isStorageConfigured } = await import("@/lib/asset-storage");
     checks.push({
-      name: "File storage",
+      name: "File storage (R2)",
       ok: isStorageConfigured(),
-      detail: isStorageConfigured() ? "Configured" : "Missing storage credentials",
+      detail: isStorageConfigured() ? "Configured" : "Missing credentials",
     });
   } catch {
-    checks.push({ name: "File storage", ok: false, detail: "Check failed" });
+    checks.push({ name: "File storage (R2)", ok: false, detail: "Check failed" });
+  }
+
+  checks.push({
+    name: "Discord OAuth",
+    ok: Boolean(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET),
+    detail: process.env.DISCORD_CLIENT_ID ? "Client configured" : "Missing Discord credentials",
+  });
+
+  checks.push({
+    name: "Stripe",
+    ok: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET),
+    detail: process.env.STRIPE_SECRET_KEY ? "Configured" : "Missing Stripe keys",
+  });
+
+  checks.push({
+    name: "PayPal",
+    ok: Boolean(process.env.PAYPAL_CLIENT_ID || process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID),
+    detail: process.env.PAYPAL_CLIENT_ID || process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? "Configured" : "Optional — not set",
+  });
+
+  try {
+    const { prisma } = await import("@/lib/db");
+    await prisma.notification.count();
+    checks.push({ name: "Notifications", ok: true, detail: "Query OK" });
+  } catch (err) {
+    checks.push({
+      name: "Notifications",
+      ok: false,
+      detail: err instanceof Error ? err.message : "Query failed",
+    });
+  }
+
+  try {
+    const { prisma } = await import("@/lib/db");
+    await prisma.supportTicket.count();
+    checks.push({ name: "Tickets", ok: true, detail: "Query OK" });
+  } catch (err) {
+    checks.push({
+      name: "Tickets",
+      ok: false,
+      detail: err instanceof Error ? err.message : "Query failed",
+    });
   }
 
   return ok(checks);
+}
+
+export async function getAdminTranslationAudit() {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+  return ok(auditTranslationKeys("en"));
+}
+
+export async function runAdminPlatformAudit() {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+  return ok(await runPlatformAudit());
+}
+
+export async function exportAdminSystemLogs() {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+  const logs = await listPlatformErrors(100);
+  return ok(JSON.stringify(logs, null, 2));
 }
