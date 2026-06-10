@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { prisma, withDbRetry } from "@/lib/db";
 import { logPlatformError } from "@/lib/platform-log";
+import { getCachedUserBySupabaseId, invalidateUserSessionCache } from "@/lib/auth-cache";
 
 const userInclude = {
   creatorProfile: true,
@@ -65,7 +66,7 @@ function discordFromSession(session: User) {
 /** Upsert app user row from Supabase auth session — safe for OAuth callback + getCurrentUser. */
 export async function ensurePrismaUser(session: User) {
   const existing = await withDbRetry(
-    () => findUserBySupabaseId(session.id),
+    () => getCachedUserBySupabaseId(session.id),
     { label: "user:find-supabase" }
   );
 
@@ -80,7 +81,7 @@ export async function ensurePrismaUser(session: User) {
       (session.user_metadata?.avatar_url && existing.avatarUrl !== session.user_metadata.avatar_url);
 
     if (needsUpdate) {
-      return withDbRetry(
+      const updated = await withDbRetry(
         () =>
           prisma.user.update({
             where: { id: existing.id },
@@ -96,6 +97,8 @@ export async function ensurePrismaUser(session: User) {
           }),
         { label: "user:update-discord" }
       );
+      invalidateUserSessionCache(session.id);
+      return updated;
     }
     return existing;
   }

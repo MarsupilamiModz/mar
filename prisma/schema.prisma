@@ -61,6 +61,26 @@ enum CollectionVisibility {
   FEATURED
 }
 
+enum CollectionModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum ApplicationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum UploadSessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABORTED
+}
+
 enum SubscriptionStatus {
   ACTIVE
   CANCELED
@@ -387,6 +407,9 @@ model User {
   modCollections    ModCollection[]
   collectionFollows ModCollectionFollow[]
   apiKeys           ApiKey[]
+  creatorApplications CreatorApplication[]
+  partnerApplications PartnerApplication[]
+  storageUploads    StorageUploadSession[]
 
   @@index([email])
   @@index([username])
@@ -1315,15 +1338,24 @@ model AdProviderConfig {
 }
 
 model PermissionGroup {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  name        String
-  description String?
-  permissions Json     @default("[]")
-  isSystem    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  users       User[]
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  description     String?
+  permissions     Json     @default("[]")
+  isSystem        Boolean  @default(false)
+  isArchived      Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  color           String?
+  badge           String?
+  icon            String?
+  hierarchyTier   String?
+  dashboardAccess Json     @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  users           User[]
+
+  @@index([isArchived, sortOrder])
 }
 
 model ExclusiveProgram {
@@ -1600,27 +1632,32 @@ model FileScanLog {
 }
 
 model ModCollection {
-  id            String               @id @default(cuid())
-  slug          String               @unique
+  id            String                     @id @default(cuid())
+  slug          String                     @unique
   title         String
-  description   String?              @db.Text
+  description   String?                    @db.Text
   coverUrl      String?
-  visibility    CollectionVisibility @default(PUBLIC)
-  isFeatured    Boolean              @default(false)
+  bannerUrl     String?
+  visibility    CollectionVisibility       @default(PUBLIC)
+  moderationStatus CollectionModerationStatus @default(APPROVED)
+  adminNotes    String?                    @db.Text
+  isFeatured    Boolean                    @default(false)
+  sortOrder     Int                        @default(0)
   ownerId       String
-  owner         User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner         User                       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   creatorId     String?
-  creator       CreatorProfile?      @relation(fields: [creatorId], references: [id], onDelete: SetNull)
-  viewCount     Int                  @default(0)
-  downloadCount Int                  @default(0)
-  followerCount Int                  @default(0)
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  creator       CreatorProfile?            @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  viewCount     Int                        @default(0)
+  downloadCount Int                        @default(0)
+  followerCount Int                        @default(0)
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
 
   items     ModCollectionItem[]
   followers ModCollectionFollow[]
 
   @@index([visibility, isFeatured])
+  @@index([moderationStatus, sortOrder])
   @@index([ownerId])
 }
 
@@ -1664,4 +1701,76 @@ model ApiKey {
 
   @@index([keyHash])
   @@index([isActive])
+}
+
+model CreatorApplication {
+  id              String            @id @default(cuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          ApplicationStatus @default(PENDING)
+  displayName     String
+  email           String
+  discord         String?
+  portfolioUrl    String?
+  youtubeUrl      String?
+  twitchUrl       String?
+  tiktokUrl       String?
+  instagramUrl    String?
+  xUrl            String?
+  websiteUrl      String?
+  message         String?           @db.Text
+  portfolioImages Json              @default("[]")
+  sampleModUrls   Json              @default("[]")
+  adminNotes      String?           @db.Text
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
+model PartnerApplication {
+  id                String            @id @default(cuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status            ApplicationStatus @default(PENDING)
+  creatorName       String
+  email             String
+  audienceSize      String?
+  platforms         Json              @default("[]")
+  promotionStrategy String?           @db.Text
+  socialLinks       Json              @default("{}")
+  message           String?           @db.Text
+  adminNotes        String?           @db.Text
+  assignedCreatorCode String?
+  assignedPartnerCode String?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
+model StorageUploadSession {
+  id          String              @id @default(cuid())
+  userId      String
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose     String
+  fileKey     String
+  uploadId    String
+  fileName    String
+  fileSize    Int
+  contentType String
+  status      UploadSessionStatus @default(IN_PROGRESS)
+  modId       String?
+  metadata    Json?
+  createdAt   DateTime            @default(now())
+  expiresAt   DateTime
+
+  @@index([userId, status])
+  @@index([uploadId])
 }

@@ -1,4 +1,5 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
@@ -48,6 +49,38 @@ export async function uploadToR2(
 
 export async function deleteFromR2(key: string) {
   await r2.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+}
+
+export async function getObjectBufferFromR2(key: string): Promise<Buffer> {
+  const normalizedKey = key.startsWith(STORAGE.prefix) ? key : storageKey(key);
+  const res = await r2.send(new GetObjectCommand({ Bucket: BUCKET, Key: normalizedKey }));
+  const stream = res.Body;
+  if (!stream) throw new Error("Empty object");
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of stream as AsyncIterable<Uint8Array>) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+export async function copyObjectInR2(
+  sourceKey: string,
+  destKey: string,
+  contentType?: string,
+  cacheControl = "public, max-age=31536000, immutable"
+) {
+  const src = sourceKey.startsWith(STORAGE.prefix) ? sourceKey : storageKey(sourceKey);
+  const dest = destKey.startsWith(STORAGE.prefix) ? destKey : storageKey(destKey);
+  await r2.send(
+    new CopyObjectCommand({
+      Bucket: BUCKET,
+      CopySource: `${BUCKET}/${src}`,
+      Key: dest,
+      ContentType: contentType,
+      CacheControl: cacheControl,
+    })
+  );
+  return dest;
 }
 
 export async function getSignedDownloadUrl(key: string, expiresIn = 300) {

@@ -23,10 +23,14 @@ import { SITE } from "@/lib/site";
 
 const settingsSchema = z.object({
   enabled: z.boolean().optional(),
+  authMode: z.enum(["smtp", "microsoft"]).optional(),
   smtpHost: z.string().max(255).optional(),
   smtpPort: z.number().int().min(1).max(65535).optional(),
   smtpUser: z.string().max(255).optional(),
   smtpPassword: z.string().max(255).optional(),
+  microsoftTenantId: z.string().max(255).optional(),
+  microsoftClientId: z.string().max(255).optional(),
+  microsoftClientSecret: z.string().max(255).optional(),
   senderEmail: z.string().email().optional().or(z.literal("")),
   senderName: z.string().max(120).optional(),
   encryption: z.enum(["SSL", "TLS", "STARTTLS", "NONE"]).optional(),

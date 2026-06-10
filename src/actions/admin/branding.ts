@@ -108,7 +108,10 @@ export async function getAdminPermissionGroups() {
   if (error) return error;
 
   return actionTry(async () => {
-    let groups = await prisma.permissionGroup.findMany({ orderBy: { name: "asc" } });
+    let groups = await prisma.permissionGroup.findMany({
+      where: { isArchived: false },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    });
     if (groups.length === 0) {
       await prisma.permissionGroup.createMany({
         data: [
@@ -117,7 +120,10 @@ export async function getAdminPermissionGroups() {
           { slug: "partner-standard", name: "Partner Standard", permissions: ["analytics.creator", "coupons.write"], isSystem: true },
         ],
       });
-      groups = await prisma.permissionGroup.findMany({ orderBy: { name: "asc" } });
+      groups = await prisma.permissionGroup.findMany({
+        where: { isArchived: false },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      });
     }
     return groups;
   }, "permissions:list-groups");
@@ -129,33 +135,73 @@ export async function savePermissionGroup(input: {
   name: string;
   description?: string;
   permissions: string[];
+  color?: string;
+  badge?: string;
+  icon?: string;
+  hierarchyTier?: string;
+  dashboardAccess?: string[];
+  sortOrder?: number;
+  isArchived?: boolean;
 }) {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
   return actionTry(async () => {
+    const data = {
+      name: input.name,
+      description: input.description,
+      permissions: input.permissions as Prisma.InputJsonValue,
+      color: input.color,
+      badge: input.badge,
+      icon: input.icon,
+      hierarchyTier: input.hierarchyTier,
+      dashboardAccess: (input.dashboardAccess ?? []) as Prisma.InputJsonValue,
+      sortOrder: input.sortOrder,
+      isArchived: input.isArchived,
+    };
     if (input.id) {
       const existing = await prisma.permissionGroup.findUnique({ where: { id: input.id } });
       if (existing?.isSystem) throw new Error("System groups cannot be edited");
       await prisma.permissionGroup.update({
         where: { id: input.id },
-        data: {
-          name: input.name,
-          description: input.description,
-          permissions: input.permissions as Prisma.InputJsonValue,
-        },
+        data,
       });
     } else {
       await prisma.permissionGroup.create({
         data: {
           slug: input.slug,
-          name: input.name,
-          description: input.description,
-          permissions: input.permissions as Prisma.InputJsonValue,
+          ...data,
         },
       });
     }
     invalidatePermissionCache();
     revalidatePath("/admin/groups");
   }, "permissions:save-group");
+}
+
+export async function duplicatePermissionGroup(id: string) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+
+  return actionTry(async () => {
+    const group = await prisma.permissionGroup.findUnique({ where: { id } });
+    if (!group) throw new Error("Group not found");
+    const slug = `${group.slug}-copy-${Date.now().toString(36)}`;
+    await prisma.permissionGroup.create({
+      data: {
+        slug,
+        name: `${group.name} (Copy)`,
+        description: group.description,
+        permissions: group.permissions as Prisma.InputJsonValue,
+        color: group.color,
+        badge: group.badge,
+        icon: group.icon,
+        hierarchyTier: group.hierarchyTier,
+        dashboardAccess: group.dashboardAccess as Prisma.InputJsonValue,
+        sortOrder: group.sortOrder + 1,
+      },
+    });
+    invalidatePermissionCache();
+    revalidatePath("/admin/groups");
+  }, "permissions:duplicate-group");
 }

@@ -6,10 +6,14 @@ import type { Locale } from "@/i18n/config";
 
 const EMPTY_SETTINGS = {
   enabled: false,
+  authMode: "smtp" as const,
   smtpHost: "",
   smtpPort: 587,
   smtpUser: "",
   smtpPasswordSet: false,
+  microsoftTenantId: "",
+  microsoftClientId: "",
+  microsoftSecretSet: false,
   senderEmail: "",
   senderName: "XumariModz",
   encryption: "STARTTLS" as const,

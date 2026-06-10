@@ -13,6 +13,7 @@ import {
   type ActionResult,
 } from "@/lib/action-utils";
 import { hasPremiumAccess } from "@/lib/auth";
+import { invalidateUserSessionCache } from "@/lib/auth-cache";
 
 const roleSchema = z.nativeEnum(UserRole);
 
@@ -208,6 +209,10 @@ export async function assignUserPermissionGroup(
     where: { id: userId },
     data: { permissionGroupId },
   });
+
+  if (target.supabaseId) {
+    invalidateUserSessionCache(target.supabaseId);
+  }
 
   await createAuditLog({
     actorId: actor.id,

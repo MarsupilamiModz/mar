@@ -6,7 +6,8 @@ import { getAppUrl } from "@/lib/app-url";
 import { syncDiscordRoles } from "@/lib/discord";
 import { hasPremiumAccess } from "@/lib/auth";
 import { logAuthEvent } from "@/lib/auth-log";
-import { warmDbConnection, withDbRetry, prisma } from "@/lib/db";
+import { warmDbConnection, withDbRetry } from "@/lib/db";
+import { getCachedUserBySupabaseId } from "@/lib/auth-cache";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -53,16 +54,7 @@ export async function GET(req: Request) {
       logAuthEvent("callback_sync_failed", { userId: data.user.id }, "error");
 
       dbUser = await withDbRetry(
-        () =>
-          prisma.user.findUnique({
-            where: { supabaseId: data.user.id },
-            include: {
-              creatorProfile: true,
-              designerProfile: true,
-              partnerProfile: true,
-              subscriptions: { where: { status: "ACTIVE" }, select: { status: true } },
-            },
-          }),
+        () => getCachedUserBySupabaseId(data.user.id),
         { retries: 2, label: "auth:callback-fallback" }
       );
 

@@ -76,7 +76,28 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   let sent = false;
   let lastError: string | null = null;
 
-  if (settings.enabled && settings.smtpHost && settings.senderEmail) {
+  if (settings.enabled && settings.authMode === "microsoft" && settings.senderEmail) {
+    try {
+      const { sendViaMicrosoftGraph } = await import("@/lib/email/microsoft-graph");
+      const { resolveMicrosoftSecret } = await import("@/lib/email/settings");
+      await sendViaMicrosoftGraph({
+        tenantId: settings.microsoftTenantId,
+        clientId: settings.microsoftClientId,
+        clientSecret: resolveMicrosoftSecret(settings),
+        senderEmail: settings.senderEmail,
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+      });
+      sent = true;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : "Microsoft Graph send failed";
+      console.error("[email] Microsoft Graph error:", lastError);
+    }
+  }
+
+  if (!sent && settings.enabled && settings.authMode === "smtp" && settings.smtpHost && settings.senderEmail) {
     try {
       const transport = buildTransport(settings);
       await transport.sendMail({
@@ -126,6 +147,19 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
 
 export async function testSmtpConnection(settingsOverride?: Partial<EmailSettings>) {
   const settings = { ...(await getEmailSettings()), ...settingsOverride };
+  if (settings.authMode === "microsoft") {
+    const { testMicrosoftGraphConnection } = await import("@/lib/email/microsoft-graph");
+    const { resolveMicrosoftSecret } = await import("@/lib/email/settings");
+    if (!settings.microsoftTenantId || !settings.microsoftClientId) {
+      throw new Error("Microsoft Tenant ID and Client ID are required");
+    }
+    return testMicrosoftGraphConnection({
+      tenantId: settings.microsoftTenantId,
+      clientId: settings.microsoftClientId,
+      clientSecret: resolveMicrosoftSecret(settings),
+      senderEmail: settings.senderEmail,
+    });
+  }
   if (!settings.smtpHost) throw new Error("SMTP host is required");
 
   const transport = buildTransport(settings);

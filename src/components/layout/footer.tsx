@@ -28,7 +28,8 @@ export function Footer({ locale }: { locale: string }) {
             <li><Link href={`/${locale}/mods`} prefetch className="hover:text-foreground transition-colors">{t("browseMods")}</Link></li>
             <li><Link href={`/${locale}/collections`} prefetch className="hover:text-foreground transition-colors">Collections</Link></li>
             <li><Link href={`/${locale}/games`} prefetch className="hover:text-foreground transition-colors">{t("games")}</Link></li>
-            <li><Link href={`/${locale}/developers`} prefetch className="hover:text-foreground transition-colors">Developers</Link></li>
+            <li><Link href={`/${locale}/become-creator`} prefetch className="hover:text-foreground transition-colors">Become a Creator</Link></li>
+            <li><Link href={`/${locale}/become-partner`} prefetch className="hover:text-foreground transition-colors">Become a Partner</Link></li>
             <li><Link href={`/${locale}/creators`} prefetch className="hover:text-foreground transition-colors">{t("creators")}</Link></li>
             <li><Link href={`/${locale}/leaderboards`} prefetch className="hover:text-foreground transition-colors">{t("leaderboards")}</Link></li>
             <li><Link href={`/${locale}/premium`} prefetch className="hover:text-foreground transition-colors">{t("premium")}</Link></li>

@@ -3,12 +3,18 @@ import { SITE } from "@/lib/site";
 
 export type SmtpEncryption = "SSL" | "TLS" | "STARTTLS" | "NONE";
 
+export type EmailAuthMode = "smtp" | "microsoft";
+
 export type EmailSettings = {
   enabled: boolean;
+  authMode: EmailAuthMode;
   smtpHost: string;
   smtpPort: number;
   smtpUser: string;
   smtpPassword: string;
+  microsoftTenantId: string;
+  microsoftClientId: string;
+  microsoftClientSecret: string;
   senderEmail: string;
   senderName: string;
   encryption: SmtpEncryption;
@@ -20,8 +26,12 @@ export type EmailSettings = {
   contactFormEmail: string;
 };
 
-export type EmailSettingsPublic = Omit<EmailSettings, "smtpPassword"> & {
+export type EmailSettingsPublic = Omit<
+  EmailSettings,
+  "smtpPassword" | "microsoftClientSecret"
+> & {
   smtpPasswordSet: boolean;
+  microsoftSecretSet: boolean;
   configured: boolean;
 };
 
@@ -29,10 +39,14 @@ const KEY = "email_settings";
 
 export const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
   enabled: false,
+  authMode: "smtp",
   smtpHost: "",
   smtpPort: 587,
   smtpUser: "",
   smtpPassword: "",
+  microsoftTenantId: "",
+  microsoftClientId: "",
+  microsoftClientSecret: "",
   senderEmail: "",
   senderName: SITE.name,
   encryption: "STARTTLS",
@@ -53,16 +67,29 @@ export async function getEmailSettingsPublic(): Promise<EmailSettingsPublic> {
   const settings = await getEmailSettings();
   const envPassword = process.env.SMTP_PASSWORD;
   const passwordSet = !!(settings.smtpPassword || envPassword);
-  const configured = !!(
+  const microsoftSecretSet = !!(
+    settings.microsoftClientSecret || process.env.MICROSOFT_CLIENT_SECRET
+  );
+  const smtpConfigured = !!(
     settings.smtpHost &&
     settings.senderEmail &&
     passwordSet &&
     (settings.smtpUser || settings.encryption === "NONE")
   );
-  const { smtpPassword: _pw, ...rest } = settings;
+  const microsoftConfigured = !!(
+    settings.microsoftTenantId &&
+    settings.microsoftClientId &&
+    microsoftSecretSet &&
+    settings.senderEmail
+  );
+  const configured =
+    settings.enabled &&
+    (settings.authMode === "microsoft" ? microsoftConfigured : smtpConfigured);
+  const { smtpPassword: _pw, microsoftClientSecret: _ms, ...rest } = settings;
   return {
     ...rest,
     smtpPasswordSet: passwordSet,
+    microsoftSecretSet,
     configured,
   };
 }
@@ -75,6 +102,9 @@ export async function saveEmailSettings(input: Partial<EmailSettings>) {
     smtpPassword: input.smtpPassword?.trim()
       ? input.smtpPassword
       : current.smtpPassword,
+    microsoftClientSecret: input.microsoftClientSecret?.trim()
+      ? input.microsoftClientSecret
+      : current.microsoftClientSecret,
   };
   const saved = await setSiteSettingSafe(KEY, next);
   if (!saved.ok) throw new Error(saved.error);
@@ -83,6 +113,10 @@ export async function saveEmailSettings(input: Partial<EmailSettings>) {
 
 export function resolveEmailPassword(settings: EmailSettings) {
   return settings.smtpPassword || process.env.SMTP_PASSWORD || "";
+}
+
+export function resolveMicrosoftSecret(settings: EmailSettings) {
+  return settings.microsoftClientSecret || process.env.MICROSOFT_CLIENT_SECRET || "";
 }
 
 export function resolveTargetEmail(

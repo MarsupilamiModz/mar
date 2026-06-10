@@ -15,7 +15,7 @@ import { createAuditLog } from "@/lib/audit";
 import { fail, ok, requireActionUser, requireActionPermission } from "@/lib/action-utils";
 import { hasPermission } from "@/lib/permissions";
 import { modCreateSchema } from "@/lib/validations";
-import { modFileKey, quarantineKey, uploadToR2 } from "@/lib/r2";
+import { modFileKey, quarantineKey, uploadToR2, getObjectBufferFromR2, copyObjectInR2, deleteFromR2 } from "@/lib/r2";
 import { getMalwareScannerSettings, isScannableFileName } from "@/lib/malware-settings";
 import { resolvePostScanModStatus, scanFileBuffer } from "@/lib/malware-scanner";
 import { createHash } from "crypto";
@@ -220,6 +220,144 @@ export async function updateMod(
   }
 }
 
+function parseVersionChannel(raw: string): VersionChannel {
+  return (["STABLE", "BETA", "ARCHIVED"].includes(raw) ? raw : "STABLE") as VersionChannel;
+}
+
+async function processModVersionUpload(input: {
+  modId: string;
+  modSlug: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  buffer: Buffer;
+  version: string;
+  changelog?: string;
+  gameVersion?: string;
+  channel: VersionChannel;
+  tempKey?: string;
+}) {
+  const settings = await getMalwareScannerSettings();
+  const qKey = quarantineKey(input.modSlug, input.version, input.fileName);
+
+  await uploadToR2(qKey, input.buffer, input.contentType, "private, max-age=86400");
+
+  let scanResult = {
+    status: "CLEAN" as FileScanStatus,
+    sha256: createHash("sha256").update(input.buffer).digest("hex"),
+    detections: 0,
+    totalEngines: 0,
+    report: {} as Record<string, unknown>,
+    blocked: false,
+  };
+
+  if (settings.enabled && isScannableFileName(input.fileName)) {
+    scanResult = await scanFileBuffer(input.buffer, input.fileName);
+  } else if (settings.enabled) {
+    scanResult = {
+      status: "MANUAL_REVIEW",
+      sha256: "",
+      detections: 0,
+      totalEngines: 0,
+      report: { reason: "Unsupported extension for automated scan" },
+      blocked: false,
+    };
+  }
+
+  if (scanResult.blocked || scanResult.status === "MALWARE") {
+    await prisma.fileScanLog.create({
+      data: {
+        modId: input.modId,
+        fileName: input.fileName,
+        fileSize: input.fileSize,
+        sha256: scanResult.sha256,
+        status: scanResult.status,
+        detections: scanResult.detections,
+        totalEngines: scanResult.totalEngines,
+        report: scanResult.report as Prisma.InputJsonValue,
+        blocked: true,
+      },
+    });
+    throw new Error("Upload blocked: malware detected");
+  }
+
+  const productionKey = modFileKey(input.modSlug, input.version, input.fileName);
+  if (input.tempKey) {
+    await copyObjectInR2(input.tempKey, productionKey, input.contentType);
+    void deleteFromR2(input.tempKey);
+  } else {
+    await uploadToR2(productionKey, input.buffer, input.contentType);
+  }
+
+  const modStatusOverride = resolvePostScanModStatus(scanResult.status, settings.autoApproveClean);
+  const makePrimary = input.channel !== "ARCHIVED" && scanResult.status === "CLEAN";
+
+  const created = await prisma.$transaction(async (tx) => {
+    if (makePrimary) {
+      await tx.modVersion.updateMany({
+        where: { modId: input.modId, isPrimary: true },
+        data: { isPrimary: false },
+      });
+    }
+
+    const modVersion = await tx.modVersion.create({
+      data: {
+        modId: input.modId,
+        version: input.version,
+        changelog: input.changelog,
+        gameVersion: input.gameVersion,
+        fileKey: productionKey,
+        fileSize: input.fileSize,
+        fileName: input.fileName,
+        sha256: scanResult.sha256 || null,
+        scanStatus: scanResult.status,
+        scanReport: scanResult.report as Prisma.InputJsonValue,
+        scannedAt: new Date(),
+        channel: input.channel,
+        isPrimary: makePrimary,
+        isArchived: input.channel === "ARCHIVED",
+      },
+    });
+
+    await tx.fileScanLog.create({
+      data: {
+        modVersionId: modVersion.id,
+        modId: input.modId,
+        fileName: input.fileName,
+        fileSize: input.fileSize,
+        sha256: scanResult.sha256 || "pending",
+        status: scanResult.status,
+        detections: scanResult.detections,
+        totalEngines: scanResult.totalEngines,
+        report: scanResult.report as Prisma.InputJsonValue,
+        blocked: false,
+      },
+    });
+
+    await tx.modChangelog.create({
+      data: {
+        modId: input.modId,
+        version: input.version,
+        content: input.changelog ?? `Version ${input.version} released`,
+      },
+    });
+
+    if (modStatusOverride) {
+      await tx.mod.update({
+        where: { id: input.modId },
+        data: { status: modStatusOverride },
+      });
+    }
+
+    return modVersion;
+  });
+
+  revalidatePath(`/mods/${input.modSlug}`);
+  revalidatePath("/admin/security");
+
+  return { created, scanStatus: scanResult.status };
+}
+
 export async function uploadModVersion(modId: string, formData: FormData) {
   const { user, error } = await requireActionUser();
   if (error) return error;
@@ -232,134 +370,98 @@ export async function uploadModVersion(modId: string, formData: FormData) {
   const version = formData.get("version") as string;
   const changelog = (formData.get("changelog") as string) || undefined;
   const gameVersion = (formData.get("gameVersion") as string) || undefined;
-  const channelRaw = (formData.get("channel") as string) || "STABLE";
-  const channel = (["STABLE", "BETA", "ARCHIVED"].includes(channelRaw)
-    ? channelRaw
-    : "STABLE") as VersionChannel;
+  const channel = parseVersionChannel((formData.get("channel") as string) || "STABLE");
 
   if (!file || !version) return fail("File and version required");
   if (file.size > 500 * 1024 * 1024) return fail("Max 500MB");
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const settings = await getMalwareScannerSettings();
-    const qKey = quarantineKey(mod.slug, version, file.name);
-
-    await uploadToR2(qKey, buffer, file.type || "application/octet-stream", "private, max-age=86400");
-
-    let scanResult = {
-      status: "CLEAN" as FileScanStatus,
-      sha256: createHash("sha256").update(buffer).digest("hex"),
-      detections: 0,
-      totalEngines: 0,
-      report: {} as Record<string, unknown>,
-      blocked: false,
-    };
-
-    if (settings.enabled && isScannableFileName(file.name)) {
-      scanResult = await scanFileBuffer(buffer, file.name);
-    } else if (settings.enabled) {
-      scanResult = {
-        status: "MANUAL_REVIEW",
-        sha256: "",
-        detections: 0,
-        totalEngines: 0,
-        report: { reason: "Unsupported extension for automated scan" },
-        blocked: false,
-      };
-    }
-
-    if (scanResult.blocked || scanResult.status === "MALWARE") {
-      await prisma.fileScanLog.create({
-        data: {
-          modId,
-          fileName: file.name,
-          fileSize: file.size,
-          sha256: scanResult.sha256,
-          status: scanResult.status,
-          detections: scanResult.detections,
-          totalEngines: scanResult.totalEngines,
-          report: scanResult.report as Prisma.InputJsonValue,
-          blocked: true,
-        },
-      });
-      return fail("Upload blocked: malware detected");
-    }
-
-    const productionKey = modFileKey(mod.slug, version, file.name);
-    await uploadToR2(productionKey, buffer, file.type || "application/octet-stream");
-
-    const modStatusOverride = resolvePostScanModStatus(scanResult.status, settings.autoApproveClean);
-    const makePrimary = channel !== "ARCHIVED" && scanResult.status === "CLEAN";
-
-    const created = await prisma.$transaction(async (tx) => {
-      if (makePrimary) {
-        await tx.modVersion.updateMany({
-          where: { modId, isPrimary: true },
-          data: { isPrimary: false },
-        });
-      }
-
-      const modVersion = await tx.modVersion.create({
-        data: {
-          modId,
-          version,
-          changelog,
-          gameVersion,
-          fileKey: productionKey,
-          fileSize: file.size,
-          fileName: file.name,
-          sha256: scanResult.sha256 || null,
-          scanStatus: scanResult.status,
-          scanReport: scanResult.report as Prisma.InputJsonValue,
-          scannedAt: new Date(),
-          channel,
-          isPrimary: makePrimary,
-          isArchived: channel === "ARCHIVED",
-        },
-      });
-
-      await tx.fileScanLog.create({
-        data: {
-          modVersionId: modVersion.id,
-          modId,
-          fileName: file.name,
-          fileSize: file.size,
-          sha256: scanResult.sha256 || "pending",
-          status: scanResult.status,
-          detections: scanResult.detections,
-          totalEngines: scanResult.totalEngines,
-          report: scanResult.report as Prisma.InputJsonValue,
-          blocked: false,
-        },
-      });
-
-      await tx.modChangelog.create({
-        data: { modId, version, content: changelog ?? `Version ${version} released` },
-      });
-
-      if (modStatusOverride) {
-        await tx.mod.update({
-          where: { id: modId },
-          data: { status: modStatusOverride },
-        });
-      }
-
-      return modVersion;
+    const { created, scanStatus } = await processModVersionUpload({
+      modId,
+      modSlug: mod.slug,
+      fileName: file.name,
+      fileSize: file.size,
+      contentType: file.type || "application/octet-stream",
+      buffer,
+      version,
+      changelog,
+      gameVersion,
+      channel,
     });
 
-    revalidatePath(`/mods/${mod.slug}`);
-    revalidatePath("/admin/security");
-
-    if (scanResult.status === "SUSPICIOUS" || scanResult.status === "MANUAL_REVIEW") {
+    if (scanStatus === "SUSPICIOUS" || scanStatus === "MANUAL_REVIEW") {
       return ok({
         versionId: created.id,
-        scanStatus: scanResult.status,
+        scanStatus,
         message: "Upload queued for security review",
       });
     }
 
-    return ok({ versionId: created.id, scanStatus: scanResult.status });
+    return ok({ versionId: created.id, scanStatus });
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Version upload failed");
+  }
+}
+
+export async function finalizeModVersionUpload(
+  sessionId: string,
+  input: {
+    version: string;
+    changelog?: string;
+    gameVersion?: string;
+    channel?: string;
+  }
+) {
+  const { user, error } = await requireActionUser();
+  if (error) return error;
+
+  const session = await prisma.storageUploadSession.findUnique({ where: { id: sessionId } });
+  if (!session || session.userId !== user.id || session.purpose !== "mod-version") {
+    return fail("Invalid upload session");
+  }
+  if (session.status !== "IN_PROGRESS") return fail("Upload already processed");
+
+  const modId = session.modId;
+  if (!modId) return fail("Mod not linked to upload");
+
+  const mod = await prisma.mod.findUnique({ where: { id: modId } });
+  if (!mod) return fail("Mod not found");
+  if (!(await canEditMod(user.id, user.role, mod.authorId))) return fail("Forbidden");
+
+  const channel = parseVersionChannel(input.channel ?? "STABLE");
+  if (!input.version.trim()) return fail("Version required");
+
+  try {
+    const buffer = await getObjectBufferFromR2(session.fileKey);
+    const { created, scanStatus } = await processModVersionUpload({
+      modId,
+      modSlug: mod.slug,
+      fileName: session.fileName,
+      fileSize: session.fileSize,
+      contentType: session.contentType,
+      buffer,
+      version: input.version.trim(),
+      changelog: input.changelog,
+      gameVersion: input.gameVersion,
+      channel,
+      tempKey: session.fileKey,
+    });
+
+    await prisma.storageUploadSession.update({
+      where: { id: sessionId },
+      data: { status: "COMPLETED" },
+    });
+
+    if (scanStatus === "SUSPICIOUS" || scanStatus === "MANUAL_REVIEW") {
+      return ok({
+        versionId: created.id,
+        scanStatus,
+        message: "Upload queued for security review",
+      });
+    }
+
+    return ok({ versionId: created.id, scanStatus });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Version upload failed");
   }

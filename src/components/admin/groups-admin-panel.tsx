@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { memo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { UserRole } from "@prisma/client";
-import { savePermissionGroup } from "@/actions/admin/branding";
+import { savePermissionGroup, duplicatePermissionGroup } from "@/actions/admin/branding";
 import { deletePermissionGroup, updateAdminRolePermissions } from "@/actions/admin/permissions";
 import { PERMISSIONS, ROLE_HIERARCHY, type PermissionKey } from "@/lib/permissions";
 import { ASSIGNABLE_ROLES } from "@/lib/permission-types";
@@ -14,6 +14,21 @@ import { Badge } from "@/components/ui/badge";
 import { useAppToast } from "@/hooks/use-app-toast";
 import { formatRoleLabel, formatGroupLabel, ROLE_HIERARCHY_LABEL } from "@/lib/role-display";
 
+const HIERARCHY_TIERS = [
+  "Owner",
+  "Admin",
+  "Moderator",
+  "Support",
+  "Creator",
+  "Partner",
+  "Premium Max",
+  "Premium",
+  "Premium Lite",
+  "User",
+];
+
+const DASHBOARD_OPTIONS = ["admin", "creator", "partner", "dashboard", "premium"];
+
 type Group = {
   id: string;
   slug: string;
@@ -21,6 +36,13 @@ type Group = {
   description: string | null;
   permissions: unknown;
   isSystem: boolean;
+  color?: string | null;
+  badge?: string | null;
+  icon?: string | null;
+  hierarchyTier?: string | null;
+  dashboardAccess?: unknown;
+  sortOrder?: number;
+  isArchived?: boolean;
 };
 
 type RoleRow = {
@@ -28,7 +50,7 @@ type RoleRow = {
   permissions: PermissionKey[];
 };
 
-export function GroupsAdminPanel({
+function GroupsAdminPanelInner({
   groups,
   roles,
 }: {
@@ -43,6 +65,12 @@ export function GroupsAdminPanel({
   const [slug, setSlug] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [color, setColor] = useState("");
+  const [badge, setBadge] = useState("");
+  const [icon, setIcon] = useState("");
+  const [hierarchyTier, setHierarchyTier] = useState("");
+  const [dashboardAccess, setDashboardAccess] = useState<string[]>([]);
+  const [sortOrder, setSortOrder] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
   const [activeRole, setActiveRole] = useState<UserRole>("MODERATOR");
   const [rolePerms, setRolePerms] = useState<string[]>(
@@ -54,6 +82,12 @@ export function GroupsAdminPanel({
     setSlug("");
     setName("");
     setDescription("");
+    setColor("");
+    setBadge("");
+    setIcon("");
+    setHierarchyTier("");
+    setDashboardAccess([]);
+    setSortOrder(groups.length);
     setSelected([]);
   };
 
@@ -63,12 +97,24 @@ export function GroupsAdminPanel({
     setSlug(g.slug);
     setName(g.name);
     setDescription(g.description ?? "");
+    setColor(g.color ?? "");
+    setBadge(g.badge ?? "");
+    setIcon(g.icon ?? "");
+    setHierarchyTier(g.hierarchyTier ?? "");
+    setDashboardAccess(Array.isArray(g.dashboardAccess) ? g.dashboardAccess.map(String) : []);
+    setSortOrder(g.sortOrder ?? 0);
     setSelected(Array.isArray(g.permissions) ? g.permissions.map(String) : []);
     setTab("groups");
   };
 
   const togglePerm = (key: string, list: string[], setList: (v: string[]) => void) => {
     setList(list.includes(key) ? list.filter((p) => p !== key) : [...list, key]);
+  };
+
+  const toggleDashboard = (key: string) => {
+    setDashboardAccess((prev) =>
+      prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]
+    );
   };
 
   const selectRole = (role: UserRole) => {
@@ -86,6 +132,33 @@ export function GroupsAdminPanel({
     }
     rolePerms.forEach((p) => inherited.add(p));
     return Array.from(inherited);
+  };
+
+  const saveGroup = () => {
+    if (!slug.trim() || !name.trim()) {
+      appToast.error("Slug and name required");
+      return;
+    }
+    startTransition(async () => {
+      const r = await savePermissionGroup({
+        id: editing?.id,
+        slug: slug.trim(),
+        name: name.trim(),
+        description: description.trim() || undefined,
+        permissions: selected,
+        color: color.trim() || undefined,
+        badge: badge.trim() || undefined,
+        icon: icon.trim() || undefined,
+        hierarchyTier: hierarchyTier || undefined,
+        dashboardAccess,
+        sortOrder,
+      });
+      if (r.success) {
+        appToast.saved();
+        startCreate();
+        router.refresh();
+      } else appToast.error(r.error);
+    });
   };
 
   return (
@@ -167,11 +240,25 @@ export function GroupsAdminPanel({
                 className={`glass p-5 space-y-3 ${!g.isSystem ? "cursor-pointer hover:border-neon-purple/30" : ""}`}
                 onClick={() => startEdit(g)}
               >
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">{formatGroupLabel(g.name, g.slug)}</h3>
-                  {g.isSystem && <Badge variant="outline">System</Badge>}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {g.color && (
+                      <span
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ backgroundColor: g.color }}
+                      />
+                    )}
+                    <h3 className="font-semibold">{formatGroupLabel(g.name, g.slug)}</h3>
+                  </div>
+                  <div className="flex gap-1">
+                    {g.isSystem && <Badge variant="outline">System</Badge>}
+                    {g.badge && <Badge>{g.badge}</Badge>}
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground font-mono">{g.slug}</p>
+                {g.hierarchyTier && (
+                  <p className="text-xs text-neon-blue/80">Tier: {g.hierarchyTier}</p>
+                )}
                 {g.description && <p className="text-sm text-muted-foreground">{g.description}</p>}
                 <ul className="text-xs space-y-1">
                   {(Array.isArray(g.permissions) ? g.permissions : []).slice(0, 6).map((p) => (
@@ -179,23 +266,66 @@ export function GroupsAdminPanel({
                   ))}
                 </ul>
                 {!g.isSystem && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    disabled={pending}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startTransition(async () => {
-                        const r = await deletePermissionGroup(g.id);
-                        if (r.success) {
-                          appToast.saved();
-                          router.refresh();
-                        } else appToast.error(r.error);
-                      });
-                    }}
-                  >
-                    Delete
-                  </Button>
+                  <div className="flex flex-wrap gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startTransition(async () => {
+                          const r = await duplicatePermissionGroup(g.id);
+                          if (r.success) {
+                            appToast.saved();
+                            router.refresh();
+                          } else appToast.error(r.error);
+                        });
+                      }}
+                    >
+                      Duplicate
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startTransition(async () => {
+                          const r = await savePermissionGroup({
+                            id: g.id,
+                            slug: g.slug,
+                            name: g.name,
+                            description: g.description ?? undefined,
+                            permissions: Array.isArray(g.permissions) ? g.permissions.map(String) : [],
+                            isArchived: true,
+                          });
+                          if (r.success) {
+                            appToast.saved();
+                            router.refresh();
+                          } else appToast.error(r.error);
+                        });
+                      }}
+                    >
+                      Archive
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={pending}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startTransition(async () => {
+                          const r = await deletePermissionGroup(g.id);
+                          if (r.success) {
+                            appToast.saved();
+                            router.refresh();
+                          } else appToast.error(r.error);
+                        });
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 )}
               </Card>
             ))}
@@ -209,6 +339,38 @@ export function GroupsAdminPanel({
             <Input placeholder="slug" value={slug} onChange={(e) => setSlug(e.target.value)} disabled={!!editing} />
             <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
             <Input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Input placeholder="Color (#hex)" value={color} onChange={(e) => setColor(e.target.value)} />
+            <Input placeholder="Badge label" value={badge} onChange={(e) => setBadge(e.target.value)} />
+            <Input placeholder="Icon name" value={icon} onChange={(e) => setIcon(e.target.value)} />
+            <select
+              className="h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm"
+              value={hierarchyTier}
+              onChange={(e) => setHierarchyTier(e.target.value)}
+            >
+              <option value="">Hierarchy tier (optional)</option>
+              {HIERARCHY_TIERS.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <Input
+              type="number"
+              placeholder="Sort order"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(Number(e.target.value))}
+            />
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Dashboard access</p>
+              {DASHBOARD_OPTIONS.map((d) => (
+                <label key={d} className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    checked={dashboardAccess.includes(d)}
+                    onChange={() => toggleDashboard(d)}
+                  />
+                  <span>{d}</span>
+                </label>
+              ))}
+            </div>
             <div className="max-h-48 overflow-y-auto space-y-1 text-sm">
               {(Object.keys(PERMISSIONS) as PermissionKey[]).map((key) => (
                 <label key={key} className="flex items-center gap-2 cursor-pointer">
@@ -221,30 +383,7 @@ export function GroupsAdminPanel({
                 <span>* (full access)</span>
               </label>
             </div>
-            <Button
-              variant="neon"
-              disabled={pending || !!editing?.isSystem}
-              onClick={() => {
-                if (!slug.trim() || !name.trim()) {
-                  appToast.error("Slug and name required");
-                  return;
-                }
-                startTransition(async () => {
-                  const r = await savePermissionGroup({
-                    id: editing?.id,
-                    slug: slug.trim(),
-                    name: name.trim(),
-                    description: description.trim() || undefined,
-                    permissions: selected,
-                  });
-                  if (r.success) {
-                    appToast.saved();
-                    startCreate();
-                    router.refresh();
-                  } else appToast.error(r.error);
-                });
-              }}
-            >
+            <Button variant="neon" disabled={pending || !!editing?.isSystem} onClick={saveGroup}>
               {editing ? "Update group" : "Create group"}
             </Button>
           </Card>
@@ -253,3 +392,5 @@ export function GroupsAdminPanel({
     </div>
   );
 }
+
+export const GroupsAdminPanel = memo(GroupsAdminPanelInner);
