@@ -19,5 +19,6 @@ export const REVALIDATE = {
   collections: 60,
   authProfile: 30,
   permissions: 120,
+  branding: 60,
   static: 3600,
 } as const;

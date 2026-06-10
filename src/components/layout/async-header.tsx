@@ -10,6 +10,7 @@ import {
 } from "@/components/layout/nav-labels";
 import type { NavUser } from "@/components/layout/user-nav";
 import type { Locale } from "@/i18n/config";
+import { getCachedPublicBranding } from "@/lib/branding-data";
 
 async function HeaderWithUser({ locale }: { locale: string }) {
   let user: NavUser | null = null;
@@ -19,7 +20,10 @@ async function HeaderWithUser({ locale }: { locale: string }) {
     console.error("[header] getNavUser failed", err);
   }
 
-  const t = await getTranslations("nav");
+  const [t, brandingBundle] = await Promise.all([
+    getTranslations("nav"),
+    getCachedPublicBranding(),
+  ]);
   const defaults = NAV_LABEL_DEFAULTS[locale as Locale] ?? NAV_LABEL_DEFAULTS.en;
 
   const navLabels: NavLabels = {
@@ -36,7 +40,15 @@ async function HeaderWithUser({ locale }: { locale: string }) {
     search: resolveNavLabel(t("search"), defaults.search),
   };
 
-  return <Header locale={locale} user={user} navLabels={navLabels} />;
+  return (
+    <Header
+      locale={locale}
+      user={user}
+      navLabels={navLabels}
+      header={brandingBundle.header}
+      branding={brandingBundle.branding}
+    />
+  );
 }
 
 export function AsyncHeader({ locale }: { locale: string }) {

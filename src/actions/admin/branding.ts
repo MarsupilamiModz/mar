@@ -5,26 +5,110 @@ import { prisma } from "@/lib/db";
 import { actionTry, fail, ok, requireActionPermission } from "@/lib/action-utils";
 import { invalidatePermissionCache } from "@/lib/permission-store";
 import type { Prisma } from "@prisma/client";
-import { DEFAULT_BRANDING, saveBrandingSettings, saveGameCoverOverride, type BrandingSettings } from "@/lib/branding";
+import { saveGameCoverOverride } from "@/lib/branding";
 import { uploadAsset } from "@/lib/asset-storage";
 import { extensionForMime, validateUploadFile } from "@/lib/upload-validation";
-import { getBrandingSettings } from "@/lib/branding";
+import { invalidateBrandingCache } from "@/lib/branding-data";
+import {
+  getBrandingAssetSettings,
+  saveBrandingAssetSettings,
+  getHeaderSettings,
+  saveHeaderSettings,
+  getFooterSettings,
+  saveFooterSettings,
+  getSeoSettings,
+  saveSeoSettings,
+  getPageContentStore,
+  savePageContentStore,
+  syncIconVariantsFromFavicon,
+  type BrandingAssetSettings,
+  type HeaderSettings,
+  type FooterSettings,
+  type SeoSettings,
+  type PageContentStore,
+} from "@/lib/branding-cms";
+
+function revalidateBrandingPaths() {
+  invalidateBrandingCache();
+  revalidatePath("/");
+  revalidatePath("/admin/branding");
+}
+
+export async function getAdminBrandingCenter() {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+
+  const [branding, header, footer, seo, pageContent] = await Promise.all([
+    getBrandingAssetSettings(),
+    getHeaderSettings(),
+    getFooterSettings(),
+    getSeoSettings(),
+    getPageContentStore(),
+  ]);
+
+  return ok({ branding, header, footer, seo, pageContent });
+}
 
 export async function getAdminBranding() {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
-  return ok(await getBrandingSettings());
+  return ok(await getBrandingAssetSettings());
 }
 
-export async function saveAdminBranding(settings: BrandingSettings) {
+export async function saveAdminBranding(settings: BrandingAssetSettings) {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
   return actionTry(async () => {
-    await saveBrandingSettings({ ...DEFAULT_BRANDING, ...settings });
-    revalidatePath("/");
-    revalidatePath("/admin/branding");
+    await saveBrandingAssetSettings(settings);
+    revalidateBrandingPaths();
   }, "branding:save");
 }
+
+export async function saveAdminHeaderSettings(settings: HeaderSettings) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+  return actionTry(async () => {
+    await saveHeaderSettings(settings);
+    revalidateBrandingPaths();
+  }, "branding:header");
+}
+
+export async function saveAdminFooterSettings(settings: FooterSettings) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+  return actionTry(async () => {
+    await saveFooterSettings(settings);
+    revalidateBrandingPaths();
+  }, "branding:footer");
+}
+
+export async function saveAdminSeoSettings(settings: SeoSettings) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+  return actionTry(async () => {
+    await saveSeoSettings(settings);
+    revalidateBrandingPaths();
+  }, "branding:seo");
+}
+
+export async function saveAdminPageContent(store: PageContentStore) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+  return actionTry(async () => {
+    await savePageContentStore(store);
+    revalidateBrandingPaths();
+  }, "branding:content");
+}
+
+const BRANDING_MIMES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+  "image/x-icon",
+  "image/vnd.microsoft.icon",
+];
 
 export async function uploadBrandingAsset(formData: FormData) {
   const { error } = await requireActionPermission("settings.write");
@@ -33,8 +117,8 @@ export async function uploadBrandingAsset(formData: FormData) {
   const file = formData.get("file") as File;
   const assetType = formData.get("type") as string;
   const validation = validateUploadFile(file, {
-    maxSizeMb: 2,
-    allowedTypes: ["image/jpeg", "image/png", "image/webp", "image/x-icon", "image/vnd.microsoft.icon"],
+    maxSizeMb: 5,
+    allowedTypes: BRANDING_MIMES,
     label: "Branding asset",
   });
   if (!validation.valid) return fail(validation.error);
@@ -48,25 +132,48 @@ export async function uploadBrandingAsset(formData: FormData) {
       contentType: validation.mime,
     });
 
-    const branding = await getBrandingSettings();
-    const fieldMap: Record<string, keyof BrandingSettings> = {
+    let branding = await getBrandingAssetSettings();
+    const fieldMap: Record<string, keyof BrandingAssetSettings | "favicon-bundle" | "url-only"> = {
       logo: "logoUrl",
       "logo-dark": "logoDarkUrl",
-      favicon: "faviconUrl",
+      favicon: "favicon-bundle",
       loading: "loadingLogoUrl",
       mobile: "mobileIconUrl",
-      og: "ogImageUrl",
+      symbol: "siteSymbolUrl",
+      og: "url-only",
     };
     const field = fieldMap[assetType];
-    if (field) {
-      await saveBrandingSettings({ ...branding, [field]: result.url });
+    if (field === "favicon-bundle") {
+      branding = syncIconVariantsFromFavicon(branding, result.url);
+    } else if (field && field !== "url-only") {
+      branding = { ...branding, [field]: result.url };
     }
 
-    revalidatePath("/admin/branding");
-    return ok({ url: result.url });
+    if (field !== "url-only") {
+      await saveBrandingAssetSettings(branding);
+    }
+    revalidateBrandingPaths();
+    return ok({ url: result.url, branding });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Upload failed");
   }
+}
+
+export async function removeBrandingAsset(field: keyof BrandingAssetSettings) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+
+  return actionTry(async () => {
+    const branding = await getBrandingAssetSettings();
+    const cleared = { ...branding, [field]: null };
+    if (field === "faviconUrl") {
+      cleared.appleTouchIconUrl = null;
+      cleared.androidIconUrl = null;
+      cleared.pwaIconUrl = null;
+    }
+    await saveBrandingAssetSettings(cleared);
+    revalidateBrandingPaths();
+  }, "branding:remove-asset");
 }
 
 export async function saveGameCoverAdmin(gameId: string, formData: FormData) {

@@ -9,6 +9,8 @@ import { getHomepageGames, getTrendingMods } from "@/lib/data";
 import { getActiveAnnouncements } from "@/actions/admin/announcements";
 import { REVALIDATE } from "@/lib/cache";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
+import { getCachedPublicBranding } from "@/lib/branding-data";
+import { resolvePageContent } from "@/lib/branding-cms";
 import type { Locale } from "@/i18n/config";
 
 export const revalidate = REVALIDATE.homepage;
@@ -18,11 +20,16 @@ export default async function HomePage({ params: { locale } }: { params: { local
   const t = await getTranslations("landing");
   const tm = await getTranslations("mods");
 
-  const [games, mods, announcements] = await Promise.all([
+  const [games, mods, announcements, cms] = await Promise.all([
     getHomepageGames().catch(() => []),
     getTrendingMods(8).catch(() => []),
     getActiveAnnouncements().catch(() => []),
+    getCachedPublicBranding(),
   ]);
+
+  const page = cms.pageContent;
+  const txt = (field: string, fallback: string) =>
+    resolvePageContent(page, "homepage", locale, field, fallback);
 
   const pricingLabels: Record<string, string> = {
     FREE: tm("free"),
@@ -55,23 +62,23 @@ export default async function HomePage({ params: { locale } }: { params: { local
         <div className="relative mx-auto max-w-4xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-neon-purple/30 bg-neon-purple/10 px-4 py-1.5 text-xs font-medium text-neon-purple">
             <Sparkles className="h-3.5 w-3.5" />
-            {t("heroBadge")}
+            {txt("heroBadge", t("heroBadge"))}
           </div>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl text-gradient leading-[1.1]">
-            {t("heroTitle")}
+            {txt("heroTitle", t("heroTitle"))}
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed">
-            {t("heroSubtitle")}
+            {txt("heroSubtitle", t("heroSubtitle"))}
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Button variant="neon" size="lg" asChild>
               <Link href={`/${locale}/mods`} prefetch>
-                {t("browseMods")} <ArrowRight className="h-4 w-4" />
+                {txt("browseMods", t("browseMods"))} <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
             <Button variant="outline" size="lg" asChild>
               <Link href={`/${locale}/premium`} prefetch>
-                <Crown className="h-4 w-4 mr-2" /> {t("goPremium")}
+                <Crown className="h-4 w-4 mr-2" /> {txt("goPremium", t("goPremium"))}
               </Link>
             </Button>
           </div>
@@ -128,12 +135,12 @@ export default async function HomePage({ params: { locale } }: { params: { local
           <div className="absolute inset-0 bg-gradient-to-br from-neon-purple/10 via-transparent to-neon-blue/10 pointer-events-none" />
           <div className="relative">
             <Crown className="mx-auto h-11 w-11 text-neon-purple mb-4" />
-            <h2 className="text-2xl font-bold tracking-tight">{t("premiumBanner")}</h2>
+            <h2 className="text-2xl font-bold tracking-tight">{txt("premiumBanner", t("premiumBanner"))}</h2>
             <p className="mt-3 text-muted-foreground max-w-lg mx-auto leading-relaxed">
-              {t("premiumBannerDesc")}
+              {txt("premiumBannerDesc", t("premiumBannerDesc"))}
             </p>
             <Button variant="neon" className="mt-7" asChild>
-              <Link href={`/${locale}/premium`}>{t("premiumCta")}</Link>
+              <Link href={`/${locale}/premium`}>{txt("premiumCta", t("premiumCta"))}</Link>
             </Button>
           </div>
         </Card>
