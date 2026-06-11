@@ -126,3 +126,53 @@ export async function rejectScannedVersion(versionId: string) {
   revalidatePath("/admin/security");
   return ok(undefined);
 }
+
+export async function reprocessVersionScan(versionId: string) {
+  const { error } = await requireActionPermission("mods.write");
+  if (error) return error;
+
+  const version = await prisma.modVersion.findUnique({
+    where: { id: versionId },
+    include: { mod: true },
+  });
+  if (!version) return fail("Version not found");
+
+  const { scanStoredObject } = await import("@/lib/malware-scanner");
+  const { fileSizeNumber, fileSizeBigInt } = await import("@/lib/file-size");
+
+  const fileSize = fileSizeNumber(version.fileSize);
+  const scanResult = await scanStoredObject({
+    r2Key: version.fileKey,
+    fileName: version.fileName,
+    fileSize,
+  });
+
+  await prisma.$transaction([
+    prisma.modVersion.update({
+      where: { id: versionId },
+      data: {
+        sha256: scanResult.sha256,
+        scanStatus: scanResult.status,
+        scanReport: scanResult.report as object,
+        scannedAt: new Date(),
+      },
+    }),
+    prisma.fileScanLog.create({
+      data: {
+        modVersionId: versionId,
+        modId: version.modId,
+        fileName: version.fileName,
+        fileSize: fileSizeBigInt(fileSize),
+        sha256: scanResult.sha256,
+        status: scanResult.status,
+        detections: scanResult.detections,
+        totalEngines: scanResult.totalEngines,
+        report: scanResult.report as object,
+        blocked: scanResult.blocked,
+      },
+    }),
+  ]);
+
+  revalidatePath("/admin/security");
+  return ok({ scanStatus: scanResult.status });
+}

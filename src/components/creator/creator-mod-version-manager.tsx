@@ -14,13 +14,14 @@ import {
   setModVersionChannel,
 } from "@/actions/mods";
 import type { FileScanStatus, VersionChannel } from "@prisma/client";
+import { formatBytes } from "@/lib/file-size";
 
 type Version = {
   id: string;
   version: string;
   changelog: string | null;
   gameVersion: string | null;
-  fileSize: number;
+  fileSize: bigint | number;
   channel: VersionChannel;
   isPrimary: boolean;
   isArchived: boolean;
@@ -28,11 +29,6 @@ type Version = {
   downloadCount: number;
   createdAt: Date;
 };
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export function CreatorModVersionManager({ versions }: { modId?: string; versions: Version[] }) {
   const router = useRouter();

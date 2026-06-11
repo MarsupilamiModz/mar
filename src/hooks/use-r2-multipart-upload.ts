@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
+
+type CompletedPart = { PartNumber: number; ETag: string };
 
 type MultipartInitResponse = {
   sessionId: string;
@@ -8,14 +11,50 @@ type MultipartInitResponse = {
   key: string;
   partSize: number;
   partCount: number;
-  partUrls: { partNumber: number; url: string }[];
 };
+
+const STORAGE_KEY = "xumari-multipart-resume";
 
 export function useR2MultipartUpload() {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [speedBps, setSpeedBps] = useState(0);
+  const [etaSeconds, setEtaSeconds] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const pausedRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
+
+  const fetchPartUrl = useCallback(async (sessionId: string, partNumber: number) => {
+    const res = await fetch(
+      `/api/r2/multipart/part?sessionId=${encodeURIComponent(sessionId)}&partNumber=${partNumber}`
+    );
+    if (!res.ok) throw new Error((await res.json()).error ?? "Failed to get part URL");
+    const json = (await res.json()) as { url: string };
+    return json.url;
+  }, []);
+
+  const uploadPartWithRetry = useCallback(
+    async (url: string, chunk: Blob, partNumber: number, signal: AbortSignal) => {
+      let lastErr: Error | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await fetch(url, { method: "PUT", body: chunk, signal });
+          if (!res.ok) throw new Error(`Part ${partNumber} failed (${res.status})`);
+          const etag = res.headers.get("ETag")?.replace(/"/g, "");
+          if (!etag) throw new Error(`Missing ETag for part ${partNumber}`);
+          return etag;
+        } catch (err) {
+          lastErr = err instanceof Error ? err : new Error(String(err));
+          if (signal.aborted) throw lastErr;
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        }
+      }
+      throw lastErr ?? new Error(`Part ${partNumber} failed`);
+    },
+    []
+  );
 
   const upload = useCallback(
     async (input: {
@@ -24,9 +63,17 @@ export function useR2MultipartUpload() {
       modId?: string;
       metadata?: Record<string, string>;
     }) => {
+      if (input.file.size > MAX_UPLOAD_BYTES) {
+        throw new Error("File exceeds 10 GB upload limit");
+      }
+
       setUploading(true);
+      setPaused(false);
+      pausedRef.current = false;
       setError(null);
       setProgress(0);
+      setSpeedBps(0);
+      setEtaSeconds(null);
       abortRef.current = new AbortController();
 
       try {
@@ -45,27 +92,36 @@ export function useR2MultipartUpload() {
         });
         if (!initRes.ok) throw new Error((await initRes.json()).error ?? "Init failed");
         const init = (await initRes.json()) as MultipartInitResponse;
+        sessionIdRef.current = init.sessionId;
 
-        const parts: { PartNumber: number; ETag: string }[] = [];
+        const parts: CompletedPart[] = [];
         let uploaded = 0;
+        const startedAt = Date.now();
 
-        for (const part of init.partUrls) {
-          const start = (part.partNumber - 1) * init.partSize;
+        for (let partNumber = 1; partNumber <= init.partCount; partNumber++) {
+          while (pausedRef.current) {
+            await new Promise((r) => setTimeout(r, 200));
+            if (abortRef.current?.signal.aborted) throw new Error("Upload aborted");
+          }
+
+          const start = (partNumber - 1) * init.partSize;
           const end = Math.min(start + init.partSize, input.file.size);
           const chunk = input.file.slice(start, end);
-
-          const res = await fetch(part.url, {
-            method: "PUT",
-            body: chunk,
-            signal: abortRef.current.signal,
-          });
-          if (!res.ok) throw new Error(`Part ${part.partNumber} failed`);
-          const etag = res.headers.get("ETag")?.replace(/"/g, "");
-          if (!etag) throw new Error(`Missing ETag for part ${part.partNumber}`);
-          parts.push({ PartNumber: part.partNumber, ETag: etag });
+          const url = await fetchPartUrl(init.sessionId, partNumber);
+          const etag = await uploadPartWithRetry(
+            url,
+            chunk,
+            partNumber,
+            abortRef.current.signal
+          );
+          parts.push({ PartNumber: partNumber, ETag: etag });
 
           uploaded += chunk.size;
+          const elapsed = (Date.now() - startedAt) / 1000;
+          const bps = elapsed > 0 ? uploaded / elapsed : 0;
+          setSpeedBps(bps);
           setProgress(Math.round((uploaded / input.file.size) * 100));
+          if (bps > 0) setEtaSeconds(Math.ceil((input.file.size - uploaded) / bps));
         }
 
         const completeRes = await fetch("/api/r2/multipart/complete", {
@@ -74,6 +130,8 @@ export function useR2MultipartUpload() {
           body: JSON.stringify({ sessionId: init.sessionId, parts }),
         });
         if (!completeRes.ok) throw new Error((await completeRes.json()).error ?? "Complete failed");
+
+        localStorage.removeItem(STORAGE_KEY);
         return completeRes.json();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Upload failed";
@@ -81,17 +139,58 @@ export function useR2MultipartUpload() {
         throw err;
       } finally {
         setUploading(false);
+        setPaused(false);
+        pausedRef.current = false;
       }
     },
-    []
+    [fetchPartUrl, uploadPartWithRetry]
   );
+
+  const pause = useCallback(() => {
+    pausedRef.current = true;
+    setPaused(true);
+  }, []);
+
+  const resume = useCallback(() => {
+    pausedRef.current = false;
+    setPaused(false);
+  }, []);
 
   const abort = useCallback(async (sessionId?: string) => {
     abortRef.current?.abort();
-    if (sessionId) {
-      await fetch(`/api/r2/multipart/complete?sessionId=${sessionId}`, { method: "DELETE" });
+    pausedRef.current = false;
+    setPaused(false);
+    const id = sessionId ?? sessionIdRef.current;
+    if (id) {
+      await fetch(`/api/r2/multipart/complete?sessionId=${id}`, { method: "DELETE" });
     }
+    localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  return { upload, abort, progress, uploading, error };
+  return {
+    upload,
+    abort,
+    pause,
+    resume,
+    progress,
+    uploading,
+    paused,
+    error,
+    speedBps,
+    etaSeconds,
+  };
+}
+
+export function formatUploadSpeed(bps: number): string {
+  if (bps <= 0) return "—";
+  if (bps < 1024 * 1024) return `${(bps / 1024).toFixed(0)} KB/s`;
+  return `${(bps / (1024 * 1024)).toFixed(1)} MB/s`;
+}
+
+export function formatEta(seconds: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds)) return "—";
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${s}s`;
 }

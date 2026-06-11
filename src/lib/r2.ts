@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
@@ -8,6 +9,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { STORAGE, storageKey } from "@/lib/storage";
 import { buildAssetPublicUrl } from "@/lib/assets";
+import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 
 const r2 = new S3Client({
   region: "auto",
@@ -51,6 +53,21 @@ export async function deleteFromR2(key: string) {
   await r2.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
 }
 
+export async function hashObjectFromR2(key: string): Promise<{ sha256: string; size: number }> {
+  const normalizedKey = key.startsWith(STORAGE.prefix) ? key : storageKey(key);
+  const res = await r2.send(new GetObjectCommand({ Bucket: BUCKET, Key: normalizedKey }));
+  const stream = res.Body;
+  if (!stream) throw new Error("Empty object");
+  const hash = createHash("sha256");
+  let size = 0;
+  for await (const chunk of stream as AsyncIterable<Uint8Array>) {
+    hash.update(chunk);
+    size += chunk.length;
+  }
+  return { sha256: hash.digest("hex"), size };
+}
+
+/** @deprecated Prefer hashObjectFromR2 for large files */
 export async function getObjectBufferFromR2(key: string): Promise<Buffer> {
   const normalizedKey = key.startsWith(STORAGE.prefix) ? key : storageKey(key);
   const res = await r2.send(new GetObjectCommand({ Bucket: BUCKET, Key: normalizedKey }));
@@ -105,6 +122,6 @@ export const ALLOWED_UPLOAD_TYPES = [
   "text/plain",
 ];
 
-export const MAX_UPLOAD_SIZE = 500 * 1024 * 1024;
+export const MAX_UPLOAD_SIZE = MAX_UPLOAD_BYTES;
 
 export { STORAGE };

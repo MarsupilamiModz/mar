@@ -7,6 +7,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { S3Client } from "@aws-sdk/client-s3";
 import { STORAGE, storageKey } from "@/lib/storage";
+import { MULTIPART_PART_SIZE } from "@/lib/upload-limits";
 
 const r2 = new S3Client({
   region: "auto",
@@ -18,7 +19,7 @@ const r2 = new S3Client({
 });
 
 const BUCKET = STORAGE.bucket;
-const PART_SIZE = 10 * 1024 * 1024; // 10MB chunks
+const PART_SIZE = MULTIPART_PART_SIZE;
 
 export { PART_SIZE };
 

@@ -3,18 +3,25 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { finalizeModVersionUpload } from "@/actions/mods";
-import { useR2MultipartUpload } from "@/hooks/use-r2-multipart-upload";
+import {
+  useR2MultipartUpload,
+  formatUploadSpeed,
+  formatEta,
+} from "@/hooks/use-r2-multipart-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
+import { MAX_UPLOAD_BYTES, uploadLimitLabel } from "@/lib/upload-limits";
 
 export function CreatorModVersionUpload({ modId }: { modId: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const { upload, progress, uploading, error } = useR2MultipartUpload();
+  const { upload, abort, pause, resume, progress, uploading, paused, error, speedBps, etaSeconds } =
+    useR2MultipartUpload();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   const busy = pending || uploading;
@@ -23,7 +30,7 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
     <Card className="glass space-y-4 p-6">
       <h3 className="font-medium">Upload version</h3>
       <p className="text-xs text-muted-foreground">
-        Large files upload directly to storage with resumable multipart transfer.
+        Direct-to-storage multipart upload — up to {uploadLimitLabel()}. Files never pass through the app server.
       </p>
       <form
         ref={formRef}
@@ -36,8 +43,8 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
             toast({ title: "File and version required", variant: "destructive" });
             return;
           }
-          if (file.size > 500 * 1024 * 1024) {
-            toast({ title: "Max 500MB", variant: "destructive" });
+          if (file.size > MAX_UPLOAD_BYTES) {
+            toast({ title: `Max ${uploadLimitLabel()}`, variant: "destructive" });
             return;
           }
 
@@ -48,13 +55,14 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
                 purpose: "mod-version",
                 modId,
               });
-              const sessionId =
+              const sid =
                 uploadResult && typeof uploadResult === "object" && "sessionId" in uploadResult
                   ? String(uploadResult.sessionId)
                   : null;
-              if (!sessionId) throw new Error("Upload session missing");
+              if (!sid) throw new Error("Upload session missing");
+              setSessionId(sid);
 
-              const r = await finalizeModVersionUpload(sessionId, {
+              const r = await finalizeModVersionUpload(sid, {
                 version,
                 changelog: String(fd.get("changelog") ?? "") || undefined,
                 gameVersion: String(fd.get("gameVersion") ?? "") || undefined,
@@ -71,6 +79,7 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
                 toast({ title: msg });
                 formRef.current?.reset();
                 setSelectedFile(null);
+                setSessionId(null);
                 router.refresh();
               } else {
                 toast({ title: "Error", description: r.error, variant: "destructive" });
@@ -110,13 +119,37 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-xs text-muted-foreground">{progress}% uploaded</p>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{progress}% · {formatUploadSpeed(speedBps)}</span>
+              <span>ETA {formatEta(etaSeconds)}</span>
+            </div>
           </div>
         )}
         {error && <p className="text-xs text-destructive">{error}</p>}
-        <Button type="submit" variant="neon" disabled={busy}>
-          {uploading ? "Uploading…" : pending ? "Processing…" : "Upload version"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" variant="neon" disabled={busy}>
+            {uploading ? (paused ? "Paused…" : "Uploading…") : pending ? "Processing…" : "Upload version"}
+          </Button>
+          {uploading && !paused && (
+            <Button type="button" variant="outline" onClick={() => pause()}>
+              Pause
+            </Button>
+          )}
+          {uploading && paused && (
+            <Button type="button" variant="outline" onClick={() => resume()}>
+              Resume
+            </Button>
+          )}
+          {(uploading || sessionId) && (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void abort(sessionId ?? undefined)}
+            >
+              Cancel
+            </Button>
+          )}
+        </div>
       </form>
     </Card>
   );

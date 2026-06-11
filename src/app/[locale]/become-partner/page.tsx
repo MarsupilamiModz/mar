@@ -33,7 +33,7 @@ export default async function BecomePartnerPage({
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
       <h1 className="text-3xl font-bold mb-6">Become a Partner</h1>
-      <PartnerApplicationForm userEmail={user.email} />
+      <PartnerApplicationForm userEmail={user.email} username={user.username} />
     </div>
   );
 }

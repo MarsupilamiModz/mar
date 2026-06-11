@@ -4,11 +4,12 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
   initiateMultipartUpload,
-  getPresignedPartUrl,
   computePartCount,
   PART_SIZE,
 } from "@/lib/r2-multipart";
 import { storageKey } from "@/lib/storage";
+import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
+import { fileSizeBigInt } from "@/lib/file-size";
 
 const initiateSchema = z.object({
   purpose: z.enum([
@@ -20,7 +21,7 @@ const initiateSchema = z.object({
     "collection-cover",
   ]),
   fileName: z.string().min(1),
-  fileSize: z.number().int().positive().max(500 * 1024 * 1024),
+  fileSize: z.number().int().positive().max(MAX_UPLOAD_BYTES),
   contentType: z.string().min(1),
   modId: z.string().optional(),
   metadata: z.record(z.string()).optional(),
@@ -51,21 +52,14 @@ export async function POST(req: Request) {
       fileKey: key,
       uploadId,
       fileName: safeName,
-      fileSize,
+      fileSize: fileSizeBigInt(fileSize),
       contentType,
       modId,
       metadata: metadata ?? {},
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      completedParts: [],
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
-
-  const partUrls: { partNumber: number; url: string }[] = [];
-  for (let i = 1; i <= partCount; i++) {
-    partUrls.push({
-      partNumber: i,
-      url: await getPresignedPartUrl(key, uploadId, i),
-    });
-  }
 
   return NextResponse.json({
     sessionId: session.id,
@@ -73,6 +67,5 @@ export async function POST(req: Request) {
     key,
     partSize: PART_SIZE,
     partCount,
-    partUrls,
   });
 }

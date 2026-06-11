@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { VersionChannel } from "@prisma/client";
+import { formatBytes } from "@/lib/file-size";
 
 type Version = {
   id: string;
   version: string;
   changelog: string | null;
   gameVersion: string | null;
-  fileSize: number;
+  fileSize: bigint | number;
   channel: VersionChannel;
   isPrimary: boolean;
   isArchived: boolean;
@@ -25,12 +26,6 @@ type Props = {
   modId: string;
   versions: Version[];
 };
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export function ModVersionsPanel({ modId, versions }: Props) {
   const [pending, startTransition] = useTransition();

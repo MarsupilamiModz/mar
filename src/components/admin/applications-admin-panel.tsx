@@ -30,25 +30,43 @@ type PartnerApp = {
   id: string;
   status: string;
   creatorName: string;
+  username: string | null;
   email: string;
+  discord: string | null;
   audienceSize: string | null;
+  whyPartner: string | null;
   promotionStrategy: string | null;
-  createdAt: Date;
+  youtubeUrl: string | null;
+  twitchUrl: string | null;
+  websiteUrl: string | null;
   adminNotes: string | null;
-  user: { username: string; email: string };
+  user: { username: string; email: string; displayName: string | null };
+  assignedCommissionRule: { id: string; name: string } | null;
+};
+
+type CommissionRuleOption = {
+  id: string;
+  name: string;
+  type: string;
+  value: number;
+  source: string;
 };
 
 function ApplicationsAdminPanelInner({
   creatorApps,
   partnerApps,
+  commissionRules,
 }: {
   creatorApps: CreatorApp[];
   partnerApps: PartnerApp[];
+  commissionRules: CommissionRuleOption[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [partnerCodes, setPartnerCodes] = useState<Record<string, { creator?: string; partner?: string }>>({});
+  const [partnerCodes, setPartnerCodes] = useState<
+    Record<string, { creator?: string; partner?: string; commissionRuleId?: string }>
+  >({});
 
   function reviewCreator(id: string, action: "approve" | "reject" | "info") {
     startTransition(async () => {
@@ -67,6 +85,7 @@ function ApplicationsAdminPanelInner({
         adminNotes: notes[id],
         creatorCode: codes?.creator,
         partnerCode: codes?.partner,
+        commissionRuleId: codes?.commissionRuleId,
       });
       if (r.success) {
         toast({ title: "Updated" });
@@ -131,8 +150,20 @@ function ApplicationsAdminPanelInner({
                   <span className="font-medium">{a.creatorName}</span>
                   <Badge variant="outline">{a.status}</Badge>
                 </div>
-                <p className="text-muted-foreground">{a.email} · {a.audienceSize ?? "—"} audience</p>
-                {a.promotionStrategy && <p className="mt-1 line-clamp-2">{a.promotionStrategy}</p>}
+                <p className="text-muted-foreground">
+                  {a.email} · @{a.username ?? a.user.username} · {a.audienceSize ?? "—"} audience
+                </p>
+                {a.discord && <p className="text-xs text-muted-foreground">Discord: {a.discord}</p>}
+                {a.whyPartner && <p className="mt-1 line-clamp-3">{a.whyPartner}</p>}
+                {a.promotionStrategy && <p className="mt-1 line-clamp-2 text-muted-foreground">{a.promotionStrategy}</p>}
+                {(a.youtubeUrl || a.websiteUrl) && (
+                  <p className="text-xs text-neon-purple mt-1">
+                    {[a.youtubeUrl, a.twitchUrl, a.websiteUrl].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+                {a.assignedCommissionRule && (
+                  <p className="text-xs mt-1">Plan: {a.assignedCommissionRule.name}</p>
+                )}
                 {a.adminNotes && <p className="text-xs mt-1 italic">Notes: {a.adminNotes}</p>}
                 {(a.status === "PENDING" || a.status === "UNDER_REVIEW") && (
                   <div className="mt-2 space-y-2">
@@ -164,6 +195,23 @@ function ApplicationsAdminPanelInner({
                         }
                       />
                     </div>
+                    <select
+                      className="h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm"
+                      value={partnerCodes[a.id]?.commissionRuleId ?? ""}
+                      onChange={(e) =>
+                        setPartnerCodes((prev) => ({
+                          ...prev,
+                          [a.id]: { ...prev[a.id], commissionRuleId: e.target.value || undefined },
+                        }))
+                      }
+                    >
+                      <option value="">Commission plan (optional)</option>
+                      {commissionRules.map((rule) => (
+                        <option key={rule.id} value={rule.id}>
+                          {rule.name} ({rule.type} {rule.value})
+                        </option>
+                      ))}
+                    </select>
                     <div className="flex gap-1">
                       <Button size="sm" variant="neon" disabled={pending} onClick={() => reviewPartner(a.id, "approve")}>Approve</Button>
                       <Button size="sm" variant="outline" disabled={pending} onClick={() => reviewPartner(a.id, "info")}>Request info</Button>

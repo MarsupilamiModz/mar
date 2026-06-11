@@ -88,3 +88,32 @@ export async function notifyPremiumActivated(userId: string, locale = "en") {
     link: `/${locale}/premium`,
   });
 }
+
+export async function notifyStaffPartnerApplication(params: {
+  applicationId: string;
+  applicantName: string;
+  username: string;
+}) {
+  const staff = await prisma.user.findMany({
+    where: {
+      deletedAt: null,
+      isBanned: false,
+      role: { in: ["OWNER", "ADMIN", "MODERATOR"] },
+    },
+    select: { id: true },
+  });
+
+  await Promise.all(
+    staff.map((s) =>
+      notifyUser({
+        userId: s.id,
+        type: "SYSTEM",
+        category: "applications",
+        title: "New partner application",
+        body: `${params.applicantName} (@${params.username}) submitted a partner application.`,
+        link: "/en/admin/applications",
+        metadata: { applicationId: params.applicationId, kind: "partner" },
+      })
+    )
+  );
+}

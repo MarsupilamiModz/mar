@@ -666,7 +666,7 @@ model ModVersion {
   version     String
   changelog   String?        @db.Text
   fileKey     String
-  fileSize    Int
+  fileSize    BigInt
   fileName    String
   gameVersion String?
   sha256      String?
@@ -944,6 +944,7 @@ model CommissionRule {
   updatedAt   DateTime         @updatedAt
 
   entries CommissionEntry[]
+  partnerApplications PartnerApplication[]
 
   @@index([source, isActive])
 }
@@ -1616,7 +1617,7 @@ model FileScanLog {
   modVersion    ModVersion?    @relation(fields: [modVersionId], references: [id], onDelete: SetNull)
   modId         String?
   fileName      String
-  fileSize      Int
+  fileSize      BigInt
   sha256        String
   status        FileScanStatus
   detections    Int            @default(0)
@@ -1732,45 +1733,59 @@ model CreatorApplication {
 }
 
 model PartnerApplication {
-  id                String            @id @default(cuid())
-  userId            String
-  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status            ApplicationStatus @default(PENDING)
-  creatorName       String
-  email             String
-  audienceSize      String?
-  platforms         Json              @default("[]")
-  promotionStrategy String?           @db.Text
-  socialLinks       Json              @default("{}")
-  message           String?           @db.Text
-  adminNotes        String?           @db.Text
-  assignedCreatorCode String?
-  assignedPartnerCode String?
-  reviewedById      String?
-  reviewedAt        DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id                      String            @id @default(cuid())
+  userId                  String
+  user                    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status                  ApplicationStatus @default(PENDING)
+  creatorName             String
+  username                String?
+  email                   String
+  discord                 String?
+  youtubeUrl              String?
+  twitchUrl               String?
+  tiktokUrl               String?
+  instagramUrl            String?
+  xUrl                    String?
+  websiteUrl              String?
+  audienceSize            String?
+  platforms               Json              @default("[]")
+  promotionStrategy       String?           @db.Text
+  whyPartner              String?           @db.Text
+  socialLinks             Json              @default("{}")
+  message                 String?           @db.Text
+  adminNotes              String?           @db.Text
+  assignedCreatorCode     String?
+  assignedPartnerCode     String?
+  assignedCommissionRuleId String?
+  assignedCommissionRule  CommissionRule?   @relation(fields: [assignedCommissionRuleId], references: [id], onDelete: SetNull)
+  reviewedById            String?
+  reviewedAt              DateTime?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
 
   @@index([status, createdAt])
   @@index([userId])
+  @@index([assignedCommissionRuleId])
 }
 
 model StorageUploadSession {
-  id          String              @id @default(cuid())
-  userId      String
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  purpose     String
-  fileKey     String
-  uploadId    String
-  fileName    String
-  fileSize    Int
-  contentType String
-  status      UploadSessionStatus @default(IN_PROGRESS)
-  modId       String?
-  metadata    Json?
-  createdAt   DateTime            @default(now())
-  expiresAt   DateTime
+  id             String              @id @default(cuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose        String
+  fileKey        String
+  uploadId       String
+  fileName       String
+  fileSize       BigInt
+  contentType    String
+  status         UploadSessionStatus @default(IN_PROGRESS)
+  modId          String?
+  metadata       Json?
+  completedParts Json                @default("[]")
+  createdAt      DateTime            @default(now())
+  expiresAt      DateTime
 
   @@index([userId, status])
   @@index([uploadId])
+  @@index([createdAt])
 }

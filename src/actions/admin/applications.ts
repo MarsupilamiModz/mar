@@ -30,10 +30,23 @@ export async function listPartnerApplicationsAdmin(status?: ApplicationStatus) {
     where: status ? { status } : undefined,
     orderBy: { createdAt: "desc" },
     include: {
-      user: { select: { username: true, email: true, avatarUrl: true } },
+      user: { select: { username: true, email: true, avatarUrl: true, displayName: true } },
+      assignedCommissionRule: { select: { id: true, name: true, value: true, type: true } },
     },
   });
   return ok(apps);
+}
+
+export async function listCommissionRulesForApplications() {
+  const { error } = await requireActionPermission("users.read");
+  if (error) return error;
+
+  const rules = await prisma.commissionRule.findMany({
+    where: { isActive: true, targetRole: "PARTNER" },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, type: true, value: true, source: true },
+  });
+  return ok(rules);
 }
 
 export async function reviewCreatorApplicationAdmin(
@@ -120,7 +133,12 @@ export async function reviewCreatorApplicationAdmin(
 export async function reviewPartnerApplicationAdmin(
   id: string,
   action: "approve" | "reject" | "review" | "info",
-  input?: { adminNotes?: string; creatorCode?: string; partnerCode?: string }
+  input?: {
+    adminNotes?: string;
+    creatorCode?: string;
+    partnerCode?: string;
+    commissionRuleId?: string;
+  }
 ) {
   const { user, error } = await requireActionPermission("users.write");
   if (error) return error;
@@ -132,6 +150,10 @@ export async function reviewPartnerApplicationAdmin(
   if (!app) return fail("Not found");
 
   if (action === "approve") {
+    const commissionRule = input?.commissionRuleId
+      ? await prisma.commissionRule.findUnique({ where: { id: input.commissionRuleId } })
+      : null;
+
     await prisma.$transaction(async (tx) => {
       await tx.partnerApplication.update({
         where: { id },
@@ -140,6 +162,7 @@ export async function reviewPartnerApplicationAdmin(
           adminNotes: input?.adminNotes,
           assignedCreatorCode: input?.creatorCode,
           assignedPartnerCode: input?.partnerCode,
+          assignedCommissionRuleId: input?.commissionRuleId ?? null,
           reviewedById: user.id,
           reviewedAt: new Date(),
         },
@@ -152,16 +175,27 @@ export async function reviewPartnerApplicationAdmin(
         slug = `${slugBase}-${++i}`;
       }
 
+      const commissionRateBps =
+        commissionRule?.type === "PERCENT" ? commissionRule.value * 100 : undefined;
+
       await tx.partnerProfile.upsert({
         where: { userId: app.userId },
         create: {
           userId: app.userId,
           slug,
-          description: app.message,
+          description: app.whyPartner ?? app.message,
+          website: app.websiteUrl,
           affiliateCode: input?.partnerCode,
+          commissionRateBps: commissionRateBps ?? 1000,
+          commissionOverrideBps: commissionRateBps,
           isPublic: true,
         },
-        update: { isVerified: true, isPublic: true },
+        update: {
+          isVerified: true,
+          isPublic: true,
+          ...(commissionRateBps != null ? { commissionOverrideBps: commissionRateBps } : {}),
+          ...(input?.partnerCode ? { affiliateCode: input.partnerCode } : {}),
+        },
       });
 
       if (app.user.role === "USER") {
