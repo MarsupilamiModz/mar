@@ -8,21 +8,45 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { submitPartnerApplication } from "@/actions/applications";
+import type { PartnerFormField } from "@/lib/partner-form-config";
+
+const KNOWN_MAPS = new Set([
+  "creatorName",
+  "username",
+  "email",
+  "discord",
+  "youtubeUrl",
+  "twitchUrl",
+  "tiktokUrl",
+  "instagramUrl",
+  "xUrl",
+  "websiteUrl",
+  "audienceSize",
+  "country",
+  "whyPartner",
+  "message",
+  "promotionStrategy",
+]);
 
 export function PartnerApplicationForm({
+  fields,
   userEmail,
   username,
+  applicationId,
 }: {
+  fields: PartnerFormField[];
   userEmail: string;
   username: string;
+  applicationId?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const defaults = { username, email: userEmail };
 
   return (
     <Card className="glass max-w-2xl">
       <CardHeader>
-        <CardTitle>Become a Partner</CardTitle>
+        <CardTitle>{applicationId ? "Update your application" : "Become a Partner"}</CardTitle>
         <p className="text-sm text-muted-foreground">
           Submit your application for admin review. Partner profiles are created only after approval.
         </p>
@@ -33,52 +57,111 @@ export function PartnerApplicationForm({
           onSubmit={(e) => {
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
-            const platforms = (fd.get("platforms") as string)
-              .split(",")
-              .map((p) => p.trim())
-              .filter(Boolean);
+            const payload: Record<string, unknown> = { applicationId };
+            const customResponses: Record<string, string | boolean> = {};
+
+            for (const field of fields) {
+              const raw = fd.get(field.id);
+              if (field.type === "checkbox") {
+                const checked = raw === "on";
+                if (field.mapsTo && KNOWN_MAPS.has(field.mapsTo)) {
+                  payload[field.mapsTo] = checked;
+                } else {
+                  customResponses[field.id] = checked;
+                }
+                continue;
+              }
+              const value = typeof raw === "string" ? raw.trim() : "";
+              if (field.mapsTo && KNOWN_MAPS.has(field.mapsTo)) {
+                payload[field.mapsTo] = value || undefined;
+              } else if (value) {
+                customResponses[field.id] = value;
+              }
+            }
+
             startTransition(async () => {
               const r = await submitPartnerApplication({
-                creatorName: fd.get("creatorName") as string,
-                username: fd.get("username") as string,
-                email: fd.get("email") as string,
-                discord: (fd.get("discord") as string) || undefined,
-                youtubeUrl: (fd.get("youtube") as string) || undefined,
-                twitchUrl: (fd.get("twitch") as string) || undefined,
-                tiktokUrl: (fd.get("tiktok") as string) || undefined,
-                instagramUrl: (fd.get("instagram") as string) || undefined,
-                xUrl: (fd.get("x") as string) || undefined,
-                websiteUrl: (fd.get("website") as string) || undefined,
-                audienceSize: (fd.get("audienceSize") as string) || undefined,
-                platforms,
-                whyPartner: (fd.get("whyPartner") as string) || undefined,
-                promotionStrategy: (fd.get("promotionStrategy") as string) || undefined,
+                applicationId,
+                creatorName: (payload.creatorName as string) ?? "",
+                username: (payload.username as string) ?? username,
+                email: (payload.email as string) ?? userEmail,
+                discord: payload.discord as string | undefined,
+                youtubeUrl: payload.youtubeUrl as string | undefined,
+                twitchUrl: payload.twitchUrl as string | undefined,
+                tiktokUrl: payload.tiktokUrl as string | undefined,
+                instagramUrl: payload.instagramUrl as string | undefined,
+                xUrl: payload.xUrl as string | undefined,
+                websiteUrl: payload.websiteUrl as string | undefined,
+                audienceSize: payload.audienceSize as string | undefined,
+                country: payload.country as string | undefined,
+                whyPartner: payload.whyPartner as string | undefined,
+                promotionStrategy: payload.promotionStrategy as string | undefined,
+                message: payload.message as string | undefined,
+                customResponses,
               });
               if (r.success) {
-                toast({ title: "Application submitted — pending admin review" });
+                toast({ title: applicationId ? "Application updated" : "Application submitted — pending admin review" });
                 router.refresh();
               } else toast({ title: r.error, variant: "destructive" });
             });
           }}
         >
-          <Input name="creatorName" placeholder="Name / brand name" required />
-          <Input name="username" defaultValue={username} placeholder="Username" required />
-          <Input name="email" type="email" defaultValue={userEmail} required />
-          <Input name="discord" placeholder="Discord username" />
-          <Input name="audienceSize" placeholder="Audience size (e.g. 50k)" />
-          <Input name="platforms" placeholder="Platforms (comma-separated)" />
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Input name="youtube" placeholder="YouTube URL" />
-            <Input name="twitch" placeholder="Twitch URL" />
-            <Input name="tiktok" placeholder="TikTok URL" />
-            <Input name="instagram" placeholder="Instagram URL" />
-            <Input name="x" placeholder="X / Twitter URL" />
-            <Input name="website" placeholder="Website URL" />
-          </div>
-          <Textarea name="whyPartner" placeholder="Why do you want to partner with us?" rows={3} required />
-          <Textarea name="promotionStrategy" placeholder="Promotion strategy" rows={3} />
+          {fields.map((field) => {
+            const defaultValue = field.mapsTo
+              ? defaults[field.mapsTo as keyof typeof defaults]
+              : undefined;
+
+            if (field.type === "textarea") {
+              return (
+                <Textarea
+                  key={field.id}
+                  name={field.id}
+                  placeholder={field.placeholder ?? field.label}
+                  rows={3}
+                  required={field.required}
+                />
+              );
+            }
+
+            if (field.type === "select") {
+              return (
+                <select
+                  key={field.id}
+                  name={field.id}
+                  required={field.required}
+                  className="h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm"
+                  defaultValue=""
+                >
+                  <option value="" disabled>{field.placeholder ?? field.label}</option>
+                  {(field.options ?? []).map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              );
+            }
+
+            if (field.type === "checkbox") {
+              return (
+                <label key={field.id} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name={field.id} required={field.required} className="rounded border-input" />
+                  {field.label}
+                </label>
+              );
+            }
+
+            return (
+              <Input
+                key={field.id}
+                name={field.id}
+                type={field.type === "email" ? "email" : field.type === "url" ? "url" : "text"}
+                placeholder={field.placeholder ?? field.label}
+                defaultValue={defaultValue}
+                required={field.required}
+              />
+            );
+          })}
           <Button type="submit" variant="neon" disabled={pending}>
-            Submit application
+            {applicationId ? "Resubmit application" : "Submit application"}
           </Button>
         </form>
       </CardContent>

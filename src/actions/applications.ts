@@ -58,6 +58,7 @@ export async function submitCreatorApplication(input: {
 }
 
 export async function submitPartnerApplication(input: {
+  applicationId?: string;
   creatorName: string;
   username?: string;
   email: string;
@@ -69,10 +70,12 @@ export async function submitPartnerApplication(input: {
   xUrl?: string;
   websiteUrl?: string;
   audienceSize?: string;
+  country?: string;
   platforms?: string[];
   whyPartner?: string;
   promotionStrategy?: string;
   message?: string;
+  customResponses?: Record<string, string | boolean>;
 }) {
   const { user, error } = await requireActionUser();
   if (error) return error;
@@ -86,39 +89,81 @@ export async function submitPartnerApplication(input: {
   });
   if (existingProfile) return fail("You already have a partner profile");
 
-  const pending = await prisma.partnerApplication.findFirst({
-    where: { userId: user.id, status: { in: ["PENDING", "UNDER_REVIEW"] } },
-  });
-  if (pending) return fail("Application already submitted");
+  const existing = input.applicationId
+    ? await prisma.partnerApplication.findFirst({
+        where: { id: input.applicationId, userId: user.id },
+      })
+    : await prisma.partnerApplication.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+      });
 
-  const app = await prisma.partnerApplication.create({
-    data: {
-      userId: user.id,
-      creatorName: input.creatorName.trim(),
-      username: input.username?.trim() || user.username,
-      email: input.email.trim(),
-      discord: input.discord?.trim(),
-      youtubeUrl: input.youtubeUrl?.trim(),
-      twitchUrl: input.twitchUrl?.trim(),
-      tiktokUrl: input.tiktokUrl?.trim(),
-      instagramUrl: input.instagramUrl?.trim(),
-      xUrl: input.xUrl?.trim(),
-      websiteUrl: input.websiteUrl?.trim(),
-      audienceSize: input.audienceSize?.trim(),
-      platforms: input.platforms ?? [],
-      whyPartner: input.whyPartner?.trim(),
-      promotionStrategy: input.promotionStrategy?.trim(),
-      message: input.message?.trim(),
-      socialLinks: {
-        youtube: input.youtubeUrl ?? "",
-        twitch: input.twitchUrl ?? "",
-        tiktok: input.tiktokUrl ?? "",
-        instagram: input.instagramUrl ?? "",
-        x: input.xUrl ?? "",
-        website: input.websiteUrl ?? "",
-      },
+  if (existing && !input.applicationId) {
+    if (["PENDING", "UNDER_REVIEW"].includes(existing.status)) {
+      return fail("Application already submitted");
+    }
+    if (existing.status === "APPROVED") {
+      return fail("Application already approved");
+    }
+  }
+
+  const historyEntry = {
+    status: existing?.status === "NEEDS_CHANGES" ? "PENDING" : "PENDING",
+    at: new Date().toISOString(),
+    note: existing ? "Application updated by applicant" : "Application submitted",
+  };
+
+  const data = {
+    creatorName: input.creatorName.trim(),
+    username: input.username?.trim() || user.username,
+    email: input.email.trim(),
+    discord: input.discord?.trim(),
+    youtubeUrl: input.youtubeUrl?.trim(),
+    twitchUrl: input.twitchUrl?.trim(),
+    tiktokUrl: input.tiktokUrl?.trim(),
+    instagramUrl: input.instagramUrl?.trim(),
+    xUrl: input.xUrl?.trim(),
+    websiteUrl: input.websiteUrl?.trim(),
+    audienceSize: input.audienceSize?.trim(),
+    country: input.country?.trim(),
+    platforms: input.platforms ?? [],
+    whyPartner: input.whyPartner?.trim(),
+    promotionStrategy: input.promotionStrategy?.trim(),
+    message: input.message?.trim(),
+    customResponses: input.customResponses ?? {},
+    socialLinks: {
+      youtube: input.youtubeUrl ?? "",
+      twitch: input.twitchUrl ?? "",
+      tiktok: input.tiktokUrl ?? "",
+      instagram: input.instagramUrl ?? "",
+      x: input.xUrl ?? "",
+      website: input.websiteUrl ?? "",
     },
-  });
+    status: "PENDING" as const,
+    requiredChanges: null,
+  };
+
+  let app;
+  if (existing && (existing.status === "NEEDS_CHANGES" || existing.status === "REJECTED")) {
+    const priorHistory = (existing.statusHistory as object[] | null) ?? [];
+    app = await prisma.partnerApplication.update({
+      where: { id: existing.id },
+      data: {
+        ...data,
+        statusHistory: [...priorHistory, historyEntry],
+      },
+    });
+  } else if (existing && input.applicationId) {
+    return fail("Cannot update application in current status");
+  } else {
+    app = await prisma.partnerApplication.create({
+      data: {
+        userId: user.id,
+        ...data,
+        statusHistory: [historyEntry],
+      },
+    });
+  }
 
   void notifyStaffPartnerApplication({
     applicationId: app.id,

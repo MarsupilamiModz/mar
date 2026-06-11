@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { getAdminTranslations } from "@/actions/admin/localization";
 import { LocalizationAdminPanel } from "@/components/admin/localization-admin-panel";
+import { TranslationsAdminPanel } from "@/components/admin/translations-admin-panel";
 
 export default async function AdminLocalizationPage() {
   await requireAdmin();
@@ -9,13 +10,14 @@ export default async function AdminLocalizationPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">AI Localization</h1>
+      <h1 className="text-2xl font-bold">Localization</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Translation queue, approvals, and AI-powered content localization.
+        AI translation queue, static message editor, export/import, and runtime English fallback.
       </p>
       <div className="mt-8">
         <LocalizationAdminPanel jobs={result.data} />
       </div>
+      <TranslationsAdminPanel />
     </div>
   );
 }

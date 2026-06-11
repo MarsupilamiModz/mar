@@ -1,10 +1,12 @@
 import { setRequestLocale } from "next-intl/server";
 import { requireAuth } from "@/lib/auth";
 import { getMyPartnerApplication } from "@/actions/applications";
+import { getPartnerFormFields } from "@/lib/partner-form-config";
 import { PartnerApplicationForm } from "@/components/applications/partner-application-form";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { PartnerApplicationStatus } from "@/components/applications/partner-application-status";
 import type { Locale } from "@/i18n/config";
+
+export const dynamic = "force-dynamic";
 
 export default async function BecomePartnerPage({
   params: { locale },
@@ -13,19 +15,42 @@ export default async function BecomePartnerPage({
 }) {
   setRequestLocale(locale);
   const user = await requireAuth(`/${locale}/login`);
-  const existing = await getMyPartnerApplication(user.id);
+  const [existing, fields] = await Promise.all([
+    getMyPartnerApplication(user.id),
+    getPartnerFormFields(),
+  ]);
 
-  if (existing && existing.status !== "REJECTED") {
+  if (existing && existing.status === "APPROVED") {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-12">
-        <Card className="glass p-6">
-          <Badge className="mb-3">{existing.status.replace("_", " ")}</Badge>
-          <h1 className="text-2xl font-bold">Partner application</h1>
-          <p className="text-muted-foreground mt-2">
-            Submitted {new Date(existing.createdAt).toLocaleDateString()}.
-            {existing.adminNotes && ` Note: ${existing.adminNotes}`}
-          </p>
-        </Card>
+      <div className="mx-auto max-w-2xl px-4 py-12 space-y-6">
+        <PartnerApplicationStatus application={existing} />
+        <p className="text-sm text-muted-foreground">
+          Your partner application was approved. Visit your partner dashboard to manage your profile.
+        </p>
+      </div>
+    );
+  }
+
+  if (existing && ["PENDING", "UNDER_REVIEW"].includes(existing.status)) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-12 space-y-6">
+        <h1 className="text-3xl font-bold">Become a Partner</h1>
+        <PartnerApplicationStatus application={existing} />
+      </div>
+    );
+  }
+
+  if (existing && (existing.status === "NEEDS_CHANGES" || existing.status === "REJECTED")) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-12 space-y-6">
+        <h1 className="text-3xl font-bold">Become a Partner</h1>
+        <PartnerApplicationStatus application={existing} />
+        <PartnerApplicationForm
+          fields={fields}
+          userEmail={user.email}
+          username={user.username}
+          applicationId={existing.id}
+        />
       </div>
     );
   }
@@ -33,7 +58,7 @@ export default async function BecomePartnerPage({
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
       <h1 className="text-3xl font-bold mb-6">Become a Partner</h1>
-      <PartnerApplicationForm userEmail={user.email} username={user.username} />
+      <PartnerApplicationForm fields={fields} userEmail={user.email} username={user.username} />
     </div>
   );
 }

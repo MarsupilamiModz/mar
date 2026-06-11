@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { locales, type Locale } from "@/i18n/config";
+import { IntlProvider } from "@/components/i18n/intl-provider";
 import { AsyncHeader } from "@/components/layout/async-header";
 import { AsyncFooter } from "@/components/layout/async-footer";
 import { Toaster } from "@/components/ui/toaster";
@@ -54,7 +54,7 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <NextIntlClientProvider messages={messages}>
+    <IntlProvider messages={messages}>
       <LocaleHtmlLang locale={locale} />
       <ScrollRestoration />
       <AdProviderScripts />
@@ -68,6 +68,6 @@ export default async function LocaleLayout({
       </div>
       <Toaster />
       <SnakeEasterEgg />
-    </NextIntlClientProvider>
+    </IntlProvider>
   );
 }

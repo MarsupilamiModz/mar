@@ -5,6 +5,8 @@ import { userHasPermission } from "@/lib/permission-store";
 import { formatDisplayName } from "@/lib/display-name";
 import type { PermissionKey } from "@/lib/permissions";
 
+export const dynamic = "force-dynamic";
+
 const linkDefs = [
   { href: "", labelKey: "overview", permission: "analytics.read" as const },
   { href: "/users", labelKey: "users", permission: "users.read" as const },

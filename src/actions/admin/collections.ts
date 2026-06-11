@@ -95,11 +95,24 @@ export async function deleteCollectionAdmin(id: string) {
 export async function createCollectionAdmin(input: {
   title: string;
   ownerId: string;
+  ownerUsername?: string;
   description?: string;
+  coverUrl?: string;
+  bannerUrl?: string;
   visibility?: CollectionVisibility;
 }) {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
+
+  let ownerId = input.ownerId;
+  if (input.ownerUsername?.trim()) {
+    const owner = await prisma.user.findFirst({
+      where: { username: input.ownerUsername.trim() },
+      select: { id: true },
+    });
+    if (!owner) return fail("Owner user not found");
+    ownerId = owner.id;
+  }
 
   let slug = slugify(input.title);
   let i = 0;
@@ -112,8 +125,10 @@ export async function createCollectionAdmin(input: {
       slug,
       title: input.title,
       description: input.description,
+      coverUrl: input.coverUrl,
+      bannerUrl: input.bannerUrl,
       visibility: input.visibility ?? "PUBLIC",
-      ownerId: input.ownerId,
+      ownerId,
       moderationStatus: "APPROVED",
     },
   });

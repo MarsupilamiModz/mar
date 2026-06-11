@@ -7,6 +7,7 @@ import { fail, ok, requireActionPermission } from "@/lib/action-utils";
 import { sendCreatorApprovalEmail, sendPartnerApprovalEmail } from "@/lib/email/send";
 import { slugify } from "@/lib/utils";
 import { invalidateUserSessionCache } from "@/lib/auth-cache";
+import { savePartnerFormFields, getPartnerFormFields, type PartnerFormField } from "@/lib/partner-form-config";
 
 export async function listCreatorApplicationsAdmin(status?: ApplicationStatus) {
   const { error } = await requireActionPermission("users.read");
@@ -132,9 +133,10 @@ export async function reviewCreatorApplicationAdmin(
 
 export async function reviewPartnerApplicationAdmin(
   id: string,
-  action: "approve" | "reject" | "review" | "info",
+  action: "approve" | "reject" | "review" | "info" | "needs_changes",
   input?: {
     adminNotes?: string;
+    requiredChanges?: string;
     creatorCode?: string;
     partnerCode?: string;
     commissionRuleId?: string;
@@ -155,16 +157,22 @@ export async function reviewPartnerApplicationAdmin(
       : null;
 
     await prisma.$transaction(async (tx) => {
+      const priorHistory = (app.statusHistory as object[] | null) ?? [];
       await tx.partnerApplication.update({
         where: { id },
         data: {
           status: "APPROVED",
           adminNotes: input?.adminNotes,
+          requiredChanges: null,
           assignedCreatorCode: input?.creatorCode,
           assignedPartnerCode: input?.partnerCode,
           assignedCommissionRuleId: input?.commissionRuleId ?? null,
           reviewedById: user.id,
           reviewedAt: new Date(),
+          statusHistory: [
+            ...priorHistory,
+            { status: "APPROVED", at: new Date().toISOString(), note: input?.adminNotes },
+          ],
         },
       });
 
@@ -213,18 +221,50 @@ export async function reviewPartnerApplicationAdmin(
       partnerName: app.creatorName,
     });
   } else {
-    const status = action === "reject" ? "REJECTED" : "UNDER_REVIEW";
+    const status =
+      action === "reject"
+        ? "REJECTED"
+        : action === "needs_changes"
+          ? "NEEDS_CHANGES"
+          : "UNDER_REVIEW";
+    const priorHistory = (app.statusHistory as object[] | null) ?? [];
     await prisma.partnerApplication.update({
       where: { id },
       data: {
         status,
         adminNotes: input?.adminNotes,
+        requiredChanges: action === "needs_changes" ? input?.requiredChanges ?? input?.adminNotes : null,
         reviewedById: user.id,
         reviewedAt: new Date(),
+        statusHistory: [
+          ...priorHistory,
+          {
+            status,
+            at: new Date().toISOString(),
+            note: input?.adminNotes ?? input?.requiredChanges,
+          },
+        ],
       },
     });
   }
 
   revalidatePath("/admin/applications");
+  return ok(undefined);
+}
+
+export async function getPartnerFormFieldsAdmin() {
+  const { error } = await requireActionPermission("users.read");
+  if (error) return error;
+  const fields = await getPartnerFormFields();
+  return ok(fields);
+}
+
+export async function savePartnerFormFieldsAdmin(fields: PartnerFormField[]) {
+  const { error } = await requireActionPermission("users.write");
+  if (error) return error;
+  if (!fields.length) return fail("At least one field required");
+  await savePartnerFormFields(fields);
+  revalidatePath("/admin/applications");
+  revalidatePath("/become-partner");
   return ok(undefined);
 }

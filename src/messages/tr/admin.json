@@ -26,6 +26,10 @@
     "emailSettings": "Email Settings",
     "emailTemplates": "Email Templates",
     "branding": "Branding",
+    "applications": "Başvurular",
+    "collections": "Koleksiyonlar",
+    "securityCenter": "Güvenlik Merkezi",
+    "apiKeys": "API Anahtarları",
     "groups": "Groups & Permissions",
     "localization": "AI Localization",
     "mediaSettings": "Media Settings",
@@ -73,6 +77,14 @@
       "severityInfo": "Info",
       "lastScan": "Last scan: {time}",
       "retryHealth": "Refresh health"
+    },
+    "security": {
+      "title": "Güvenlik Merkezi",
+      "subtitle": "Kötü amaçlı yazılım taraması, VirusTotal entegrasyonu ve yükleme güvenlik günlükleri"
+    },
+    "apiKeys": {
+      "title": "API Anahtarı Yönetimi",
+      "subtitle": "Geliştiriciler ve masaüstü istemcisi için genel API anahtarları oluşturun ve iptal edin"
     }
   }
 }

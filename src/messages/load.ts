@@ -1,4 +1,6 @@
 import type { Locale } from "@/i18n/config";
+import { deepMergeMessages } from "@/lib/i18n-utils";
+import { getMessageOverrides } from "@/lib/message-overrides";
 
 const modules = [
   "common",
@@ -27,7 +29,25 @@ async function loadLocaleModules(locale: Locale) {
   );
 }
 
+function mergeParts(parts: Record<string, unknown>[]) {
+  return parts.reduce<Record<string, unknown>>(
+    (acc, part) => deepMergeMessages(acc, part),
+    {}
+  );
+}
+
 export async function loadMessages(locale: Locale) {
-  const parts = await loadLocaleModules(locale);
-  return Object.assign({}, ...parts);
+  const enParts = await loadLocaleModules("en");
+  const english = mergeParts(enParts);
+
+  if (locale === "en") {
+    const overrides = await getMessageOverrides("en");
+    return deepMergeMessages(english, overrides) as Record<string, string>;
+  }
+
+  const localeParts = await loadLocaleModules(locale);
+  const localized = mergeParts(localeParts);
+  const merged = deepMergeMessages(english, localized);
+  const overrides = await getMessageOverrides(locale);
+  return deepMergeMessages(merged, overrides) as Record<string, string>;
 }

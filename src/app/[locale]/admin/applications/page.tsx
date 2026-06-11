@@ -3,8 +3,10 @@ import {
   listCreatorApplicationsAdmin,
   listPartnerApplicationsAdmin,
   listCommissionRulesForApplications,
+  getPartnerFormFieldsAdmin,
 } from "@/actions/admin/applications";
 import { ApplicationsAdminPanel } from "@/components/admin/applications-admin-panel";
+import { PartnerFormBuilder } from "@/components/admin/partner-form-builder";
 import { setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/config";
 
@@ -18,10 +20,11 @@ export default async function AdminApplicationsPage({
   setRequestLocale(locale);
   await requirePagePermission("users.read");
 
-  const [creators, partners, rules] = await Promise.all([
+  const [creators, partners, rules, formFields] = await Promise.all([
     listCreatorApplicationsAdmin(),
     listPartnerApplicationsAdmin(),
     listCommissionRulesForApplications(),
+    getPartnerFormFieldsAdmin(),
   ]);
 
   return (
@@ -32,6 +35,7 @@ export default async function AdminApplicationsPage({
           Review creator and partner applications — partners are provisioned only on approval
         </p>
       </div>
+      <PartnerFormBuilder initialFields={formFields.success ? formFields.data : []} />
       <ApplicationsAdminPanel
         creatorApps={creators.success ? creators.data : []}
         partnerApps={partners.success ? partners.data : []}

@@ -26,6 +26,10 @@
     "emailSettings": "Email Settings",
     "emailTemplates": "Email Templates",
     "branding": "Branding",
+    "applications": "Aplikacje",
+    "collections": "Kolekcje",
+    "securityCenter": "Centrum bezpieczeństwa",
+    "apiKeys": "Klucze API",
     "groups": "Groups & Permissions",
     "localization": "AI Localization",
     "mediaSettings": "Media Settings",
@@ -73,6 +77,14 @@
       "severityInfo": "Info",
       "lastScan": "Last scan: {time}",
       "retryHealth": "Refresh health"
+    },
+    "security": {
+      "title": "Centrum bezpieczeństwa",
+      "subtitle": "Skanowanie malware, integracja VirusTotal i dzienniki bezpieczeństwa uploadów"
+    },
+    "apiKeys": {
+      "title": "Zarządzanie kluczami API",
+      "subtitle": "Twórz i unieważniaj publiczne klucze API dla deweloperów i klienta desktopowego"
     }
   }
 }

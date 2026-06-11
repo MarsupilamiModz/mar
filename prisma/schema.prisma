@@ -71,6 +71,7 @@ enum CollectionModerationStatus {
 enum ApplicationStatus {
   PENDING
   UNDER_REVIEW
+  NEEDS_CHANGES
   APPROVED
   REJECTED
 }
@@ -1748,10 +1749,14 @@ model PartnerApplication {
   xUrl                    String?
   websiteUrl              String?
   audienceSize            String?
+  country                 String?
   platforms               Json              @default("[]")
   promotionStrategy       String?           @db.Text
   whyPartner              String?           @db.Text
   socialLinks             Json              @default("{}")
+  customResponses         Json              @default("{}")
+  requiredChanges         String?           @db.Text
+  statusHistory           Json              @default("[]")
   message                 String?           @db.Text
   adminNotes              String?           @db.Text
   assignedCreatorCode     String?

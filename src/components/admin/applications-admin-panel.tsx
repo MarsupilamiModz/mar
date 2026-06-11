@@ -78,11 +78,12 @@ function ApplicationsAdminPanelInner({
     });
   }
 
-  function reviewPartner(id: string, action: "approve" | "reject" | "info") {
+  function reviewPartner(id: string, action: "approve" | "reject" | "info" | "needs_changes") {
     startTransition(async () => {
       const codes = partnerCodes[id];
       const r = await reviewPartnerApplicationAdmin(id, action, {
         adminNotes: notes[id],
+        requiredChanges: notes[id],
         creatorCode: codes?.creator,
         partnerCode: codes?.partner,
         commissionRuleId: codes?.commissionRuleId,
@@ -165,10 +166,10 @@ function ApplicationsAdminPanelInner({
                   <p className="text-xs mt-1">Plan: {a.assignedCommissionRule.name}</p>
                 )}
                 {a.adminNotes && <p className="text-xs mt-1 italic">Notes: {a.adminNotes}</p>}
-                {(a.status === "PENDING" || a.status === "UNDER_REVIEW") && (
+                {(a.status === "PENDING" || a.status === "UNDER_REVIEW" || a.status === "NEEDS_CHANGES") && (
                   <div className="mt-2 space-y-2">
                     <Textarea
-                      placeholder="Admin notes"
+                      placeholder="Admin notes / required changes"
                       rows={2}
                       value={notes[a.id] ?? ""}
                       onChange={(e) => setNotes((prev) => ({ ...prev, [a.id]: e.target.value }))}
@@ -212,9 +213,10 @@ function ApplicationsAdminPanelInner({
                         </option>
                       ))}
                     </select>
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap gap-1">
                       <Button size="sm" variant="neon" disabled={pending} onClick={() => reviewPartner(a.id, "approve")}>Approve</Button>
-                      <Button size="sm" variant="outline" disabled={pending} onClick={() => reviewPartner(a.id, "info")}>Request info</Button>
+                      <Button size="sm" variant="outline" disabled={pending} onClick={() => reviewPartner(a.id, "info")}>Under review</Button>
+                      <Button size="sm" variant="outline" disabled={pending} onClick={() => reviewPartner(a.id, "needs_changes")}>Request changes</Button>
                       <Button size="sm" variant="destructive" disabled={pending} onClick={() => reviewPartner(a.id, "reject")}>Reject</Button>
                     </div>
                   </div>

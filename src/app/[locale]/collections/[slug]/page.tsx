@@ -35,8 +35,27 @@ export default async function CollectionDetailPage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+      {collection.bannerUrl && (
+        <div className="mb-8 overflow-hidden rounded-xl border border-border/40">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={collection.bannerUrl}
+            alt=""
+            className="h-48 w-full object-cover sm:h-64"
+          />
+        </div>
+      )}
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="flex gap-4">
+          {collection.coverUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={collection.coverUrl}
+              alt=""
+              className="h-24 w-24 rounded-lg object-cover border border-border/40 shrink-0"
+            />
+          )}
+          <div>
           <div className="flex items-center gap-2 mb-2">
             {collection.isFeatured && <Badge>Featured</Badge>}
             <Badge variant="outline">{collection.visibility}</Badge>
@@ -54,6 +73,7 @@ export default async function CollectionDetailPage({
             {collection.viewCount} views · {collection.followerCount} followers ·{" "}
             {collection.downloadCount} installs
           </p>
+          </div>
         </div>
         <CollectionActions
           collectionId={collection.id}
