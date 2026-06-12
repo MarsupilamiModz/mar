@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ModCard } from "@/components/mods/mod-card";
 import { GameCard } from "@/components/games/game-card";
-import { getHomepageGames, getTrendingMods } from "@/lib/data";
+import { getHomepageGames, getTrendingMods, getGameBySlug } from "@/lib/data";
+import { primaryGameSlug } from "@/i18n/config";
 import { getActiveAnnouncements } from "@/actions/admin/announcements";
 import { REVALIDATE } from "@/lib/cache";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
@@ -20,12 +21,14 @@ export default async function HomePage({ params: { locale } }: { params: { local
   const t = await getTranslations("landing");
   const tm = await getTranslations("mods");
 
-  const [games, mods, announcements, cms] = await Promise.all([
+  const [games, primaryGame, announcements, cms] = await Promise.all([
     getHomepageGames().catch(() => []),
-    getTrendingMods(8).catch(() => []),
+    getGameBySlug(primaryGameSlug).catch(() => null),
     getActiveAnnouncements().catch(() => []),
     getCachedPublicBranding(),
   ]);
+
+  const mods = await getTrendingMods(8, primaryGame?.id).catch(() => []);
 
   const page = cms.pageContent;
   const txt = (field: string, fallback: string) =>

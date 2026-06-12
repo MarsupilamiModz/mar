@@ -13,7 +13,17 @@ type MultipartInitResponse = {
   partCount: number;
 };
 
+type ResumeState = {
+  sessionId: string;
+  fileName: string;
+  fileSize: number;
+  purpose: string;
+  modId?: string;
+  parts: CompletedPart[];
+};
+
 const STORAGE_KEY = "xumari-multipart-resume";
+const CONCURRENT_PARTS = 4;
 
 export function useR2MultipartUpload() {
   const [progress, setProgress] = useState(0);
@@ -64,7 +74,7 @@ export function useR2MultipartUpload() {
       metadata?: Record<string, string>;
     }) => {
       if (input.file.size > MAX_UPLOAD_BYTES) {
-        throw new Error("File exceeds 10 GB upload limit");
+        throw new Error("File exceeds 5 GB upload limit");
       }
 
       setUploading(true);
@@ -97,8 +107,9 @@ export function useR2MultipartUpload() {
         const parts: CompletedPart[] = [];
         let uploaded = 0;
         const startedAt = Date.now();
+        const pendingParts = Array.from({ length: init.partCount }, (_, i) => i + 1);
 
-        for (let partNumber = 1; partNumber <= init.partCount; partNumber++) {
+        const uploadOnePart = async (partNumber: number) => {
           while (pausedRef.current) {
             await new Promise((r) => setTimeout(r, 200));
             if (abortRef.current?.signal.aborted) throw new Error("Upload aborted");
@@ -112,22 +123,40 @@ export function useR2MultipartUpload() {
             url,
             chunk,
             partNumber,
-            abortRef.current.signal
+            abortRef.current!.signal
           );
           parts.push({ PartNumber: partNumber, ETag: etag });
-
           uploaded += chunk.size;
+
           const elapsed = (Date.now() - startedAt) / 1000;
           const bps = elapsed > 0 ? uploaded / elapsed : 0;
           setSpeedBps(bps);
           setProgress(Math.round((uploaded / input.file.size) * 100));
           if (bps > 0) setEtaSeconds(Math.ceil((input.file.size - uploaded) / bps));
+
+          const resume: ResumeState = {
+            sessionId: init.sessionId,
+            fileName: input.file.name,
+            fileSize: input.file.size,
+            purpose: input.purpose,
+            modId: input.modId,
+            parts: [...parts],
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(resume));
+        };
+
+        for (let i = 0; i < pendingParts.length; i += CONCURRENT_PARTS) {
+          const batch = pendingParts.slice(i, i + CONCURRENT_PARTS);
+          await Promise.all(batch.map((n) => uploadOnePart(n)));
         }
 
         const completeRes = await fetch("/api/r2/multipart/complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: init.sessionId, parts }),
+          body: JSON.stringify({
+            sessionId: init.sessionId,
+            parts: parts.sort((a, b) => a.PartNumber - b.PartNumber),
+          }),
         });
         if (!completeRes.ok) throw new Error((await completeRes.json()).error ?? "Complete failed");
 

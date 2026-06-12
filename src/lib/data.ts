@@ -239,9 +239,17 @@ export async function getMods(filters: {
   const limit = filters.limit ?? 24;
   const skip = (page - 1) * limit;
 
-  const categoryFilter = filters.categorySlug && filters.gameSlug
-    ? await resolveCategoryFilter(filters.gameSlug, filters.categorySlug)
-    : undefined;
+  if (filters.categorySlug && !filters.gameSlug) {
+    return { mods: [], total: 0, pages: 0 };
+  }
+
+  let categoryFilter: string[] | undefined;
+  if (filters.categorySlug && filters.gameSlug) {
+    categoryFilter = await resolveCategoryFilter(filters.gameSlug, filters.categorySlug);
+    if (!categoryFilter) {
+      return { mods: [], total: 0, pages: 0 };
+    }
+  }
 
   const where = {
     status: "PUBLISHED" as const,

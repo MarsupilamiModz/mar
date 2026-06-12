@@ -42,9 +42,12 @@ export const getCurrentUser = cache(async () => {
   }
 });
 
-export async function requireAuth(redirectTo?: string) {
+export async function requireAuth(returnPath?: string) {
   const locale = await getLocale();
-  const loginPath = redirectTo ?? `/${locale}/login`;
+  const loginBase = `/${locale}/login`;
+  const loginPath = returnPath
+    ? `${loginBase}?redirect=${encodeURIComponent(returnPath)}`
+    : loginBase;
   const user = await getCurrentUser();
   if (!user) redirect(loginPath);
   if (user.isBanned) redirect(`/${locale}/banned`);

@@ -7,6 +7,7 @@ import {
   listAnnouncements,
   toggleAnnouncement,
 } from "@/actions/admin/announcements";
+import { ANNOUNCEMENT_TARGETS, parseVisibilityTargets } from "@/lib/announcement-targeting";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,11 +21,13 @@ type Announcement = {
   content: string;
   link: string | null;
   isActive: boolean;
+  visibilityTargets: unknown;
 };
 
 export default function AdminAnnouncementsPage() {
   const [items, setItems] = useState<Announcement[]>([]);
   const [pending, startTransition] = useTransition();
+  const [selectedTargets, setSelectedTargets] = useState<string[]>(["everyone"]);
 
   function load() {
     startTransition(async () => {
@@ -54,10 +57,12 @@ export default function AdminAnnouncementsPage() {
                 content: fd.get("content") as string,
                 link: (fd.get("link") as string) || "",
                 isActive: true,
+                visibilityTargets: selectedTargets,
               });
               if (r.success) {
                 toast({ title: "Created" });
                 e.currentTarget.reset();
+                setSelectedTargets(["everyone"]);
                 load();
               } else toast({ title: "Error", description: r.error, variant: "destructive" });
             });
@@ -67,6 +72,27 @@ export default function AdminAnnouncementsPage() {
           <Input name="title" placeholder="Title" required />
           <Textarea name="content" placeholder="Message" required rows={2} />
           <Input name="link" placeholder="Optional link URL" type="url" />
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Visibility</p>
+            <div className="flex flex-wrap gap-2">
+              {ANNOUNCEMENT_TARGETS.map((t) => (
+                <label key={t.id} className="flex items-center gap-1.5 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={selectedTargets.includes(t.id)}
+                    onChange={(e) => {
+                      setSelectedTargets((prev) =>
+                        e.target.checked
+                          ? [...prev.filter((x) => x !== "everyone"), t.id]
+                          : prev.filter((x) => x !== t.id)
+                      );
+                    }}
+                  />
+                  {t.label}
+                </label>
+              ))}
+            </div>
+          </div>
           <Button type="submit" variant="neon" disabled={pending}>
             Publish
           </Button>
@@ -79,6 +105,9 @@ export default function AdminAnnouncementsPage() {
             <div>
               <p className="font-medium">{a.title}</p>
               <p className="text-sm text-muted-foreground mt-1">{a.content}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Visible to: {parseVisibilityTargets(a.visibilityTargets).join(", ")}
+              </p>
             </div>
             <div className="flex gap-2 shrink-0">
               <Badge variant={a.isActive ? "default" : "outline"}>{a.isActive ? "Active" : "Off"}</Badge>

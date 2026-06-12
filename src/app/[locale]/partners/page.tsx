@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { PartnerHubCard } from "@/components/partners/partner-hub-card";
 import { SITE } from "@/lib/site";
 import type { Locale } from "@/i18n/config";
@@ -15,6 +17,7 @@ export const metadata: Metadata = {
 export default async function PartnersPage({ params: { locale } }: { params: { locale: Locale } }) {
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
+  const user = await getCurrentUser();
 
   const [featured, verified, elite, official, topPerforming] = await Promise.all([
     prisma.partnerProfile.findMany({
@@ -82,10 +85,18 @@ export default async function PartnersPage({ params: { locale } }: { params: { l
         </div>
       )}
 
-      <div className="mt-12 text-center">
-        <Link href={`/${locale}/register`} className="text-neon-blue hover:underline text-sm">
-          {t("becomePartner")}
-        </Link>
+      <div className="mt-12 text-center space-y-3">
+        {user ? (
+          <Button variant="neon" asChild>
+            <Link href={`/${locale}/become-partner`}>{t("becomePartner")}</Link>
+          </Button>
+        ) : (
+          <Button variant="neon" asChild>
+            <Link href={`/${locale}/login?redirect=${encodeURIComponent(`/${locale}/become-partner`)}`}>
+              {t("becomePartner")}
+            </Link>
+          </Button>
+        )}
       </div>
     </div>
   );

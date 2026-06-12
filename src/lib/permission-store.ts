@@ -92,6 +92,7 @@ const loadGroupPermissionMap = unstable_cache(
   async (): Promise<Map<string, string[]>> => {
     try {
       const groups = await prisma.permissionGroup.findMany({
+        where: { isArchived: false },
         select: { id: true, permissions: true },
       });
       return new Map(

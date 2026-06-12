@@ -47,7 +47,7 @@ export async function getPresignedPartUrl(
   key: string,
   uploadId: string,
   partNumber: number,
-  expiresIn = 3600
+  expiresIn = 7200
 ) {
   const command = new UploadPartCommand({
     Bucket: BUCKET,

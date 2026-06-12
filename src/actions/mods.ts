@@ -59,6 +59,16 @@ export async function createMod(input: z.infer<typeof modCreateSchema> & { autho
   const parsed = modCreateSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.message);
 
+  if (parsed.data.categoryId) {
+    const category = await prisma.gameCategory.findUnique({
+      where: { id: parsed.data.categoryId },
+      select: { gameId: true },
+    });
+    if (!category || category.gameId !== parsed.data.gameId) {
+      return fail("Category does not belong to the selected game");
+    }
+  }
+
   const authorId = isStaff && input.authorId ? input.authorId : user.id;
   const modSlug = await uniqueSlug(parsed.data.title);
 

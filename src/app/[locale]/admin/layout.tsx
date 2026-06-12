@@ -35,6 +35,7 @@ const linkDefs = [
   { href: "/branding", labelKey: "branding", permission: "settings.write" as const },
   { href: "/collections", labelKey: "collections", permission: "settings.write" as const },
   { href: "/groups", labelKey: "groups", permission: "settings.write" as const },
+  { href: "/team", labelKey: "team", permission: "users.read" as const },
   { href: "/localization", labelKey: "localization", permission: "settings.write" as const },
   { href: "/settings/media", labelKey: "mediaSettings", permission: "settings.write" as const },
   { href: "/system", labelKey: "systemHealth", permission: "settings.write" as const },

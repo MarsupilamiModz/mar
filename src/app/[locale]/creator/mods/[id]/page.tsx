@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { requireAuth } from "@/lib/auth";
 import { getMediaSettings } from "@/lib/media-settings";
 import { mapModMedia } from "@/lib/mod-media";
+import { serializeModVersions } from "@/lib/file-size";
 import type { Locale } from "@/i18n/config";
 
 export default async function ManageModPage({
@@ -38,7 +39,7 @@ export default async function ManageModPage({
 
       <CreatorModVersionUpload modId={mod.id} />
 
-      <CreatorModVersionManager modId={mod.id} versions={mod.versions} />
+      <CreatorModVersionManager modId={mod.id} versions={serializeModVersions(mod.versions)} />
 
       <CreatorModDependenciesEditor
         modId={mod.id}

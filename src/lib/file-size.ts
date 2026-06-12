@@ -7,6 +7,13 @@ export function fileSizeBigInt(size: number | bigint): bigint {
   return typeof size === "bigint" ? size : BigInt(Math.floor(size));
 }
 
+/** Serialize mod versions for client components (BigInt → number). */
+export function serializeModVersions<T extends { fileSize: bigint | number }>(
+  versions: T[]
+): (Omit<T, "fileSize"> & { fileSize: number })[] {
+  return versions.map((v) => ({ ...v, fileSize: fileSizeNumber(v.fileSize) }));
+}
+
 export function formatBytes(bytes: bigint | number): string {
   const n = fileSizeNumber(bytes);
   if (n === 0) return "0 B";

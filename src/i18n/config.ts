@@ -2,6 +2,9 @@ export const locales = ["en", "de", "fr", "es", "tr", "pl"] as const;
 export type Locale = (typeof locales)[number];
 export const defaultLocale: Locale = "en";
 
+/** Primary catalog game slug (GTA V / FiveM / Rage MP ecosystem). */
+export const primaryGameSlug = "gta-v-fivem";
+
 export const localeLabels: Record<Locale, string> = {
   en: "English",
   de: "Deutsch",

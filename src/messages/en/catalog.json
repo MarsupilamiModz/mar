@@ -14,7 +14,8 @@
     "premiumMods": "Premium mods",
     "trendingMods": "Trending mods",
     "results": "Results",
-    "noModsYet": "No mods published for this game yet. Check back soon."
+    "noModsYet": "No mods published for this game yet. Check back soon.",
+    "noFilterResults": "No mods match your filters."
   },
   "mods": {
     "title": "Mod catalog",

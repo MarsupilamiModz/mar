@@ -361,6 +361,8 @@ model User {
   role              UserRole  @default(USER)
   permissionGroupId String?
   permissionGroup   PermissionGroup? @relation(fields: [permissionGroupId], references: [id], onDelete: SetNull)
+  teamDepartment    String?
+  teamBadge         String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -1240,15 +1242,16 @@ model EmailLog {
 }
 
 model Announcement {
-  id        String   @id @default(cuid())
-  title     String
-  content   String   @db.Text
-  link      String?
-  isActive  Boolean  @default(true)
-  startsAt  DateTime @default(now())
-  endsAt    DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  title              String
+  content            String   @db.Text
+  link               String?
+  isActive           Boolean  @default(true)
+  visibilityTargets  Json     @default("[\"everyone\"]")
+  startsAt           DateTime @default(now())
+  endsAt             DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([isActive, startsAt])
 }

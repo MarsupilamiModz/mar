@@ -48,7 +48,7 @@ export default async function GameDetailPage({
   const pageData = await getGamePageData(slug);
   if (!pageData) notFound();
 
-  const { game, featured, trending, premium, creatorCount } = pageData;
+  const { game, featured, premium, creatorCount } = pageData;
   const covers = await getGameCoverOverrides();
   const cover = covers[game.id];
   const heroStyle = cover?.backgroundGradient
@@ -62,6 +62,9 @@ export default async function GameDetailPage({
     categorySlug: searchParams.category,
     limit: 24,
   });
+
+  const hasActiveFilter = Boolean(searchParams.q || searchParams.category);
+  const showBrowseSections = !hasActiveFilter;
 
   return (
     <div>
@@ -102,6 +105,9 @@ export default async function GameDetailPage({
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <AdLocationSlot location="category" className="mb-6" />
         <form className="flex flex-wrap gap-3 mb-10">
+          {searchParams.category && (
+            <input type="hidden" name="category" value={searchParams.category} />
+          )}
           <input
             name="q"
             defaultValue={searchParams.q}
@@ -121,7 +127,7 @@ export default async function GameDetailPage({
           <Button type="submit" variant="neon">{t("filter")}</Button>
         </form>
 
-        {featured.length > 0 && !searchParams.q && (
+        {featured.length > 0 && showBrowseSections && (
           <section className="mb-12">
             <h2 className="text-xl font-bold mb-6">{tg("featuredMods")}</h2>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -132,7 +138,7 @@ export default async function GameDetailPage({
           </section>
         )}
 
-        {premium.length > 0 && !searchParams.q && (
+        {premium.length > 0 && showBrowseSections && (
           <section className="mb-12">
             <h2 className="text-xl font-bold mb-6">{tg("premiumMods")}</h2>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -145,13 +151,15 @@ export default async function GameDetailPage({
 
         <section className="mb-12">
           <h2 className="text-xl font-bold mb-6">
-            {searchParams.q || searchParams.category ? tg("results") : tg("trendingMods")}
+            {hasActiveFilter ? tg("results") : tg("trendingMods")}
           </h2>
-          {filteredMods.length === 0 && trending.length === 0 ? (
-            <p className="text-muted-foreground py-12 text-center">{tg("noModsYet")}</p>
+          {filteredMods.length === 0 ? (
+            <p className="text-muted-foreground py-12 text-center">
+              {hasActiveFilter ? tg("noFilterResults") : tg("noModsYet")}
+            </p>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {(filteredMods.length ? filteredMods : trending).map((mod) => (
+              {filteredMods.map((mod) => (
                 <ModCard key={mod.id} locale={locale} mod={mod} />
               ))}
             </div>

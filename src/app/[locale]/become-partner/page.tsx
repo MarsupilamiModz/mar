@@ -14,7 +14,7 @@ export default async function BecomePartnerPage({
   params: { locale: Locale };
 }) {
   setRequestLocale(locale);
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/become-partner`);
   const [existing, fields] = await Promise.all([
     getMyPartnerApplication(user.id),
     getPartnerFormFields(),

@@ -31,6 +31,7 @@ import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import { ModPurchaseButton } from "@/components/mods/mod-purchase-button";
 import { formatCreditsFromCents } from "@/lib/credits";
 import type { Locale } from "@/i18n/config";
+import { serializeModVersions } from "@/lib/file-size";
 
 export async function generateMetadata({
   params: { slug },
@@ -136,7 +137,7 @@ export default async function ModDetailPage({
             </p>
           </div>
 
-          <ModVersionsPanel modId={mod.id} versions={mod.versions} />
+          <ModVersionsPanel modId={mod.id} versions={serializeModVersions(mod.versions)} />
 
           <ModDependenciesPanel
             locale={locale}
