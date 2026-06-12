@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getMessages, setRequestLocale } from "next-intl/server";
-import { notFound } from "next/navigation";
-import { locales, type Locale } from "@/i18n/config";
+import { redirect } from "next/navigation";
+import { defaultLocale, isValidLocale, locales, type Locale } from "@/i18n/config";
 import { IntlProvider } from "@/components/i18n/intl-provider";
 import { AsyncHeader } from "@/components/layout/async-header";
 import { AsyncFooter } from "@/components/layout/async-footer";
@@ -49,12 +49,14 @@ export default async function LocaleLayout({
   children: React.ReactNode;
   params: { locale: Locale };
 }) {
-  if (!locales.includes(locale)) notFound();
+  if (!isValidLocale(locale)) {
+    redirect(`/${defaultLocale}`);
+  }
   setRequestLocale(locale);
   const messages = await getMessages();
 
   return (
-    <IntlProvider messages={messages}>
+    <IntlProvider locale={locale} messages={messages}>
       <LocaleHtmlLang locale={locale} />
       <ScrollRestoration />
       <AdProviderScripts />

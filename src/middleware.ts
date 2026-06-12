@@ -7,6 +7,7 @@ const intlMiddleware = createMiddleware({
   locales: [...locales],
   defaultLocale,
   localePrefix: "always",
+  localeDetection: true,
 });
 
 const protectedPrefixes = ["/dashboard", "/admin", "/creator", "/designer", "/banned"];

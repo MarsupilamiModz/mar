@@ -1,7 +1,8 @@
 import { getRequestConfig } from "next-intl/server";
 import { cookies, headers } from "next/headers";
-import { detectLocaleFromHeader, isValidLocale, type Locale } from "./config";
+import { detectLocaleFromHeader, isValidLocale, resolveLocale, type Locale } from "./config";
 import { loadMessages } from "../messages/load";
+import { intlGetMessageFallback, intlOnError } from "@/lib/i18n-utils";
 
 async function detectLocale(): Promise<Locale> {
   const cookieStore = await cookies();
@@ -11,13 +12,17 @@ async function detectLocale(): Promise<Locale> {
 }
 
 export default getRequestConfig(async ({ requestLocale }) => {
-  let locale = await requestLocale;
-  if (!locale || !isValidLocale(locale)) {
-    locale = await detectLocale();
+  const requested = await requestLocale;
+  let locale: Locale = resolveLocale(requested);
+  if (!requested || !isValidLocale(requested)) {
+    locale = resolveLocale(await detectLocale());
   }
 
   return {
     locale,
-    messages: await loadMessages(locale as Locale),
+    messages: await loadMessages(locale),
+    timeZone: "UTC",
+    onError: intlOnError,
+    getMessageFallback: intlGetMessageFallback,
   };
 });

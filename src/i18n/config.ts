@@ -27,4 +27,10 @@ export function isValidLocale(locale: string): locale is Locale {
   return locales.includes(locale as Locale);
 }
 
+/** Returns a supported locale or falls back to the default. */
+export function resolveLocale(locale: string | undefined | null): Locale {
+  if (locale && isValidLocale(locale)) return locale;
+  return defaultLocale;
+}
+
 export const localeRegex = new RegExp(`^/(${locales.join("|")})(/|$)`);
