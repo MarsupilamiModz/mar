@@ -6,14 +6,14 @@ import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { fail, ok, requireActionPermission } from "@/lib/action-utils";
 import { generateAffiliateCode } from "@/lib/affiliate";
-import { slugify } from "@/lib/utils";
+import { resolveSlug, ensureUniqueSlug, zSlugInput } from "@/lib/slug";
 import { CREATOR_LEVELS } from "@/lib/creator-levels";
 import { sendPartnerApprovalEmail } from "@/lib/email/send";
 import type { PublisherLevel, SocialPlatform } from "@prisma/client";
 
 const profileSchema = z.object({
   userId: z.string(),
-  slug: z.string().min(2).max(60).optional(),
+  slug: zSlugInput,
   tagline: z.string().max(200).optional(),
   description: z.string().max(5000).optional(),
   website: z.string().url().optional().or(z.literal("")),
@@ -26,6 +26,8 @@ const profileSchema = z.object({
   isHomepage: z.boolean().optional(),
   commissionOverrideBps: z.number().int().min(0).max(10000).nullable().optional(),
   isBanned: z.boolean().optional(),
+  discordInviteUrl: z.string().url().optional().or(z.literal("")).nullable(),
+  discordWidgetUrl: z.string().url().optional().or(z.literal("")).nullable(),
 });
 
 export async function setPartnerLevel(id: string, level: PublisherLevel) {
@@ -126,13 +128,14 @@ export async function createPartnerProfile(input: z.infer<typeof profileSchema>)
   const target = await prisma.user.findUnique({ where: { id: parsed.data.userId } });
   if (!target) return fail("User not found");
 
-  let slug = parsed.data.slug ?? slugify(target.username);
-  let slugTaken = await prisma.partnerProfile.findUnique({ where: { slug } });
-  let i = 0;
-  while (slugTaken && i < 20) {
-    slug = `${slugify(target.username)}-${++i}`;
-    slugTaken = await prisma.partnerProfile.findUnique({ where: { slug } });
-  }
+  let resolved = resolveSlug({
+    name: target.displayName ?? target.username,
+    slug: parsed.data.slug,
+    fallbackPrefix: target.username,
+  });
+  const slug = await ensureUniqueSlug(resolved.slug, async (s) =>
+    Boolean(await prisma.partnerProfile.findUnique({ where: { slug: s } }))
+  );
 
   const code = generateAffiliateCode("PT");
 

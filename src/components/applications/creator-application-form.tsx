@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { formatUploadErrorMessage } from "@/lib/upload-errors";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +18,12 @@ export function CreatorApplicationForm({ userEmail }: { userEmail: string }) {
   const [portfolioImages, setPortfolioImages] = useState<string[]>([]);
 
   async function handlePortfolioUpload(file: File) {
-    const result = await upload({ file, purpose: "creator-portfolio" });
-    if (result.url) setPortfolioImages((prev) => [...prev, result.url as string]);
+    try {
+      const result = await upload({ file, purpose: "creator-portfolio" });
+      if (result.url) setPortfolioImages((prev) => [...prev, result.url as string]);
+    } catch (err) {
+      toast({ title: "Upload failed", description: formatUploadErrorMessage(err), variant: "destructive" });
+    }
   }
 
   return (

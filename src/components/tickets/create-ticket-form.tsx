@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { TICKET_CATEGORY_LABELS, TICKET_DEPARTMENTS } from "@/lib/ticket-labels";
+import { TICKET_CATEGORY_LABELS, TICKET_CREATE_CATEGORIES } from "@/lib/ticket-labels";
 
 export function CreateTicketForm({ locale }: { locale: string }) {
   const router = useRouter();
@@ -51,7 +51,7 @@ export function CreateTicketForm({ locale }: { locale: string }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {TICKET_DEPARTMENTS.map((c) => (
+              {TICKET_CREATE_CATEGORIES.map((c) => (
                 <SelectItem key={c} value={c}>
                   {TICKET_CATEGORY_LABELS[c]}
                 </SelectItem>

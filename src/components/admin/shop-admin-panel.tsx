@@ -11,6 +11,7 @@ import { createShopProduct, updateShopProduct, deleteShopProduct } from "@/actio
 import { useAppToast } from "@/hooks/use-app-toast";
 import { CREDITS_PER_EUR } from "@/lib/credits";
 import { formatEuro, formatNumber } from "@/lib/format-locale";
+import { safeFormOptional, safeFormString, safeStripePriceId } from "@/lib/safe-string";
 
 type Product = {
   id: string;
@@ -57,14 +58,14 @@ export function ShopAdminPanel({ products, locale }: { products: Product[]; loca
             const fd = new FormData(e.currentTarget);
             const priceEuro = Number(fd.get("priceEuro") || 0);
             const payload = {
-              name: fd.get("name") as string,
-              description: (fd.get("description") as string) || undefined,
-              category: fd.get("category") as "CREDITS" | "MEMBERSHIP" | "MODS" | "EXCLUSIVE" | "BUNDLES" | "ACCESS",
-              productType: fd.get("productType") as "CREDIT_PACK" | "MEMBERSHIP" | "MOD" | "EXCLUSIVE" | "BUNDLE" | "SUBSCRIPTION" | "ACCESS",
+              name: safeFormString(fd, "name"),
+              description: safeFormOptional(fd, "description"),
+              category: safeFormString(fd, "category") as "CREDITS" | "MEMBERSHIP" | "MODS" | "EXCLUSIVE" | "BUNDLES" | "ACCESS",
+              productType: safeFormString(fd, "productType") as "CREDIT_PACK" | "MEMBERSHIP" | "MOD" | "EXCLUSIVE" | "BUNDLE" | "SUBSCRIPTION" | "ACCESS",
               creditPrice: Number(fd.get("creditPrice") || 0),
               priceCents: Math.round(priceEuro * 100),
               creditsAmount: fd.get("creditsAmount") ? Number(fd.get("creditsAmount")) : undefined,
-              stripePriceId: ((fd.get("stripePriceId") as string) || undefined)?.trim() || null,
+              stripePriceId: safeStripePriceId(fd.get("stripePriceId")),
               isFeatured: fd.get("isFeatured") === "on",
               isActive: fd.get("isActive") === "on",
               salePercent: Number(fd.get("salePercent") || 0),

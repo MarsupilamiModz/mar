@@ -12,6 +12,7 @@ import { CreatorLevelBadge } from "@/components/creator/creator-level-badge";
 import { getAppUrl } from "@/lib/app-url";
 import { getShowcasedAchievements } from "@/lib/achievements";
 import { ProfileShowcase } from "@/components/achievements/profile-showcase";
+import { PartnerDiscordEmbed } from "@/components/partners/partner-discord-embed";
 import type { Locale } from "@/i18n/config";
 
 export const revalidate = REVALIDATE.catalog;
@@ -92,6 +93,12 @@ export default async function PartnerProfilePage({
           <Card className="glass p-6">
             <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{profile.description}</p>
           </Card>
+          )}
+          {(profile.discordInviteUrl || profile.discordWidgetUrl) && (
+            <PartnerDiscordEmbed
+              inviteUrl={profile.discordInviteUrl}
+              widgetUrl={profile.discordWidgetUrl}
+            />
           )}
         </div>
       )}

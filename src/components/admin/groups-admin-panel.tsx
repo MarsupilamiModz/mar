@@ -1,49 +1,20 @@
 "use client";
 
-import { memo, useState, useTransition } from "react";
+import { memo, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { UserRole } from "@prisma/client";
-import { savePermissionGroup, duplicatePermissionGroup } from "@/actions/admin/branding";
-import { deletePermissionGroup, updateAdminRolePermissions } from "@/actions/admin/permissions";
+import { updateAdminRolePermissions } from "@/actions/admin/permissions";
 import { PERMISSIONS, ROLE_HIERARCHY, type PermissionKey } from "@/lib/permissions";
 import { ASSIGNABLE_ROLES } from "@/lib/permission-types";
+import { PERMISSION_UI_GROUPS, filterPermissionsBySearch } from "@/lib/permission-ui";
+import { CustomRolesEditor, type CustomRole } from "@/components/admin/custom-roles-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useAppToast } from "@/hooks/use-app-toast";
-import { formatRoleLabel, formatGroupLabel, ROLE_HIERARCHY_LABEL } from "@/lib/role-display";
-
-const HIERARCHY_TIERS = [
-  "Owner",
-  "Admin",
-  "Moderator",
-  "Support",
-  "Creator",
-  "Partner",
-  "Premium Max",
-  "Premium",
-  "Premium Lite",
-  "User",
-];
-
-const DASHBOARD_OPTIONS = ["admin", "creator", "partner", "dashboard", "premium"];
-
-type Group = {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  permissions: unknown;
-  isSystem: boolean;
-  color?: string | null;
-  badge?: string | null;
-  icon?: string | null;
-  hierarchyTier?: string | null;
-  dashboardAccess?: unknown;
-  sortOrder?: number;
-  isArchived?: boolean;
-};
+import { formatRoleLabel, ROLE_HIERARCHY_LABEL } from "@/lib/role-display";
 
 type RoleRow = {
   role: UserRole;
@@ -54,68 +25,18 @@ function GroupsAdminPanelInner({
   groups,
   roles,
 }: {
-  groups: Group[];
+  groups: CustomRole[];
   roles: RoleRow[];
 }) {
   const appToast = useAppToast();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [tab, setTab] = useState<"roles" | "groups">("roles");
-  const [editing, setEditing] = useState<Group | null>(null);
-  const [slug, setSlug] = useState("");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [color, setColor] = useState("");
-  const [badge, setBadge] = useState("");
-  const [icon, setIcon] = useState("");
-  const [hierarchyTier, setHierarchyTier] = useState("");
-  const [dashboardAccess, setDashboardAccess] = useState<string[]>([]);
-  const [sortOrder, setSortOrder] = useState(0);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [tab, setTab] = useState<"builtin" | "custom">("custom");
   const [activeRole, setActiveRole] = useState<UserRole>("MODERATOR");
   const [rolePerms, setRolePerms] = useState<string[]>(
     roles.find((r) => r.role === "MODERATOR")?.permissions.map(String) ?? []
   );
-
-  const startCreate = () => {
-    setEditing(null);
-    setSlug("");
-    setName("");
-    setDescription("");
-    setColor("");
-    setBadge("");
-    setIcon("");
-    setHierarchyTier("");
-    setDashboardAccess([]);
-    setSortOrder(groups.length);
-    setSelected([]);
-  };
-
-  const startEdit = (g: Group) => {
-    if (g.isSystem) return;
-    setEditing(g);
-    setSlug(g.slug);
-    setName(g.name);
-    setDescription(g.description ?? "");
-    setColor(g.color ?? "");
-    setBadge(g.badge ?? "");
-    setIcon(g.icon ?? "");
-    setHierarchyTier(g.hierarchyTier ?? "");
-    setDashboardAccess(Array.isArray(g.dashboardAccess) ? g.dashboardAccess.map(String) : []);
-    setSortOrder(g.sortOrder ?? 0);
-    setSelected(Array.isArray(g.permissions) ? g.permissions.map(String) : []);
-    setTab("groups");
-  };
-
-  const togglePerm = (key: string, list: string[], setList: (v: string[]) => void) => {
-    setList(list.includes(key) ? list.filter((p) => p !== key) : [...list, key]);
-  };
-
-  const toggleDashboard = (key: string) => {
-    setDashboardAccess((prev) =>
-      prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]
-    );
-  };
+  const [permSearch, setPermSearch] = useState("");
 
   const selectRole = (role: UserRole) => {
     setActiveRole(role);
@@ -134,59 +55,40 @@ function GroupsAdminPanelInner({
     return Array.from(inherited);
   };
 
-  const saveGroup = () => {
-    if (!slug.trim() || !name.trim()) {
-      appToast.error("Slug and name required");
-      return;
-    }
-    startTransition(async () => {
-      const r = await savePermissionGroup({
-        id: editing?.id,
-        slug: slug.trim(),
-        name: name.trim(),
-        description: description.trim() || undefined,
-        permissions: selected,
-        color: color.trim() || undefined,
-        badge: badge.trim() || undefined,
-        icon: icon.trim() || undefined,
-        hierarchyTier: hierarchyTier || undefined,
-        dashboardAccess,
-        sortOrder,
-      });
-      if (r.success) {
-        appToast.saved();
-        startCreate();
-        router.refresh();
-      } else appToast.error(r.error);
-    });
+  const visibleBuiltinPerms = useMemo(() => {
+    const all = Object.keys(PERMISSIONS) as PermissionKey[];
+    return filterPermissionsBySearch(permSearch, all);
+  }, [permSearch]);
+
+  const togglePerm = (key: string) => {
+    setRolePerms((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2">
-        <Button variant={tab === "roles" ? "neon" : "outline"} size="sm" onClick={() => setTab("roles")}>
-          Role permissions
+      <div className="flex flex-wrap gap-2">
+        <Button variant={tab === "custom" ? "neon" : "outline"} size="sm" onClick={() => setTab("custom")}>
+          Custom roles
         </Button>
-        <Button variant={tab === "groups" ? "neon" : "outline"} size="sm" onClick={() => setTab("groups")}>
-          Permission groups
+        <Button variant={tab === "builtin" ? "neon" : "outline"} size="sm" onClick={() => setTab("builtin")}>
+          Built-in role permissions
         </Button>
       </div>
 
-      {tab === "roles" ? (
+      {tab === "custom" ? (
+        <CustomRolesEditor groups={groups} />
+      ) : (
         <div className="grid gap-6 lg:grid-cols-3">
           <Card className="glass p-4 space-y-2 h-fit">
-            <h3 className="font-semibold text-sm">Roles</h3>
+            <h3 className="font-semibold text-sm">Built-in roles</h3>
+            <p className="text-xs text-muted-foreground mb-2">Hierarchy: {ROLE_HIERARCHY_LABEL}</p>
             {ASSIGNABLE_ROLES.map((role) => (
               <button
                 key={role}
                 type="button"
                 onClick={() => selectRole(role)}
                 className={`w-full text-left rounded-md px-3 py-2 text-sm transition-colors ${
-                  activeRole === role
-                    ? role === "OWNER"
-                      ? "bg-neon-purple/25 text-neon-purple font-semibold"
-                      : "bg-neon-purple/15 text-neon-purple"
-                    : "hover:bg-accent/20"
+                  activeRole === role ? "bg-neon-purple/15 text-neon-purple font-medium" : "hover:bg-accent/20"
                 }`}
               >
                 {formatRoleLabel(role)}
@@ -195,25 +97,45 @@ function GroupsAdminPanelInner({
           </Card>
 
           <Card className="glass p-5 space-y-4 lg:col-span-2">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="font-semibold">{formatRoleLabel(activeRole)} permissions</h3>
-              <Badge variant="outline">{inheritedPreview().length} effective (with inheritance)</Badge>
+              <Badge variant="outline">{inheritedPreview().length} effective with inheritance</Badge>
             </div>
-            <div className="max-h-64 overflow-y-auto space-y-1 text-sm grid sm:grid-cols-2 gap-x-4">
-              {(Object.keys(PERMISSIONS) as PermissionKey[]).map((key) => (
-                <label key={key} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={rolePerms.includes(key)}
-                    onChange={() => togglePerm(key, rolePerms, setRolePerms)}
-                  />
-                  <span>{key}</span>
-                </label>
-              ))}
+            <Input
+              placeholder="Search permissions…"
+              value={permSearch}
+              onChange={(e) => setPermSearch(e.target.value)}
+            />
+            <div className="max-h-80 overflow-y-auto space-y-4">
+              {PERMISSION_UI_GROUPS.map((group) => {
+                const keys = filterPermissionsBySearch(permSearch, group.keys);
+                if (keys.length === 0) return null;
+                return (
+                  <div key={group.id}>
+                    <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">{group.label}</p>
+                    <div className="space-y-2">
+                      {keys.map((key) => (
+                        <label key={key} className="flex items-center justify-between gap-3 rounded-md border border-border/30 px-3 py-2 text-sm">
+                          <span>
+                            <span className="font-mono text-xs">{key}</span>
+                            <span className="block text-xs text-muted-foreground">{PERMISSIONS[key]}</span>
+                          </span>
+                          <Switch checked={rolePerms.includes(key)} onCheckedChange={() => togglePerm(key)} />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {visibleBuiltinPerms
+                .filter((k) => !PERMISSION_UI_GROUPS.some((g) => g.keys.includes(k)))
+                .map((key) => (
+                  <label key={key} className="flex items-center justify-between gap-3 rounded-md border border-border/30 px-3 py-2 text-sm">
+                    <span className="font-mono text-xs">{key}</span>
+                    <Switch checked={rolePerms.includes(key)} onCheckedChange={() => togglePerm(key)} />
+                  </label>
+                ))}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Higher roles inherit permissions from lower tiers: {ROLE_HIERARCHY_LABEL}
-            </p>
             <Button
               variant="neon"
               disabled={pending || activeRole === "OWNER"}
@@ -227,164 +149,7 @@ function GroupsAdminPanelInner({
                 })
               }
             >
-              Save role permissions
-            </Button>
-          </Card>
-        </div>
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 grid gap-4 sm:grid-cols-2">
-            {groups.map((g) => (
-              <Card
-                key={g.id}
-                className={`glass p-5 space-y-3 ${!g.isSystem ? "cursor-pointer hover:border-neon-purple/30" : ""}`}
-                onClick={() => startEdit(g)}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    {g.color && (
-                      <span
-                        className="h-3 w-3 rounded-full shrink-0"
-                        style={{ backgroundColor: g.color }}
-                      />
-                    )}
-                    <h3 className="font-semibold">{formatGroupLabel(g.name, g.slug)}</h3>
-                  </div>
-                  <div className="flex gap-1">
-                    {g.isSystem && <Badge variant="outline">System</Badge>}
-                    {g.badge && <Badge>{g.badge}</Badge>}
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground font-mono">{g.slug}</p>
-                {g.hierarchyTier && (
-                  <p className="text-xs text-neon-blue/80">Tier: {g.hierarchyTier}</p>
-                )}
-                {g.description && <p className="text-sm text-muted-foreground">{g.description}</p>}
-                <ul className="text-xs space-y-1">
-                  {(Array.isArray(g.permissions) ? g.permissions : []).slice(0, 6).map((p) => (
-                    <li key={String(p)} className="text-neon-blue/80">• {String(p)}</li>
-                  ))}
-                </ul>
-                {!g.isSystem && (
-                  <div className="flex flex-wrap gap-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={pending}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startTransition(async () => {
-                          const r = await duplicatePermissionGroup(g.id);
-                          if (r.success) {
-                            appToast.saved();
-                            router.refresh();
-                          } else appToast.error(r.error);
-                        });
-                      }}
-                    >
-                      Duplicate
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={pending}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startTransition(async () => {
-                          const r = await savePermissionGroup({
-                            id: g.id,
-                            slug: g.slug,
-                            name: g.name,
-                            description: g.description ?? undefined,
-                            permissions: Array.isArray(g.permissions) ? g.permissions.map(String) : [],
-                            isArchived: true,
-                          });
-                          if (r.success) {
-                            appToast.saved();
-                            router.refresh();
-                          } else appToast.error(r.error);
-                        });
-                      }}
-                    >
-                      Archive
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={pending}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startTransition(async () => {
-                          const r = await deletePermissionGroup(g.id);
-                          if (r.success) {
-                            appToast.saved();
-                            router.refresh();
-                          } else appToast.error(r.error);
-                        });
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                )}
-              </Card>
-            ))}
-          </div>
-
-          <Card className="glass p-5 space-y-4 h-fit sticky top-24">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">{editing ? "Edit group" : "New group"}</h3>
-              <Button size="sm" variant="ghost" onClick={startCreate}>Clear</Button>
-            </div>
-            <Input placeholder="slug" value={slug} onChange={(e) => setSlug(e.target.value)} disabled={!!editing} />
-            <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-            <Input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
-            <Input placeholder="Color (#hex)" value={color} onChange={(e) => setColor(e.target.value)} />
-            <Input placeholder="Badge label" value={badge} onChange={(e) => setBadge(e.target.value)} />
-            <Input placeholder="Icon name" value={icon} onChange={(e) => setIcon(e.target.value)} />
-            <select
-              className="h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm"
-              value={hierarchyTier}
-              onChange={(e) => setHierarchyTier(e.target.value)}
-            >
-              <option value="">Hierarchy tier (optional)</option>
-              {HIERARCHY_TIERS.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-            <Input
-              type="number"
-              placeholder="Sort order"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(Number(e.target.value))}
-            />
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Dashboard access</p>
-              {DASHBOARD_OPTIONS.map((d) => (
-                <label key={d} className="flex items-center gap-2 cursor-pointer text-sm">
-                  <input
-                    type="checkbox"
-                    checked={dashboardAccess.includes(d)}
-                    onChange={() => toggleDashboard(d)}
-                  />
-                  <span>{d}</span>
-                </label>
-              ))}
-            </div>
-            <div className="max-h-48 overflow-y-auto space-y-1 text-sm">
-              {(Object.keys(PERMISSIONS) as PermissionKey[]).map((key) => (
-                <label key={key} className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={selected.includes(key)} onChange={() => togglePerm(key, selected, setSelected)} />
-                  <span>{key}</span>
-                </label>
-              ))}
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={selected.includes("*")} onChange={() => togglePerm("*", selected, setSelected)} />
-                <span>* (full access)</span>
-              </label>
-            </div>
-            <Button variant="neon" disabled={pending || !!editing?.isSystem} onClick={saveGroup}>
-              {editing ? "Update group" : "Create group"}
+              Save built-in role permissions
             </Button>
           </Card>
         </div>

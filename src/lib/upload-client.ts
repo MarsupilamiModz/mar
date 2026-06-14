@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  performMultipartUpload,
+  type MultipartPurpose,
+  type MultipartUploadProgress,
+} from "@/lib/r2-multipart-client";
+import { formatUploadErrorMessage } from "@/lib/upload-errors";
+import { logUploadDiagnostic } from "@/lib/upload-limits";
+
 export type UploadPurpose =
   | "mod-screenshot"
   | "creator-avatar"
@@ -11,7 +19,8 @@ export type UploadPurpose =
   | "designer-avatar"
   | "designer-banner"
   | "game-asset"
-  | "ticket-attachment";
+  | "ticket-attachment"
+  | "branding-asset";
 
 export type UploadApiResult = {
   url: string;
@@ -28,49 +37,62 @@ export type UploadApiOptions = {
   modId?: string;
   gameId?: string;
   assetType?: "icon" | "banner" | "cover";
+  brandingAssetType?: string;
   onProgress?: UploadProgressHandler;
   signal?: AbortSignal;
 };
 
-export function uploadViaApi(options: UploadApiOptions): Promise<UploadApiResult> {
-  const { file, purpose, modId, gameId, assetType, onProgress, signal } = options;
+function toMultipartPurpose(purpose: UploadPurpose): MultipartPurpose {
+  return purpose;
+}
 
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("purpose", purpose);
-    if (modId) fd.append("modId", modId);
-    if (gameId) fd.append("gameId", gameId);
-    if (assetType) fd.append("assetType", assetType);
+function buildMetadata(options: UploadApiOptions): Record<string, string> | undefined {
+  const meta: Record<string, string> = {};
+  if (options.gameId) meta.gameId = options.gameId;
+  if (options.assetType) meta.assetType = options.assetType;
+  if (options.brandingAssetType) meta.assetType = options.brandingAssetType;
+  return Object.keys(meta).length ? meta : undefined;
+}
 
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && onProgress) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
+export async function uploadViaApi(options: UploadApiOptions): Promise<UploadApiResult> {
+  const { file, purpose, modId, onProgress, signal } = options;
 
-    xhr.onload = () => {
-      try {
-        const body = JSON.parse(xhr.responseText) as UploadApiResult & { error?: string };
-        if (xhr.status >= 200 && xhr.status < 300 && body.url) {
-          resolve(body);
-          return;
-        }
-        reject(new Error(body.error ?? `Upload failed (${xhr.status})`));
-      } catch {
-        reject(new Error(`Upload failed (${xhr.status})`));
-      }
-    };
+  logUploadDiagnostic("upload_via_api_start", {
+    purpose,
+    fileName: file.name,
+    fileSize: file.size,
+    modId,
+    gameId: options.gameId,
+  });
 
-    xhr.onerror = () => reject(new Error("Network error during upload"));
-    xhr.onabort = () => reject(new Error("Upload cancelled"));
+  const progressBridge = onProgress
+    ? (state: MultipartUploadProgress) => onProgress(state.progress)
+    : undefined;
 
-    if (signal) {
-      signal.addEventListener("abort", () => xhr.abort());
+  try {
+    const result = await performMultipartUpload({
+      file,
+      purpose: toMultipartPurpose(purpose),
+      modId,
+      metadata: buildMetadata(options),
+      signal,
+      onProgress: progressBridge,
+    });
+
+    if (!result.url) {
+      throw new Error("Upload failed: storage did not return a public URL");
     }
 
-    xhr.open("POST", "/api/upload");
-    xhr.send(fd);
-  });
+    logUploadDiagnostic("upload_via_api_ok", { purpose, url: result.url });
+    return {
+      url: result.url,
+      key: result.key,
+      mediaId: result.mediaId,
+      provider: "r2",
+    };
+  } catch (err) {
+    const message = formatUploadErrorMessage(err);
+    logUploadDiagnostic("upload_via_api_failed", { purpose, error: message });
+    throw new Error(message);
+  }
 }

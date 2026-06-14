@@ -21,6 +21,7 @@ import {
   Youtube,
 } from "lucide-react";
 import { uploadViaApi } from "@/lib/upload-client";
+import { formatUploadErrorMessage } from "@/lib/upload-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -120,7 +121,7 @@ export function ModMediaUploader({ modId, media: initialMedia, settings }: ModMe
         URL.revokeObjectURL(item.preview);
         setPendingFiles((prev) => prev.filter((p) => p.id !== item.id));
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Upload failed";
+        const message = formatUploadErrorMessage(err);
         setPendingFiles((prev) =>
           prev.map((p) =>
             p.id === item.id ? { ...p, status: "error", error: message, progress: 0 } : p

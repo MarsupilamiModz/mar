@@ -1,11 +1,13 @@
 "use client";
 
 import { useTransition } from "react";
-import { TicketPriority, TicketStatus } from "@prisma/client";
+import { TicketDepartment, TicketPriority, TicketStatus } from "@prisma/client";
 import {
   assignTicket,
   claimTicket,
   escalateTicket,
+  transferTicketDepartment,
+  addTicketWatcher,
   updateTicketPriority,
   updateTicketStatus,
 } from "@/actions/tickets";
@@ -19,14 +21,16 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { TICKET_PRIORITY_LABELS, TICKET_STATUS_LABELS } from "@/lib/ticket-labels";
+import { TICKET_DEPARTMENT_LABELS, TICKET_DEPARTMENTS, TICKET_PRIORITY_LABELS, TICKET_STATUS_LABELS } from "@/lib/ticket-labels";
 
 export function TicketAdminPanel({
   ticketId,
   status,
   priority,
   assigneeId,
+  department,
   staffUsers,
+  watcherIds = [],
   slaResponseDueAt,
   slaResolveDueAt,
 }: {
@@ -34,7 +38,9 @@ export function TicketAdminPanel({
   status: TicketStatus;
   priority: TicketPriority;
   assigneeId: string | null;
+  department: TicketDepartment;
   staffUsers: { id: string; username: string }[];
+  watcherIds?: string[];
   slaResponseDueAt?: Date | null;
   slaResolveDueAt?: Date | null;
 }) {
@@ -122,6 +128,50 @@ export function TicketAdminPanel({
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Department</label>
+          <Select
+            value={department}
+            onValueChange={(v) =>
+              run(() => transferTicketDepartment(ticketId, v as TicketDepartment), "Department updated")
+            }
+            disabled={pending}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TICKET_DEPARTMENTS.map((d) => (
+                <SelectItem key={d} value={d}>{TICKET_DEPARTMENT_LABELS[d]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Watchers</label>
+          <Select
+            value=""
+            onValueChange={(v) => {
+              if (!v || watcherIds.includes(v)) return;
+              run(() => addTicketWatcher(ticketId, v), "Watcher added");
+            }}
+            disabled={pending}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Add watcher…" />
+            </SelectTrigger>
+            <SelectContent>
+              {staffUsers
+                .filter((u) => !watcherIds.includes(u.id))
+                .map((u) => (
+                  <SelectItem key={u.id} value={u.id}>@{u.username}</SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          {watcherIds.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">{watcherIds.length} watcher(s)</p>
+          )}
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Assignee</label>

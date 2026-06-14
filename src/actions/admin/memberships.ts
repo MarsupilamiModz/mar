@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { ok, requireActionPermission } from "@/lib/action-utils";
+import { fail, formatZodError, ok, requireActionPermission } from "@/lib/action-utils";
 import {
   DEFAULT_MEMBERSHIP_PLANS,
   mapPlan,
@@ -12,7 +13,31 @@ import {
 } from "@/lib/membership";
 import { setSiteSetting } from "@/lib/site-settings";
 import { grantMembershipPurchase } from "@/lib/membership";
+import { zOptionalStripePriceId, zTrimmedString } from "@/lib/safe-string";
+import { resolveSlug, ensureUniqueSlug, zSlugInput } from "@/lib/slug";
 import type { BillingType, Prisma } from "@prisma/client";
+
+const membershipPlanSchema = z.object({
+  id: z.string().cuid().optional(),
+  slug: zSlugInput,
+  name: zTrimmedString.pipe(z.string().min(2).max(120)),
+  description: z.string().max(5000).optional(),
+  priceCents: z.number().int().min(0),
+  currency: zTrimmedString.pipe(z.string().max(8)).optional(),
+  stripePriceId: zOptionalStripePriceId,
+  features: z.array(z.string()).default([]),
+  perks: z.record(z.unknown()),
+  badgeSlug: z.string().max(80).optional(),
+  sortOrder: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
+  translations: z.record(z.unknown()).optional(),
+  originalPriceCents: z.number().int().min(0).nullable().optional(),
+  saleDiscountPercent: z.number().int().min(0).max(100).nullable().optional(),
+  saleEndsAt: z.string().nullable().optional(),
+  cardStyle: z.record(z.unknown()).optional(),
+  iconKey: z.string().max(40).nullable().optional(),
+});
 
 export async function getAdminMembershipPlans() {
   const { error } = await requireActionPermission("settings.write");
@@ -47,7 +72,7 @@ export async function getAdminMembershipPlans() {
 
 export async function saveMembershipPlan(input: {
   id?: string;
-  slug: string;
+  slug?: string;
   name: string;
   description?: string;
   priceCents: number;
@@ -71,31 +96,41 @@ export async function saveMembershipPlan(input: {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
+  const parsed = membershipPlanSchema.safeParse(input);
+  if (!parsed.success) return fail(formatZodError(parsed.error));
+
+  const resolved = resolveSlug({ name: parsed.data.name, slug: parsed.data.slug, fallbackPrefix: "plan" });
+  const slug = parsed.data.id
+    ? resolved.slug
+    : await ensureUniqueSlug(resolved.slug, async (s) =>
+        Boolean(await prisma.membershipPlan.findUnique({ where: { slug: s } }))
+      );
+
   const data = {
-    slug: input.slug,
-    name: input.name,
-    description: input.description,
-    priceCents: input.priceCents,
-    currency: input.currency ?? "EUR",
+    slug,
+    name: parsed.data.name,
+    description: parsed.data.description,
+    priceCents: parsed.data.priceCents,
+    currency: parsed.data.currency ?? "EUR",
     billingType: "ONE_TIME" as BillingType,
-    stripePriceId: input.stripePriceId || null,
+    stripePriceId: parsed.data.stripePriceId ?? null,
     interval: null,
-    features: input.features as Prisma.InputJsonValue,
-    perks: input.perks as Prisma.InputJsonValue,
-    badgeSlug: input.badgeSlug || null,
-    sortOrder: input.sortOrder ?? 0,
-    isActive: input.isActive ?? true,
-    isFeatured: input.isFeatured ?? false,
-    translations: (input.translations ?? undefined) as Prisma.InputJsonValue | undefined,
-    originalPriceCents: input.originalPriceCents ?? null,
-    saleDiscountPercent: input.saleDiscountPercent ?? null,
-    saleEndsAt: input.saleEndsAt ? new Date(input.saleEndsAt) : null,
-    cardStyle: (input.cardStyle ?? undefined) as Prisma.InputJsonValue | undefined,
-    iconKey: input.iconKey ?? null,
+    features: parsed.data.features as Prisma.InputJsonValue,
+    perks: parsed.data.perks as Prisma.InputJsonValue,
+    badgeSlug: parsed.data.badgeSlug || null,
+    sortOrder: parsed.data.sortOrder ?? 0,
+    isActive: parsed.data.isActive ?? true,
+    isFeatured: parsed.data.isFeatured ?? false,
+    translations: (parsed.data.translations ?? undefined) as Prisma.InputJsonValue | undefined,
+    originalPriceCents: parsed.data.originalPriceCents ?? null,
+    saleDiscountPercent: parsed.data.saleDiscountPercent ?? null,
+    saleEndsAt: parsed.data.saleEndsAt ? new Date(parsed.data.saleEndsAt) : null,
+    cardStyle: (parsed.data.cardStyle ?? undefined) as Prisma.InputJsonValue | undefined,
+    iconKey: parsed.data.iconKey ?? null,
   };
 
-  if (input.id) {
-    await prisma.membershipPlan.update({ where: { id: input.id }, data });
+  if (parsed.data.id) {
+    await prisma.membershipPlan.update({ where: { id: parsed.data.id }, data });
   } else {
     await prisma.membershipPlan.create({ data });
   }

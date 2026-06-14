@@ -1,0 +1,15 @@
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://xumari-modz.com",
+      "https://www.xumari-modz.com",
+      "https://xumarimodz.com",
+      "https://www.xumarimodz.com"
+    ],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]

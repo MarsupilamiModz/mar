@@ -117,3 +117,85 @@ export async function notifyStaffPartnerApplication(params: {
     )
   );
 }
+
+export async function notifyStaffNewTicket(params: {
+  ticketId: string;
+  ticketNumber: string;
+  subject: string;
+  department: string;
+}) {
+  const staff = await prisma.user.findMany({
+    where: {
+      deletedAt: null,
+      isBanned: false,
+      role: { in: ["OWNER", "ADMIN", "MODERATOR", "SUPPORT"] },
+    },
+    select: { id: true },
+  });
+
+  await Promise.all(
+    staff.map((s) =>
+      notifyUser({
+        userId: s.id,
+        type: "SYSTEM",
+        category: "support",
+        title: `New ticket ${params.ticketNumber}`,
+        body: params.subject,
+        link: `/en/admin/tickets/${params.ticketId}`,
+        metadata: {
+          ticketId: params.ticketId,
+          ticketNumber: params.ticketNumber,
+          department: params.department,
+        },
+      })
+    )
+  );
+}
+
+export async function notifyTicketAssigned(params: {
+  assigneeId: string;
+  ticketId: string;
+  ticketNumber: string;
+  subject: string;
+  assignedBy: string;
+}) {
+  return notifyUser({
+    userId: params.assigneeId,
+    type: "SYSTEM",
+    category: "support",
+    title: `Ticket assigned: ${params.ticketNumber}`,
+    body: `${params.assignedBy} assigned you: ${params.subject}`,
+    link: `/en/admin/tickets/${params.ticketId}`,
+    metadata: { ticketId: params.ticketId, ticketNumber: params.ticketNumber },
+  });
+}
+
+export async function notifyTicketWatchers(params: {
+  ticketId: string;
+  ticketNumber: string;
+  subject: string;
+  body: string;
+  excludeUserId?: string;
+}) {
+  const watchers = await prisma.ticketWatcher.findMany({
+    where: {
+      ticketId: params.ticketId,
+      ...(params.excludeUserId ? { userId: { not: params.excludeUserId } } : {}),
+    },
+    select: { userId: true },
+  });
+
+  await Promise.all(
+    watchers.map((w) =>
+      notifyUser({
+        userId: w.userId,
+        type: "TICKET_REPLY",
+        category: "support",
+        title: `Update on ${params.ticketNumber}`,
+        body: params.body || params.subject,
+        link: `/en/admin/tickets/${params.ticketId}`,
+        metadata: { ticketId: params.ticketId, ticketNumber: params.ticketNumber },
+      })
+    )
+  );
+}

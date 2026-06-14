@@ -35,6 +35,8 @@ type PartnerData = {
   totalClicks: number;
   totalConversions: number;
   totalRevenueCents: number;
+  discordInviteUrl?: string | null;
+  discordWidgetUrl?: string | null;
   user: { id: string; username: string; displayName: string | null; email: string };
 };
 
@@ -55,6 +57,8 @@ export function PartnerAdminPanel({ locale, partner }: { locale: string; partner
         isVerified: formData.get("isVerified") === "on",
         isFeatured: formData.get("isFeatured") === "on",
         isSuspended: formData.get("isSuspended") === "on",
+        discordInviteUrl: (formData.get("discordInviteUrl") as string) || null,
+        discordWidgetUrl: (formData.get("discordWidgetUrl") as string) || null,
       });
       if (r.success) { appToast.saved(); router.refresh(); }
       else appToast.error(r.error);
@@ -80,6 +84,8 @@ export function PartnerAdminPanel({ locale, partner }: { locale: string; partner
           <Input name="tagline" defaultValue={partner.tagline ?? ""} placeholder="Tagline" />
           <Textarea name="description" defaultValue={partner.description ?? ""} rows={4} placeholder="Bio" />
           <Input name="website" defaultValue={partner.website ?? ""} placeholder="Website URL" />
+          <Input name="discordInviteUrl" defaultValue={partner.discordInviteUrl ?? ""} placeholder="Discord invite URL (https://discord.gg/…)" />
+          <Input name="discordWidgetUrl" defaultValue={partner.discordWidgetUrl ?? ""} placeholder="Discord widget URL" className="font-mono text-xs" />
           <Input name="commissionRateBps" type="number" defaultValue={partner.commissionRateBps} placeholder="Commission bps" />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isVerified" defaultChecked={partner.isVerified} /> Verified</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isFeatured" defaultChecked={partner.isFeatured} /> Featured</label>

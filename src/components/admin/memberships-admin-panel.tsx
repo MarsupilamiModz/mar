@@ -19,6 +19,8 @@ import {
 import { MembershipPlanPreview } from "@/components/admin/membership-plan-preview";
 import type { MembershipPlanData, MembershipPerks, PremiumPageSettings, PlanCardStyle } from "@/lib/membership";
 import { formatPlanPrice } from "@/lib/membership";
+import { parseLines, safeFormOptional, safeFormString, safeStripePriceId } from "@/lib/safe-string";
+import { SLUG_AUTO_GENERATED_MESSAGE } from "@/lib/slug";
 
 const DEFAULT_PERKS: MembershipPerks = {
   adFree: false,
@@ -101,30 +103,30 @@ export function MembershipsAdminPanel({ plans: initial, pageSettings: initialPag
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
-        const downloadLimitRaw = (fd.get("downloadLimit") as string)?.trim();
-        const storageRaw = (fd.get("storageLimitMb") as string)?.trim();
-        const feeRaw = (fd.get("marketplaceFeeBps") as string)?.trim();
+        const downloadLimitRaw = safeFormOptional(fd, "downloadLimit");
+        const storageRaw = safeFormOptional(fd, "storageLimitMb");
+        const feeRaw = safeFormOptional(fd, "marketplaceFeeBps");
 
         const nextPerks: MembershipPerks = {
           ...perks,
           downloadLimit: downloadLimitRaw ? Number(downloadLimitRaw) : null,
           storageLimitMb: storageRaw ? Number(storageRaw) : null,
           marketplaceFeeBps: feeRaw ? Number(feeRaw) : undefined,
-          customBadge: (fd.get("customBadge") as string) || null,
-          accentColor: (fd.get("accentColor") as string) || null,
+          customBadge: safeFormOptional(fd, "customBadge") ?? null,
+          accentColor: safeFormOptional(fd, "accentColor") ?? null,
         };
 
         startTransition(async () => {
           const r = await saveMembershipPlan({
             id: plan?.id,
-            slug: (fd.get("slug") as string).trim(),
-            name: fd.get("name") as string,
-            description: (fd.get("description") as string) || undefined,
+            slug: isNew ? safeFormOptional(fd, "slug") : safeFormString(fd, "slug"),
+            name: safeFormString(fd, "name"),
+            description: safeFormOptional(fd, "description"),
             priceCents: Math.round(Number(fd.get("price")) * 100),
-            currency: (fd.get("currency") as string) || "EUR",
+            currency: safeFormOptional(fd, "currency") || "EUR",
             billingType: "ONE_TIME",
-            stripePriceId: (fd.get("stripePriceId") as string) || undefined,
-            features: (fd.get("features") as string).split("\n").filter(Boolean),
+            stripePriceId: safeStripePriceId(fd.get("stripePriceId")) ?? undefined,
+            features: parseLines(fd.get("features")),
             perks: nextPerks,
             badgeSlug: (fd.get("badgeSlug") as string) || undefined,
             sortOrder: plan?.sortOrder ?? plans.length,
@@ -143,7 +145,7 @@ export function MembershipsAdminPanel({ plans: initial, pageSettings: initialPag
             },
           });
           if (r.success) {
-            appToast.saved();
+            appToast.saved(isNew ? SLUG_AUTO_GENERATED_MESSAGE : undefined);
             setEditing(null);
             setCreating(false);
             router.refresh();
@@ -155,7 +157,13 @@ export function MembershipsAdminPanel({ plans: initial, pageSettings: initialPag
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="text-sm font-medium">Slug</label>
-          <Input name="slug" defaultValue={plan?.slug} required disabled={!isNew} className="mt-1 font-mono" />
+          <Input
+            name="slug"
+            defaultValue={plan?.slug}
+            disabled={!isNew}
+            className="mt-1 font-mono"
+            placeholder={isNew ? "auto-generated from plan name" : undefined}
+          />
         </div>
         <div>
           <label className="text-sm font-medium">Badge slug</label>

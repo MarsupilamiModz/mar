@@ -5,13 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+import { slugify as slugifyText } from "@/lib/slug";
+
+export function slugify(text: string | null | undefined) {
+  return slugifyText(text);
 }
 
 export function formatBytes(bytes: number) {

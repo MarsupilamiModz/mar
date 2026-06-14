@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { getAdminMembershipPlans, getPremiumPageAdminSettings } from "@/actions/admin/memberships";
 import { MembershipsAdminPanel } from "@/components/admin/memberships-admin-panel";
+import { AdminSafeBoundary } from "@/components/admin/admin-safe-boundary";
 import type { Locale } from "@/i18n/config";
 
 export default async function AdminMembershipsPage({ params: { locale } }: { params: { locale: Locale } }) {
@@ -20,11 +21,13 @@ export default async function AdminMembershipsPage({ params: { locale } }: { par
         Dynamic pricing, sales, card styling, perks, and premium page content with live preview.
       </p>
       <div className="mt-8">
-        <MembershipsAdminPanel
-          plans={plansResult.data}
-          pageSettings={pageResult.data}
-          locale={locale}
-        />
+        <AdminSafeBoundary title="Membership pricing error">
+          <MembershipsAdminPanel
+            plans={plansResult.data}
+            pageSettings={pageResult.data}
+            locale={locale}
+          />
+        </AdminSafeBoundary>
       </div>
     </div>
   );

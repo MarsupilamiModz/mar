@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +16,10 @@ import {
   saveAdminFooterSettings,
   saveAdminSeoSettings,
   saveAdminPageContent,
-  uploadBrandingAsset,
   removeBrandingAsset,
 } from "@/actions/admin/branding";
+import { uploadViaApi } from "@/lib/upload-client";
+import { formatUploadErrorMessage } from "@/lib/upload-errors";
 import {
   ICON_LIBRARY,
   PAGE_CONTENT_FIELDS,
@@ -55,6 +57,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 export function BrandingCenterPanel({ initial }: Props) {
   const appToast = useAppToast();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState<Tab>("identity");
   const [branding, setBranding] = useState(initial.branding);
@@ -72,17 +75,40 @@ export function BrandingCenterPanel({ initial }: Props) {
   );
 
   function upload(type: string, file: File) {
-    const fd = new FormData();
-    fd.set("file", file);
-    fd.set("type", type);
     startTransition(async () => {
-      const r = await uploadBrandingAsset(fd);
-      if (r.success && r.data.branding) {
-        setBranding(r.data.branding as BrandingAssetSettings);
+      try {
+        const result = await uploadViaApi({
+          file,
+          purpose: "branding-asset",
+          brandingAssetType: type,
+        });
+        const fieldMap: Partial<Record<string, keyof BrandingAssetSettings>> = {
+          logo: "logoUrl",
+          "logo-dark": "logoDarkUrl",
+          favicon: "faviconUrl",
+          loading: "loadingLogoUrl",
+          mobile: "mobileIconUrl",
+          symbol: "siteSymbolUrl",
+        };
+        const field = fieldMap[type];
+        if (field) {
+          setBranding((b) => ({
+            ...b,
+            [field]: result.url,
+            ...(type === "favicon"
+              ? {
+                  appleTouchIconUrl: result.url,
+                  androidIconUrl: result.url,
+                  pwaIconUrl: result.url,
+                }
+              : {}),
+          }));
+        }
         appToast.uploaded();
-      } else if (r.success) {
-        appToast.uploaded();
-      } else appToast.error(r.error);
+        router.refresh();
+      } catch (err) {
+        appToast.error(formatUploadErrorMessage(err));
+      }
     });
   }
 
@@ -515,12 +541,13 @@ export function BrandingCenterPanel({ initial }: Props) {
             label="OpenGraph image"
             url={seoFields.ogImageUrl}
             onUpload={async (f) => {
-              const fd = new FormData();
-              fd.set("file", f);
-              fd.set("type", "og");
-              const r = await uploadBrandingAsset(fd);
-              if (r.success) {
-                const url = r.data.url;
+              try {
+                const result = await uploadViaApi({
+                  file: f,
+                  purpose: "branding-asset",
+                  brandingAssetType: "og",
+                });
+                const url = result.url;
                 if (seoLocale === "global") {
                   setSeo((s) => ({ ...s, global: { ...s.global, ogImageUrl: url } }));
                 } else {
@@ -529,6 +556,8 @@ export function BrandingCenterPanel({ initial }: Props) {
                     locales: { ...s.locales, [seoLocale]: { ...s.locales[seoLocale], ogImageUrl: url } },
                   }));
                 }
+              } catch (err) {
+                appToast.error(formatUploadErrorMessage(err));
               }
             }}
             onRemove={() => {

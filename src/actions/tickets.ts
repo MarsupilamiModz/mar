@@ -9,8 +9,14 @@ import { fail, ok, requireActionPermission, requireActionUser, type ActionResult
 import { hasPermission } from "@/lib/permissions";
 import { ALLOWED_UPLOAD_TYPES, uploadToR2 } from "@/lib/r2";
 import { sendTicketNotification } from "@/lib/email";
-import { notifyTicketReply } from "@/lib/notifications-service";
+import {
+  notifyStaffNewTicket,
+  notifyTicketAssigned,
+  notifyTicketReply,
+  notifyTicketWatchers,
+} from "@/lib/notifications-service";
 import { computeSlaDueDates, isSlaOverdue } from "@/lib/sla";
+import { categoryToDepartment } from "@/lib/ticket-labels";
 import { randomBytes } from "crypto";
 
 const createTicketSchema = z.object({
@@ -55,7 +61,9 @@ export async function createTicket(input: {
       userId: user.id,
       subject: parsed.data.subject,
       category: parsed.data.category,
+      department: categoryToDepartment(parsed.data.category),
       priority,
+      status: "NEW",
       slaResponseDueAt: sla.slaResponseDueAt,
       slaResolveDueAt: sla.slaResolveDueAt,
       messages: {
@@ -79,6 +87,13 @@ export async function createTicket(input: {
     message: parsed.data.message,
     username: ticket.user.displayName ?? ticket.user.username,
     userEmail: ticket.user.email,
+  });
+
+  void notifyStaffNewTicket({
+    ticketId: ticket.id,
+    ticketNumber: ticket.ticketNumber,
+    subject: ticket.subject,
+    department: categoryToDepartment(parsed.data.category),
   });
 
   revalidatePath("/dashboard/support");
@@ -220,10 +235,26 @@ export async function assignTicket(
   const { user, error } = await requireActionPermission("tickets.write");
   if (error) return error;
 
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    select: { ticketNumber: true, subject: true },
+  });
+  if (!ticket) return fail("Ticket not found");
+
   await prisma.supportTicket.update({
     where: { id: ticketId },
-    data: { assigneeId, status: "IN_PROGRESS" },
+    data: { assigneeId, status: assigneeId ? "IN_PROGRESS" : "OPEN" },
   });
+
+  if (assigneeId) {
+    void notifyTicketAssigned({
+      assigneeId,
+      ticketId,
+      ticketNumber: ticket.ticketNumber,
+      subject: ticket.subject,
+      assignedBy: user.username,
+    });
+  }
 
   await createAuditLog({
     actorId: user.id,
@@ -418,6 +449,7 @@ export async function getTicketDetail(ticketId: string) {
     include: {
       user: { select: { id: true, username: true, email: true, avatarUrl: true } },
       assignee: { select: { id: true, username: true, avatarUrl: true } },
+      watchers: { select: { userId: true, user: { select: { username: true } } } },
       messages: {
         orderBy: { createdAt: "asc" },
         include: {
@@ -527,5 +559,122 @@ export async function getTicketSlaStatus(ticketId: string) {
     slaResponseDueAt: ticket.slaResponseDueAt,
     slaResolveDueAt: ticket.slaResolveDueAt,
     firstResponseAt: ticket.firstResponseAt,
+  });
+}
+
+export async function transferTicketDepartment(
+  ticketId: string,
+  department: import("@prisma/client").TicketDepartment
+): Promise<ActionResult> {
+  const { user, error } = await requireActionPermission("tickets.write");
+  if (error) return error;
+
+  await prisma.supportTicket.update({
+    where: { id: ticketId },
+    data: { department, status: "PENDING" },
+  });
+
+  await createAuditLog({
+    actorId: user.id,
+    action: "ticket.transfer",
+    entityType: "SupportTicket",
+    entityId: ticketId,
+    metadata: { department },
+  });
+
+  revalidatePath(`/admin/tickets/${ticketId}`);
+  return ok(undefined);
+}
+
+export async function addTicketWatcher(ticketId: string, userId: string): Promise<ActionResult> {
+  const { error } = await requireActionPermission("tickets.write");
+  if (error) return error;
+
+  await prisma.ticketWatcher.upsert({
+    where: { ticketId_userId: { ticketId, userId } },
+    create: { ticketId, userId },
+    update: {},
+  });
+
+  revalidatePath(`/admin/tickets/${ticketId}`);
+  return ok(undefined);
+}
+
+export async function removeTicketWatcher(ticketId: string, userId: string): Promise<ActionResult> {
+  const { error } = await requireActionPermission("tickets.write");
+  if (error) return error;
+
+  await prisma.ticketWatcher.deleteMany({ where: { ticketId, userId } });
+  revalidatePath(`/admin/tickets/${ticketId}`);
+  return ok(undefined);
+}
+
+export async function getTicketDashboardStats() {
+  const { error } = await requireActionPermission("tickets.read");
+  if (error) return error;
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const openStatuses: TicketStatus[] = [
+    "NEW",
+    "OPEN",
+    "PENDING",
+    "IN_PROGRESS",
+    "WAITING_FOR_USER",
+    "WAITING_FOR_STAFF",
+    "ESCALATED",
+  ];
+
+  const [
+    openTickets,
+    unassigned,
+    assigned,
+    slaViolations,
+    pendingResponses,
+    resolvedToday,
+    avgResponseAgg,
+  ] = await Promise.all([
+    prisma.supportTicket.count({ where: { status: { in: openStatuses } } }),
+    prisma.supportTicket.count({ where: { assigneeId: null, status: { in: openStatuses } } }),
+    prisma.supportTicket.count({ where: { assigneeId: { not: null }, status: { in: openStatuses } } }),
+    prisma.supportTicket.count({
+      where: {
+        status: { in: openStatuses },
+        OR: [
+          { slaResponseDueAt: { lt: new Date() }, firstResponseAt: null },
+          { slaResolveDueAt: { lt: new Date() } },
+        ],
+      },
+    }),
+    prisma.supportTicket.count({ where: { status: "WAITING_FOR_STAFF" } }),
+    prisma.supportTicket.count({
+      where: { status: { in: ["RESOLVED", "CLOSED"] }, updatedAt: { gte: todayStart } },
+    }),
+    prisma.supportTicket.findMany({
+      where: { firstResponseAt: { not: null } },
+      select: { createdAt: true, firstResponseAt: true },
+      take: 200,
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  let avgResponseMinutes = 0;
+  if (avgResponseAgg.length > 0) {
+    const totalMs = avgResponseAgg.reduce((sum, t) => {
+      if (!t.firstResponseAt) return sum;
+      return sum + (t.firstResponseAt.getTime() - t.createdAt.getTime());
+    }, 0);
+    avgResponseMinutes = Math.round(totalMs / avgResponseAgg.length / 60000);
+  }
+
+  return ok({
+    openTickets,
+    unassigned,
+    assigned,
+    slaViolations,
+    pendingResponses,
+    resolvedToday,
+    avgResponseMinutes,
   });
 }

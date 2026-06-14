@@ -9,19 +9,20 @@ import {
   formatZodError,
   requireActionPermission,
 } from "@/lib/action-utils";
-import { slugify } from "@/lib/utils";
+import { zNullableStripePriceId, zTrimmedString } from "@/lib/safe-string";
+import { resolveSlug, ensureUniqueSlug, zSlugInput } from "@/lib/slug";
 import type { ShopProductCategory, ShopProductType } from "@prisma/client";
 
 const productSchema = z.object({
-  name: z.string().min(2).max(120),
-  slug: z.string().min(2).max(80).optional(),
+  name: zTrimmedString.pipe(z.string().min(2).max(120)),
+  slug: zSlugInput,
   description: z.string().max(10000).optional(),
   category: z.enum(["CREDITS", "MEMBERSHIP", "MODS", "EXCLUSIVE", "BUNDLES", "ACCESS"]),
   productType: z.enum(["CREDIT_PACK", "MEMBERSHIP", "MOD", "EXCLUSIVE", "BUNDLE", "SUBSCRIPTION", "ACCESS"]),
   creditPrice: z.number().int().min(0).default(0),
   priceCents: z.number().int().min(0).default(0),
   creditsAmount: z.number().int().min(0).optional().nullable(),
-  stripePriceId: z.string().max(120).optional().nullable(),
+  stripePriceId: zNullableStripePriceId,
   modId: z.string().cuid().optional().nullable(),
   membershipPlanId: z.string().cuid().optional().nullable(),
   thumbnailUrl: z.string().optional().nullable(),
@@ -60,17 +61,16 @@ export async function createShopProduct(input: z.infer<typeof productSchema>) {
   if (!parsed.success) return fail(formatZodError(parsed.error));
 
   return actionTry(async () => {
-    const slug = parsed.data.slug ?? slugify(parsed.data.name);
-    let uniqueSlug = slug;
-    let i = 0;
-    while (await prisma.shopProduct.findUnique({ where: { slug: uniqueSlug } })) {
-      uniqueSlug = `${slug}-${++i}`;
-    }
+    const resolved = resolveSlug({ name: parsed.data.name, slug: parsed.data.slug, fallbackPrefix: "product" });
+    const baseSlug = resolved.slug;
+    const slug = await ensureUniqueSlug(baseSlug, async (s) =>
+      Boolean(await prisma.shopProduct.findUnique({ where: { slug: s } }))
+    );
 
     const product = await prisma.shopProduct.create({
       data: {
         ...parsed.data,
-        slug: uniqueSlug,
+        slug,
         modId: parsed.data.modId || null,
         membershipPlanId: parsed.data.membershipPlanId || null,
         stripePriceId: parsed.data.stripePriceId || null,

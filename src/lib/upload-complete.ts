@@ -1,5 +1,13 @@
 import { prisma } from "@/lib/db";
 import { buildAssetPublicUrl } from "@/lib/assets";
+import { revalidatePath } from "next/cache";
+import {
+  getBrandingAssetSettings,
+  saveBrandingAssetSettings,
+  syncIconVariantsFromFavicon,
+  type BrandingAssetSettings,
+} from "@/lib/branding-cms";
+import { invalidateBrandingCache } from "@/lib/branding-data";
 
 export type UploadPurpose =
   | "mod-version"
@@ -7,7 +15,16 @@ export type UploadPurpose =
   | "creator-portfolio"
   | "creator-banner"
   | "creator-avatar"
-  | "collection-cover";
+  | "collection-cover"
+  | "user-avatar"
+  | "partner-avatar"
+  | "partner-banner"
+  | "partner-logo"
+  | "designer-avatar"
+  | "designer-banner"
+  | "game-asset"
+  | "ticket-attachment"
+  | "branding-asset";
 
 export async function finalizeUploadSession(sessionId: string, userId: string) {
   const session = await prisma.storageUploadSession.findUnique({
@@ -20,13 +37,9 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
     throw new Error("Upload already finalized");
   }
 
-  await prisma.storageUploadSession.update({
-    where: { id: sessionId },
-    data: { status: "COMPLETED" },
-  });
-
   const publicUrl = buildAssetPublicUrl(session.fileKey);
   const meta = (session.metadata ?? {}) as Record<string, string>;
+  let mediaId: string | undefined;
 
   switch (session.purpose as UploadPurpose) {
     case "mod-screenshot": {
@@ -35,7 +48,7 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
       const hasFeatured = await prisma.modMedia.count({
         where: { modId: session.modId, isFeatured: true },
       });
-      await prisma.modMedia.create({
+      const media = await prisma.modMedia.create({
         data: {
           modId: session.modId,
           mediaType: "IMAGE",
@@ -44,6 +57,9 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
           isFeatured: hasFeatured === 0,
         },
       });
+      mediaId = media.id;
+      const mod = await prisma.mod.findUnique({ where: { id: session.modId }, select: { slug: true } });
+      if (mod) revalidatePath(`/mods/${mod.slug}`);
       break;
     }
     case "collection-cover": {
@@ -56,13 +72,94 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
       }
       break;
     }
+    case "user-avatar":
+    case "creator-avatar":
+    case "partner-avatar":
+    case "designer-avatar": {
+      await prisma.user.update({ where: { id: userId }, data: { avatarUrl: publicUrl } });
+      break;
+    }
+    case "creator-banner": {
+      const profile = await prisma.creatorProfile.findUnique({ where: { userId } });
+      if (profile) {
+        await prisma.creatorProfile.update({ where: { id: profile.id }, data: { bannerUrl: publicUrl } });
+      }
+      break;
+    }
+    case "partner-banner": {
+      const profile = await prisma.partnerProfile.findUnique({ where: { userId } });
+      if (profile) {
+        await prisma.partnerProfile.update({ where: { id: profile.id }, data: { bannerUrl: publicUrl } });
+      }
+      break;
+    }
+    case "partner-logo": {
+      const profile = await prisma.partnerProfile.findUnique({ where: { userId } });
+      if (profile) {
+        await prisma.partnerProfile.update({ where: { id: profile.id }, data: { logoUrl: publicUrl } });
+      }
+      break;
+    }
+    case "designer-banner": {
+      const profile = await prisma.designerProfile.findUnique({ where: { userId } });
+      if (profile) {
+        await prisma.designerProfile.update({ where: { id: profile.id }, data: { bannerUrl: publicUrl } });
+      }
+      break;
+    }
+    case "game-asset": {
+      const gameId = meta.gameId;
+      const assetType = meta.assetType as "icon" | "banner" | "cover" | undefined;
+      if (gameId && assetType) {
+        const field = assetType === "icon" ? "iconUrl" : assetType === "banner" ? "bannerUrl" : "coverUrl";
+        const game = await prisma.game.update({ where: { id: gameId }, data: { [field]: publicUrl } });
+        revalidatePath(`/games/${game.slug}`);
+        revalidatePath("/admin/games");
+      }
+      break;
+    }
+    case "branding-asset": {
+      const assetType = meta.assetType;
+      let branding = await getBrandingAssetSettings();
+      const fieldMap: Record<string, keyof BrandingAssetSettings | "favicon-bundle" | "url-only"> = {
+        logo: "logoUrl",
+        "logo-dark": "logoDarkUrl",
+        favicon: "favicon-bundle",
+        loading: "loadingLogoUrl",
+        mobile: "mobileIconUrl",
+        symbol: "siteSymbolUrl",
+        og: "url-only",
+      };
+      const field = assetType ? fieldMap[assetType] : undefined;
+      if (field === "favicon-bundle") {
+        branding = syncIconVariantsFromFavicon(branding, publicUrl);
+      } else if (field && field !== "url-only") {
+        branding = { ...branding, [field]: publicUrl };
+      }
+      if (field !== "url-only") {
+        await saveBrandingAssetSettings(branding);
+      }
+      invalidateBrandingCache();
+      revalidatePath("/", "layout");
+      break;
+    }
     case "creator-portfolio":
     case "creator-banner":
     case "creator-avatar":
-      return { url: publicUrl, key: session.fileKey, purpose: session.purpose };
+    case "ticket-attachment":
     default:
       break;
   }
 
-  return { url: publicUrl, key: session.fileKey, purpose: session.purpose };
+  await prisma.storageUploadSession.update({
+    where: { id: sessionId },
+    data: { status: "COMPLETED" },
+  });
+
+  return {
+    url: publicUrl,
+    key: session.fileKey,
+    purpose: session.purpose,
+    mediaId,
+  };
 }

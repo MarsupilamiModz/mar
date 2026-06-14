@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { fail, ok, requireActionPermission } from "@/lib/action-utils";
 import { generateAffiliateCode } from "@/lib/affiliate";
-import { slugify } from "@/lib/utils";
+import { resolveSlug, ensureUniqueSlug, zSlugInput } from "@/lib/slug";
 import { CREATOR_LEVELS } from "@/lib/creator-levels";
 import { applyLevelRevenueShare, syncCreatorStats } from "@/lib/creators";
 import { CACHE_TAGS } from "@/lib/cache";
@@ -15,7 +15,7 @@ import type { PublisherLevel, SocialPlatform } from "@prisma/client";
 
 const profileSchema = z.object({
   userId: z.string(),
-  slug: z.string().min(2).max(60).optional(),
+  slug: zSlugInput,
   tagline: z.string().max(200).optional(),
   description: z.string().max(5000).optional(),
   website: z.string().url().optional().or(z.literal("")),
@@ -121,7 +121,14 @@ export async function createCreatorProfile(input: z.infer<typeof profileSchema>)
     return fail("Creator profile already exists");
   }
 
-  const slug = parsed.data.slug ?? slugify(target.username);
+  const resolved = resolveSlug({
+    name: target.displayName ?? target.username,
+    slug: parsed.data.slug,
+    fallbackPrefix: target.username,
+  });
+  const slug = await ensureUniqueSlug(resolved.slug, async (s) =>
+    Boolean(await prisma.creatorProfile.findUnique({ where: { slug: s } }))
+  );
   const code = generateAffiliateCode("CR");
   const level = (parsed.data.level ?? "VERIFIED") as PublisherLevel;
   const bps = CREATOR_LEVELS[level].revenueShareBps;

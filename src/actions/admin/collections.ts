@@ -5,7 +5,7 @@ import { CollectionModerationStatus, CollectionVisibility } from "@prisma/client
 import { prisma } from "@/lib/db";
 import { fail, ok, requireActionPermission } from "@/lib/action-utils";
 import { CACHE_TAGS } from "@/lib/cache";
-import { slugify } from "@/lib/utils";
+import { resolveSlug, ensureUniqueSlug } from "@/lib/slug";
 
 function invalidateCollections() {
   revalidateTag(CACHE_TAGS.collections);
@@ -114,11 +114,10 @@ export async function createCollectionAdmin(input: {
     ownerId = owner.id;
   }
 
-  let slug = slugify(input.title);
-  let i = 0;
-  while (await prisma.modCollection.findUnique({ where: { slug } })) {
-    slug = `${slugify(input.title)}-${++i}`;
-  }
+  const resolved = resolveSlug({ title: input.title, fallbackPrefix: "collection" });
+  const slug = await ensureUniqueSlug(resolved.slug, async (s) =>
+    Boolean(await prisma.modCollection.findUnique({ where: { slug: s } }))
+  );
 
   const collection = await prisma.modCollection.create({
     data: {

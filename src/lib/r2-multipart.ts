@@ -3,20 +3,30 @@ import {
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
   UploadPartCommand,
+  S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { S3Client } from "@aws-sdk/client-s3";
+import { assertR2Configured, getR2Endpoint, logUploadServer } from "@/lib/r2-config";
 import { STORAGE, storageKey } from "@/lib/storage";
 import { MULTIPART_PART_SIZE } from "@/lib/upload-limits";
 
-const r2 = new S3Client({
-  region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-});
+function createR2Client() {
+  assertR2Configured();
+  return new S3Client({
+    region: "auto",
+    endpoint: getR2Endpoint(),
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    },
+  });
+}
+
+let r2Client: S3Client | null = null;
+function getR2Client() {
+  if (!r2Client) r2Client = createR2Client();
+  return r2Client;
+}
 
 const BUCKET = STORAGE.bucket;
 const PART_SIZE = MULTIPART_PART_SIZE;
@@ -32,7 +42,8 @@ export async function initiateMultipartUpload(
   contentType: string
 ) {
   const normalizedKey = normalizeStorageKey(key);
-  const res = await r2.send(
+  logUploadServer("multipart_initiate", { key: normalizedKey, contentType });
+  const res = await getR2Client().send(
     new CreateMultipartUploadCommand({
       Bucket: BUCKET,
       Key: normalizedKey,
@@ -55,7 +66,7 @@ export async function getPresignedPartUrl(
     UploadId: uploadId,
     PartNumber: partNumber,
   });
-  return getSignedUrl(r2, command, { expiresIn });
+  return getSignedUrl(getR2Client(), command, { expiresIn });
 }
 
 export async function completeMultipartUpload(
@@ -63,7 +74,8 @@ export async function completeMultipartUpload(
   uploadId: string,
   parts: { PartNumber: number; ETag: string }[]
 ) {
-  await r2.send(
+  logUploadServer("multipart_complete", { key, uploadId, parts: parts.length });
+  await getR2Client().send(
     new CompleteMultipartUploadCommand({
       Bucket: BUCKET,
       Key: key,
@@ -74,7 +86,7 @@ export async function completeMultipartUpload(
 }
 
 export async function abortMultipartUpload(key: string, uploadId: string) {
-  await r2.send(
+  await getR2Client().send(
     new AbortMultipartUploadCommand({
       Bucket: BUCKET,
       Key: key,

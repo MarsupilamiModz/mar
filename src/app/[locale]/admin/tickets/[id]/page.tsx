@@ -42,7 +42,9 @@ export default async function AdminTicketDetailPage({
             status={ticket.status}
             priority={ticket.priority}
             assigneeId={ticket.assignee?.id ?? null}
+            department={ticket.department}
             staffUsers={staffUsers}
+            watcherIds={ticket.watchers?.map((w) => w.userId) ?? []}
             slaResponseDueAt={ticket.slaResponseDueAt}
             slaResolveDueAt={ticket.slaResolveDueAt}
           />

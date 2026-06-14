@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { hasPermission } from "@/lib/permissions";
+import { assertR2Configured, getR2ConfigStatus, logUploadServer } from "@/lib/r2-config";
 import {
   initiateMultipartUpload,
   computePartCount,
@@ -10,16 +12,28 @@ import {
 import { storageKey } from "@/lib/storage";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 import { fileSizeBigInt } from "@/lib/file-size";
+import { getMediaSettings } from "@/lib/media-settings";
+
+const purposeSchema = z.enum([
+  "mod-version",
+  "mod-screenshot",
+  "creator-portfolio",
+  "creator-banner",
+  "creator-avatar",
+  "collection-cover",
+  "user-avatar",
+  "partner-avatar",
+  "partner-banner",
+  "partner-logo",
+  "designer-avatar",
+  "designer-banner",
+  "game-asset",
+  "ticket-attachment",
+  "branding-asset",
+]);
 
 const initiateSchema = z.object({
-  purpose: z.enum([
-    "mod-version",
-    "mod-screenshot",
-    "creator-portfolio",
-    "creator-banner",
-    "creator-avatar",
-    "collection-cover",
-  ]),
+  purpose: purposeSchema,
   fileName: z.string().min(1),
   fileSize: z.number().int().positive().max(MAX_UPLOAD_BYTES),
   contentType: z.string().min(1),
@@ -27,45 +41,127 @@ const initiateSchema = z.object({
   metadata: z.record(z.string()).optional(),
 });
 
+async function canEditMod(userId: string, role: string, authorId: string) {
+  if (authorId === userId) return true;
+  return hasPermission(role as never, "mods.write") || hasPermission(role as never, "mods.moderate");
+}
+
+function jsonError(message: string, status: number, code?: string) {
+  return NextResponse.json({ error: message, code }, { status });
+}
+
 export async function POST(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) {
+    return jsonError("Missing authentication token", 401, "AUTH");
+  }
+
+  try {
+    assertR2Configured();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Cloudflare R2 is not configured";
+    logUploadServer("initiate_config_error", { userId: user.id, message });
+    return jsonError(message, 503, "STORAGE");
+  }
 
   const body = await req.json().catch(() => null);
   const parsed = initiateSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+    return jsonError(parsed.error.message, 400, "VALIDATION");
   }
 
   const { purpose, fileName, fileSize, contentType, modId, metadata } = parsed.data;
-  const safeName = fileName.replace(/[^\w.-]/g, "_");
-  const relativePath = `${user.id}/${Date.now()}-${safeName}`;
-  const fileKey = storageKey(`uploads/${purpose}/${relativePath}`);
 
-  const { uploadId, key } = await initiateMultipartUpload(fileKey, contentType);
-  const partCount = computePartCount(fileSize);
+  try {
+    if (purpose === "mod-version" || purpose === "mod-screenshot") {
+      if (!modId) return jsonError("modId required for mod uploads", 400, "VALIDATION");
+      const mod = await prisma.mod.findUnique({ where: { id: modId } });
+      if (!mod) return jsonError("Mod not found", 404, "VALIDATION");
+      if (!(await canEditMod(user.id, user.role, mod.authorId))) {
+        return jsonError("Permission denied for this mod", 403, "AUTH");
+      }
+      if (purpose === "mod-screenshot") {
+        const settings = await getMediaSettings();
+        const count = await prisma.modMedia.count({ where: { modId, mediaType: "IMAGE" } });
+        if (count >= settings.maxScreenshots) {
+          return jsonError(`Maximum ${settings.maxScreenshots} screenshots`, 400, "VALIDATION");
+        }
+      }
+    }
 
-  const session = await prisma.storageUploadSession.create({
-    data: {
+    if (purpose === "game-asset") {
+      if (!hasPermission(user.role, "games.write")) {
+        return jsonError("Permission denied for game assets", 403, "AUTH");
+      }
+      if (!metadata?.gameId || !metadata?.assetType) {
+        return jsonError("gameId and assetType required in metadata", 400, "VALIDATION");
+      }
+    }
+
+    if (purpose === "branding-asset") {
+      if (!hasPermission(user.role, "settings.write")) {
+        return jsonError("Permission denied for branding assets", 403, "AUTH");
+      }
+      if (!metadata?.assetType) {
+        return jsonError("assetType required in metadata", 400, "VALIDATION");
+      }
+    }
+
+    if (purpose === "collection-cover" && !metadata?.collectionId) {
+      return jsonError("collectionId required in metadata", 400, "VALIDATION");
+    }
+
+    const safeName = fileName.replace(/[^\w.-]/g, "_");
+    const relativePath = `${user.id}/${Date.now()}-${safeName}`;
+    const fileKey = storageKey(`uploads/${purpose}/${relativePath}`);
+
+    logUploadServer("initiate_start", {
       userId: user.id,
       purpose,
-      fileKey: key,
-      uploadId,
       fileName: safeName,
-      fileSize: fileSizeBigInt(fileSize),
-      contentType,
+      fileSize,
       modId,
-      metadata: metadata ?? {},
-      completedParts: [],
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    },
-  });
+    });
 
-  return NextResponse.json({
-    sessionId: session.id,
-    uploadId,
-    key,
-    partSize: PART_SIZE,
-    partCount,
-  });
+    const { uploadId, key } = await initiateMultipartUpload(fileKey, contentType);
+    const partCount = computePartCount(fileSize);
+
+    const session = await prisma.storageUploadSession.create({
+      data: {
+        userId: user.id,
+        purpose,
+        fileKey: key,
+        uploadId,
+        fileName: safeName,
+        fileSize: fileSizeBigInt(fileSize),
+        contentType,
+        modId,
+        metadata: metadata ?? {},
+        completedParts: [],
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    logUploadServer("initiate_ok", { sessionId: session.id, partCount, key });
+
+    return NextResponse.json({
+      sessionId: session.id,
+      uploadId,
+      key,
+      partSize: PART_SIZE,
+      partCount,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to initiate upload";
+    logUploadServer("initiate_failed", { userId: user.id, purpose, message });
+    if (message.toLowerCase().includes("r2") || message.toLowerCase().includes("cloudflare")) {
+      return jsonError(`Cloudflare R2 connection error: ${message}`, 503, "STORAGE");
+    }
+    return jsonError(message, 500, "STORAGE");
+  }
+}
+
+export async function GET() {
+  const status = getR2ConfigStatus();
+  return NextResponse.json(status);
 }

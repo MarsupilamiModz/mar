@@ -41,9 +41,11 @@ export const licenseKeyBatchSchema = z.object({
   expiresAt: z.string().datetime().optional(),
 });
 
+import { zSlugInput } from "@/lib/slug";
+
 export const gameSchema = z.object({
   name: z.string().min(2).max(80),
-  slug: z.string().min(2).max(80).regex(/^[a-z0-9-]+$/),
+  slug: zSlugInput,
   description: z.string().max(2000).optional(),
   isFeatured: z.boolean().optional(),
 });

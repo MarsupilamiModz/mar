@@ -8,17 +8,19 @@ import {
   formatUploadSpeed,
   formatEta,
 } from "@/hooks/use-r2-multipart-upload";
+import { formatUploadErrorMessage } from "@/lib/upload-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { MAX_UPLOAD_BYTES, uploadLimitLabel } from "@/lib/upload-limits";
+import { MAX_UPLOAD_BYTES, MOD_VERSION_FILE_ACCEPT, uploadLimitLabel, logUploadDiagnostic } from "@/lib/upload-limits";
 
 export function CreatorModVersionUpload({ modId }: { modId: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const { upload, abort, pause, resume, progress, uploading, paused, error, speedBps, etaSeconds } =
+  const [diagnostics, setDiagnostics] = useState<string | null>(null);
+  const { upload, abort, pause, resume, retry, progress, uploading, paused, error, speedBps, etaSeconds, chunkStatus } =
     useR2MultipartUpload();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
 
           startTransition(async () => {
             try {
+              logUploadDiagnostic("upload_start", { modId, fileName: file.name, fileSize: file.size });
               const uploadResult = await upload({
                 file,
                 purpose: "mod-version",
@@ -70,6 +73,7 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
               });
 
               if (r.success) {
+                logUploadDiagnostic("upload_finalize_ok", { modId, sessionId: sid, version });
                 const msg =
                   r.data && "message" in r.data
                     ? String(r.data.message)
@@ -85,9 +89,13 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
                 toast({ title: "Error", description: r.error, variant: "destructive" });
               }
             } catch (err) {
+              logUploadDiagnostic("upload_failed", {
+                modId,
+                error: err instanceof Error ? err.message : String(err),
+              });
               toast({
                 title: "Upload failed",
-                description: err instanceof Error ? err.message : "Unknown error",
+                description: formatUploadErrorMessage(err),
                 variant: "destructive",
               });
             }
@@ -109,6 +117,7 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
           name="file"
           type="file"
           required
+          accept={MOD_VERSION_FILE_ACCEPT}
           onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
         />
         {(uploading || progress > 0) && (
@@ -120,12 +129,44 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
               />
             </div>
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{progress}% · {formatUploadSpeed(speedBps)}</span>
+              <span>
+                {progress}% · {formatUploadSpeed(speedBps)} · chunks {chunkStatus.completed}/{chunkStatus.total || "—"}
+              </span>
               <span>ETA {formatEta(etaSeconds)}</span>
             </div>
           </div>
         )}
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && (
+          <div className="space-y-2">
+            <p className="text-xs text-destructive">{error}</p>
+            {!uploading && (
+              <Button type="button" variant="outline" size="sm" onClick={() => void retry()}>
+                Retry upload
+              </Button>
+            )}
+          </div>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-xs"
+          onClick={() => {
+            try {
+              const raw = sessionStorage.getItem("xumari-upload-diagnostics");
+              setDiagnostics(raw ? JSON.stringify(JSON.parse(raw), null, 2) : "No upload logs yet.");
+            } catch {
+              setDiagnostics("Could not read upload logs.");
+            }
+          }}
+        >
+          Show upload diagnostics
+        </Button>
+        {diagnostics && (
+          <pre className="text-[10px] max-h-40 overflow-auto rounded border border-border/40 p-2 bg-background/50">
+            {diagnostics}
+          </pre>
+        )}
         <div className="flex flex-wrap gap-2">
           <Button type="submit" variant="neon" disabled={busy}>
             {uploading ? (paused ? "Paused…" : "Uploading…") : pending ? "Processing…" : "Upload version"}

@@ -1,10 +1,33 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { ok, requireActionPermission } from "@/lib/action-utils";
+import { ok, requireActionPermission, fail, formatZodError } from "@/lib/action-utils";
 import { seedDefaultAchievements } from "@/lib/achievements";
+import { resolveSlug, ensureUniqueSlug, zSlugInput } from "@/lib/slug";
 import type { AchievementCategory, AchievementRarity, Prisma } from "@prisma/client";
+
+const achievementSchema = z.object({
+  id: z.string().cuid().optional(),
+  slug: zSlugInput,
+  name: z.string().min(2).max(120),
+  description: z.string().max(2000).optional(),
+  title: z.string().max(80).optional(),
+  category: z.enum(["USER", "CREATOR", "PARTNER", "SEASONAL", "HIDDEN"]),
+  rarity: z.enum(["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"]),
+  icon: z.string().max(40).optional(),
+  xpReward: z.number().int().min(0).optional(),
+  isHidden: z.boolean().optional(),
+  isSeasonal: z.boolean().optional(),
+  seasonStart: z.string().optional(),
+  seasonEnd: z.string().optional(),
+  unlockRule: z.record(z.unknown()).optional(),
+  animated: z.boolean().optional(),
+  glowEffect: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+  translations: z.record(z.unknown()).optional(),
+});
 
 export async function getAdminAchievements() {
   const { error } = await requireActionPermission("settings.write");
@@ -18,51 +41,42 @@ export async function getAdminAchievements() {
   return ok(rows);
 }
 
-export async function saveAchievement(input: {
-  id?: string;
-  slug: string;
-  name: string;
-  description?: string;
-  title?: string;
-  category: AchievementCategory;
-  rarity: AchievementRarity;
-  icon?: string;
-  xpReward?: number;
-  isHidden?: boolean;
-  isSeasonal?: boolean;
-  seasonStart?: string;
-  seasonEnd?: string;
-  unlockRule?: Record<string, unknown>;
-  animated?: boolean;
-  glowEffect?: boolean;
-  isActive?: boolean;
-  translations?: Record<string, unknown>;
-}) {
+export async function saveAchievement(input: z.infer<typeof achievementSchema>) {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
+  const parsed = achievementSchema.safeParse(input);
+  if (!parsed.success) return fail(formatZodError(parsed.error));
+
+  const resolved = resolveSlug({ name: parsed.data.name, slug: parsed.data.slug, fallbackPrefix: "achievement" });
+  const slug = parsed.data.id
+    ? resolved.slug
+    : await ensureUniqueSlug(resolved.slug, async (s) =>
+        Boolean(await prisma.achievement.findUnique({ where: { slug: s } }))
+      );
+
   const data = {
-    slug: input.slug,
-    name: input.name,
-    description: input.description,
-    title: input.title,
-    category: input.category,
-    rarity: input.rarity,
-    icon: input.icon,
-    xpReward: input.xpReward ?? 0,
-    isHidden: input.isHidden ?? false,
-    isSeasonal: input.isSeasonal ?? false,
-    seasonStart: input.seasonStart ? new Date(input.seasonStart) : null,
-    seasonEnd: input.seasonEnd ? new Date(input.seasonEnd) : null,
-    unlockRule: (input.unlockRule ?? undefined) as Prisma.InputJsonValue | undefined,
-    animated: input.animated ?? false,
-    glowEffect: input.glowEffect ?? true,
-    isActive: input.isActive ?? true,
-    translations: (input.translations ?? undefined) as Prisma.InputJsonValue | undefined,
+    slug,
+    name: parsed.data.name,
+    description: parsed.data.description,
+    title: parsed.data.title,
+    category: parsed.data.category as AchievementCategory,
+    rarity: parsed.data.rarity as AchievementRarity,
+    icon: parsed.data.icon,
+    xpReward: parsed.data.xpReward ?? 0,
+    isHidden: parsed.data.isHidden ?? false,
+    isSeasonal: parsed.data.isSeasonal ?? false,
+    seasonStart: parsed.data.seasonStart ? new Date(parsed.data.seasonStart) : null,
+    seasonEnd: parsed.data.seasonEnd ? new Date(parsed.data.seasonEnd) : null,
+    unlockRule: (parsed.data.unlockRule ?? undefined) as Prisma.InputJsonValue | undefined,
+    animated: parsed.data.animated ?? false,
+    glowEffect: parsed.data.glowEffect ?? true,
+    isActive: parsed.data.isActive ?? true,
+    translations: (parsed.data.translations ?? undefined) as Prisma.InputJsonValue | undefined,
   };
 
-  if (input.id) {
-    await prisma.achievement.update({ where: { id: input.id }, data });
+  if (parsed.data.id) {
+    await prisma.achievement.update({ where: { id: parsed.data.id }, data });
   } else {
     await prisma.achievement.create({ data });
   }

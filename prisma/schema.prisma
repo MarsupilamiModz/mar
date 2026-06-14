@@ -168,13 +168,25 @@ enum OrderStatus {
 }
 
 enum TicketStatus {
+  NEW
   OPEN
+  PENDING
   IN_PROGRESS
   WAITING_FOR_USER
   WAITING_FOR_STAFF
   ESCALATED
   RESOLVED
   CLOSED
+}
+
+enum TicketDepartment {
+  SUPPORT
+  MODERATION
+  CREATOR_MANAGEMENT
+  PARTNER_MANAGEMENT
+  BILLING
+  TECHNICAL_SUPPORT
+  ADMINISTRATION
 }
 
 enum TicketCategory {
@@ -389,6 +401,7 @@ model User {
   auditLogs         AuditLog[]         @relation("AuditActor")
   supportTickets    SupportTicket[]    @relation("TicketUser")
   assignedTickets   SupportTicket[]    @relation("TicketAssignee")
+  watchedTickets    TicketWatcher[]    @relation("TicketWatcher")
   purchases         ModPurchase[]
   blogPosts         BlogPost[]
   ownedCoupons      Coupon[]           @relation("CouponOwner")
@@ -568,6 +581,8 @@ model PartnerProfile {
   totalCouponUses     Int            @default(0)
   totalDiscountCents  Int            @default(0)
   followerCount       Int            @default(0)
+  discordInviteUrl    String?
+  discordWidgetUrl    String?
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 
@@ -1140,7 +1155,8 @@ model SupportTicket {
   subject      String
   category     TicketCategory
   priority     TicketPriority @default(NORMAL)
-  status       TicketStatus   @default(OPEN)
+  status       TicketStatus   @default(NEW)
+  department   TicketDepartment @default(SUPPORT)
   tags         Json?
   slaResponseDueAt DateTime?
   slaResolveDueAt  DateTime?
@@ -1153,15 +1169,30 @@ model SupportTicket {
 
   messages     TicketMessage[]
   attachments  TicketAttachment[]
+  watchers     TicketWatcher[]
 
   @@index([userId])
   @@index([status])
+  @@index([department])
   @@index([category])
   @@index([assigneeId])
   @@index([priority])
   @@index([createdAt])
   @@index([slaResponseDueAt])
   @@index([slaResolveDueAt])
+}
+
+model TicketWatcher {
+  id        String        @id @default(cuid())
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation("TicketWatcher", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@unique([ticketId, userId])
+  @@index([userId])
+  @@index([ticketId])
 }
 
 model TicketMessage {
@@ -1350,6 +1381,7 @@ model PermissionGroup {
   permissions     Json     @default("[]")
   isSystem        Boolean  @default(false)
   isArchived      Boolean  @default(false)
+  isDisabled      Boolean  @default(false)
   sortOrder       Int      @default(0)
   color           String?
   badge           String?

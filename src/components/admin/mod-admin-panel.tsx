@@ -6,11 +6,12 @@ import { useTranslations } from "next-intl";
 import {
   createMod,
   updateMod,
-  uploadModVersion,
 } from "@/actions/mods";
+import { CreatorModVersionUpload } from "@/components/creator/creator-mod-version-upload";
 import { ModMediaUploader } from "@/components/mods/mod-media-uploader";
 import { mapModMedia } from "@/lib/mod-media";
 import type { MediaSettings } from "@/lib/media-settings";
+import { parseTags, safeFormOptional, safeFormString } from "@/lib/safe-string";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -115,7 +116,7 @@ export function ModAdminPanel({
             onSubmit={(e) => {
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
-              const tags = (fd.get("tags") as string).split(",").map((x) => x.trim()).filter(Boolean);
+              const tags = parseTags(fd.get("tags"));
               startTransition(async () => {
                 const priceRaw = fd.get("priceCents");
                 const priceCredits =
@@ -209,26 +210,7 @@ export function ModAdminPanel({
           </form>
         </Card>
 
-        <Card className="glass p-6 space-y-4">
-          <h3 className="font-medium">{tc("uploadVersion")}</h3>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              startTransition(async () => {
-                const r = await uploadModVersion(mod.id, new FormData(e.currentTarget));
-                if (r.success) appToast.uploaded();
-                else appToast.error(r.error);
-              });
-            }}
-            className="space-y-3"
-          >
-            <Input name="version" placeholder="1.0.0" required />
-            <Input name="gameVersion" placeholder="Game version" />
-            <Textarea name="changelog" rows={2} />
-            <Input name="file" type="file" required />
-            <Button type="submit" variant="neon" disabled={pending}>{tc("uploadVersion")}</Button>
-          </form>
-        </Card>
+        <CreatorModVersionUpload modId={mod.id} />
 
         <ModMediaUploader
           modId={mod.id}
@@ -246,14 +228,14 @@ export function ModAdminPanel({
         onSubmit={(e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
-          const tags = (fd.get("tags") as string).split(",").map((x) => x.trim()).filter(Boolean);
+          const tags = parseTags(fd.get("tags"));
           startTransition(async () => {
             const r = await createMod({
-              title: fd.get("title") as string,
-              description: fd.get("description") as string,
-              shortDescription: (fd.get("shortDescription") as string) || undefined,
+              title: safeFormString(fd, "title"),
+              description: safeFormString(fd, "description"),
+              shortDescription: safeFormOptional(fd, "shortDescription"),
               gameId,
-              categoryId: (fd.get("categoryId") as string) || undefined,
+              categoryId: safeFormOptional(fd, "categoryId"),
               pricing,
               priceCents: pricing === "PAID" ? Number(fd.get("priceCents")) * 100 : undefined,
               tags,

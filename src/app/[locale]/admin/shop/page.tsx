@@ -2,6 +2,7 @@ import { requirePagePermission } from "@/lib/auth";
 import { listAdminShopProducts } from "@/actions/admin/shop";
 import { getAdminPaymentSettings, listRecentStripeCheckouts } from "@/actions/admin/payments";
 import { ShopAdminPanel } from "@/components/admin/shop-admin-panel";
+import { AdminSafeBoundary } from "@/components/admin/admin-safe-boundary";
 import { PaymentStatusOverview } from "@/components/admin/payment-status-overview";
 import type { Locale } from "@/i18n/config";
 
@@ -41,7 +42,9 @@ export default async function AdminShopPage({ params: { locale } }: { params: { 
         </div>
       )}
       <PaymentStatusOverview settings={settings} transactions={transactions} locale={locale} compact />
-      <ShopAdminPanel products={products} locale={locale} />
+      <AdminSafeBoundary title="Shop management error">
+        <ShopAdminPanel products={products} locale={locale} />
+      </AdminSafeBoundary>
     </div>
   );
 }

@@ -41,7 +41,7 @@ export function AchievementsAdminPanel({ achievements }: { achievements: Achieve
     startTransition(async () => {
       const r = await saveAchievement({
         id: editing?.id,
-        slug: (fd.get("slug") as string).trim(),
+        slug: (fd.get("slug") as string) || undefined,
         name: fd.get("name") as string,
         description: (fd.get("description") as string) || undefined,
         title: (fd.get("title") as string) || undefined,
