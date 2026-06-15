@@ -48,3 +48,27 @@ export function appPath(locale: string, path: string): string {
 export function appPathForLocale(locale: Locale | string, path: string): string {
   return appPath(locale, path);
 }
+
+/** Prefer the browser origin for Stripe return URLs when safe (fixes localhost vs production env mismatch). */
+export function resolveCheckoutOrigin(clientOrigin?: string | null): string {
+  if (clientOrigin) {
+    try {
+      const url = new URL(clientOrigin);
+      if (url.protocol !== "http:" && url.protocol !== "https:") return getAppUrl();
+      if (process.env.NODE_ENV !== "production") return url.origin;
+      if (isProductionHost(url.hostname) || url.hostname === "localhost") return url.origin;
+    } catch {
+      /* fall through */
+    }
+  }
+  return getAppUrl();
+}
+
+export function checkoutPath(origin: string, locale: string, path: string): string {
+  const clean = path.startsWith("/") ? path : `/${path}`;
+  const loc = locale || defaultLocale;
+  if (clean === `/${loc}` || clean.startsWith(`/${loc}/`)) {
+    return `${origin}${clean}`;
+  }
+  return `${origin}/${loc}${clean === "/" ? "" : clean}`;
+}

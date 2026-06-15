@@ -51,13 +51,17 @@ export function ClientOrderPaymentPanel({ order, locale }: { order: ClientOrder;
               disabled={pending}
               onClick={() =>
                 startTransition(async () => {
-                  const r = await startOrderStripePayment(order.id, locale);
+                  const r = await startOrderStripePayment(
+                    order.id,
+                    locale,
+                    typeof window !== "undefined" ? window.location.origin : undefined
+                  );
                   if (!r.success) {
                     appToast.error(r.error);
                     return;
                   }
                   if (r.data.url) window.location.href = r.data.url;
-                  else appToast.error("Checkout failed");
+                  else appToast.error("Checkout failed: Stripe did not return a payment URL");
                 })
               }
             >

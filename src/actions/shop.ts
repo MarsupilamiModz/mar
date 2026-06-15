@@ -7,10 +7,21 @@ import { creditWallet } from "@/lib/credits";
 import { createCreditPackCheckout } from "@/lib/stripe";
 import { effectiveCreditPrice } from "@/lib/shop";
 import { grantMembershipPurchase } from "@/lib/membership";
+import { getPaymentSettings } from "@/lib/payments/settings";
+import { assertStripeConfigured, formatStripeError } from "@/lib/stripe-config";
 
-export async function startCreditPackCheckout(productId: string, locale: string) {
+export async function startCreditPackCheckout(
+  productId: string,
+  locale: string,
+  clientOrigin?: string
+) {
   const { user, error } = await requireActionUser();
   if (error) return error;
+
+  const paymentSettings = await getPaymentSettings();
+  if (!paymentSettings.stripeEnabled) {
+    return fail("Stripe payments are disabled. Contact support or use credits.");
+  }
 
   const product = await prisma.shopProduct.findUnique({ where: { id: productId } });
   if (!product || !product.isActive || product.productType !== "CREDIT_PACK") {
@@ -18,18 +29,28 @@ export async function startCreditPackCheckout(productId: string, locale: string)
   }
   if (!product.creditsAmount || product.creditsAmount <= 0) return fail("Invalid credit pack");
 
-  const session = await createCreditPackCheckout(
-    user.id,
-    user.email,
-    product.id,
-    product.slug,
-    product.creditsAmount,
-    product.priceCents,
-    locale,
-    product.stripePriceId
-  );
+  try {
+    assertStripeConfigured();
+    const session = await createCreditPackCheckout(
+      user.id,
+      user.email,
+      product.id,
+      product.slug,
+      product.creditsAmount,
+      product.priceCents,
+      locale,
+      product.stripePriceId,
+      { clientOrigin }
+    );
 
-  return ok({ url: session.url });
+    if (!session.url) {
+      return fail("Stripe did not return a checkout URL");
+    }
+
+    return ok({ url: session.url, sessionId: session.id });
+  } catch (err) {
+    return fail(`Checkout failed: ${formatStripeError(err)}`);
+  }
 }
 
 export async function purchaseShopProductWithCredits(productId: string) {

@@ -55,13 +55,35 @@ export function PremiumPlansClient({ locale, plans, pageSettings, isLoggedIn, cu
         const res = await fetch("/api/stripe/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ planSlug, locale }),
+          credentials: "include",
+          body: JSON.stringify({
+            planSlug,
+            locale,
+            clientOrigin: typeof window !== "undefined" ? window.location.origin : undefined,
+          }),
         });
-        const data = await res.json();
-        if (data.url) window.location.href = data.url;
-        else appToast.error(data.error ?? "Checkout failed");
-      } catch {
-        appToast.error("Checkout failed");
+
+        let data: { url?: string; error?: string; code?: string } = {};
+        try {
+          data = await res.json();
+        } catch {
+          appToast.error(`Checkout failed: server returned invalid response (${res.status})`);
+          return;
+        }
+
+        if (res.ok && data.url) {
+          window.location.href = data.url;
+          return;
+        }
+
+        appToast.error(data.error ?? `Checkout failed (${res.status})`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Network error";
+        appToast.error(
+          msg.includes("fetch") || msg.includes("Failed")
+            ? "Checkout failed: could not reach payment server. Check your connection and try again."
+            : `Checkout failed: ${msg}`
+        );
       } finally {
         setLoadingSlug(null);
       }

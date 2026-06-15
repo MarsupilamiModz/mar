@@ -10,35 +10,49 @@ export type PermissionGroupDef = {
 /** UI grouping for searchable role editor — maps to existing permission keys. */
 export const PERMISSION_UI_GROUPS: PermissionGroupDef[] = [
   {
-    id: "dashboard",
-    label: "Dashboard access",
-    description: "Control which areas of the platform are reachable",
-    keys: ["analytics.read", "analytics.creator", "settings.write"],
-  },
-  {
     id: "users",
     label: "Users & accounts",
     keys: ["users.read", "users.write"],
   },
   {
     id: "mods",
-    label: "Mods & uploads",
-    keys: ["mods.read", "mods.write", "mods.moderate", "assets.read", "assets.write"],
+    label: "Mods & downloads",
+    keys: ["mods.read", "mods.write", "mods.moderate", "mods.download", "mods.comment", "mods.review"],
+  },
+  {
+    id: "creators",
+    label: "Creators",
+    keys: ["creator.upload", "creator.manage", "assets.read", "assets.write", "analytics.creator", "licenses.write"],
+  },
+  {
+    id: "partners",
+    label: "Partners",
+    keys: ["partner.analytics", "partner.referral", "coupons.write"],
+  },
+  {
+    id: "moderation",
+    label: "Moderation",
+    keys: ["moderation.comments", "moderation.reports", "mods.moderate"],
+  },
+  {
+    id: "support",
+    label: "Support",
+    keys: ["support.tickets", "support.tools", "tickets.read", "tickets.write", "orders.read", "orders.write"],
+  },
+  {
+    id: "management",
+    label: "Managers",
+    keys: ["manager.creators", "manager.partners", "manager.content"],
+  },
+  {
+    id: "designers",
+    label: "Designers",
+    keys: ["designer.branding", "designer.banners", "designer.assets"],
   },
   {
     id: "games",
     label: "Games & catalog",
     keys: ["games.write"],
-  },
-  {
-    id: "support",
-    label: "Tickets & orders",
-    keys: ["tickets.read", "tickets.write", "orders.read", "orders.write"],
-  },
-  {
-    id: "creators",
-    label: "Creators & partners",
-    keys: ["users.read", "users.write", "coupons.write", "analytics.creator"],
   },
   {
     id: "commerce",
@@ -48,7 +62,7 @@ export const PERMISSION_UI_GROUPS: PermissionGroupDef[] = [
   {
     id: "platform",
     label: "Platform & security",
-    keys: ["settings.write", "audit.read"],
+    keys: ["settings.write", "audit.read", "analytics.read"],
   },
 ];
 

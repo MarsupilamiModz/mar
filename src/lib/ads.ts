@@ -11,6 +11,12 @@ export type AdProviderSettings = {
   ezoicEnabled?: boolean;
   globalAdsEnabled?: boolean;
   popupAdsEnabled?: boolean;
+  /** Built-in UserRole values that should NOT see ads (staff, premium tiers, creators, etc.) */
+  rolesWithoutAds?: string[];
+  /** If set, only these roles see ads (typically USER). Empty = use rolesWithoutAds logic. */
+  rolesWithAds?: string[];
+  /** Membership plan slugs that hide ads (premium-lite, premium, premium-max) */
+  membershipSlugsWithoutAds?: string[];
 };
 
 export const DEFAULT_AD_SETTINGS: AdProviderSettings = {
@@ -19,6 +25,18 @@ export const DEFAULT_AD_SETTINGS: AdProviderSettings = {
   adsenseEnabled: false,
   nitropayEnabled: false,
   ezoicEnabled: false,
+  rolesWithoutAds: [
+    "PREMIUM",
+    "CREATOR",
+    "PARTNER",
+    "DESIGNER",
+    "MODERATOR",
+    "SUPPORT",
+    "ADMIN",
+    "OWNER",
+  ],
+  rolesWithAds: ["USER"],
+  membershipSlugsWithoutAds: ["premium-lite", "premium", "premium-max"],
 };
 
 export type AdLocation =

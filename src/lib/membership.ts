@@ -320,9 +320,24 @@ export async function userHasMembershipAccess(userId: string, role: UserRole): P
 }
 
 export async function userHasAdFree(userId: string, role: string): Promise<boolean> {
-  if (["OWNER", "ADMIN", "MODERATOR", "PREMIUM"].includes(role)) return true;
+  const { getAdSettings } = await import("@/lib/ads");
+  const adSettings = await getAdSettings();
+
+  if (adSettings.rolesWithoutAds?.includes(role)) return true;
+  if (adSettings.rolesWithAds?.length && !adSettings.rolesWithAds.includes(role)) return true;
+
+  if (["OWNER", "ADMIN", "MODERATOR", "PREMIUM", "CREATOR", "PARTNER", "DESIGNER", "SUPPORT"].includes(role)) {
+    return true;
+  }
+
   const tier = await getUserMembershipTier(userId);
-  return tier?.perks.adFree === true;
+  if (tier?.perks.adFree === true) return true;
+
+  if (adSettings.membershipSlugsWithoutAds?.length && tier?.slug) {
+    return adSettings.membershipSlugsWithoutAds.includes(tier.slug);
+  }
+
+  return false;
 }
 
 export type PremiumPageSettings = {
@@ -367,6 +382,13 @@ export async function grantMembershipPurchase(params: {
   const plan = await prisma.membershipPlan.findUnique({ where: { id: params.planId } });
   if (!plan) throw new Error("Plan not found");
 
+  if (params.stripePaymentId) {
+    const dup = await prisma.membershipPurchase.findFirst({
+      where: { stripePaymentId: params.stripePaymentId },
+    });
+    if (dup) return dup;
+  }
+
   const purchase = await prisma.membershipPurchase.create({
     data: {
       userId: params.userId,
@@ -386,4 +408,17 @@ export async function grantMembershipPurchase(params: {
   void evaluateUserAchievements(params.userId);
 
   return purchase;
+}
+
+/** Map membership plan slugs to Discord role keys for post-purchase sync. */
+export function getPlanDiscordRoles(planSlug: string): string[] {
+  switch (planSlug) {
+    case "premium-lite":
+      return ["premium-lite", "premium"];
+    case "premium-max":
+      return ["premium-max", "premium"];
+    case "premium":
+    default:
+      return ["premium"];
+  }
 }

@@ -10,6 +10,8 @@ import { rateLimit } from "@/lib/rate-limit";
 import { generateInvoiceNumber, formatPaymentReference } from "@/lib/invoices";
 import { sendCustomOrderNotification } from "@/lib/email";
 import { createOrderPaymentCheckout } from "@/lib/stripe";
+import { getPaymentSettings } from "@/lib/payments/settings";
+import { assertStripeConfigured, formatStripeError } from "@/lib/stripe-config";
 import { uploadAsset } from "@/lib/asset-storage";
 import { formatDisplayName } from "@/lib/display-name";
 import { centsToCredits, creditWallet } from "@/lib/credits";
@@ -201,24 +203,36 @@ export async function uploadOrderDelivery(orderId: string, formData: FormData) {
   return ok({ fileName: file.name });
 }
 
-export async function startOrderStripePayment(orderId: string, locale = "en") {
+export async function startOrderStripePayment(orderId: string, locale = "en", clientOrigin?: string) {
   const { user, error } = await requireActionUser();
   if (error) return error;
+
+  const paymentSettings = await getPaymentSettings();
+  if (!paymentSettings.stripeEnabled) {
+    return fail("Stripe payments are disabled");
+  }
 
   const order = await prisma.customOrder.findUnique({ where: { id: orderId } });
   if (!order || order.clientId !== user.id) return fail("Not found");
   if (!order.finalAmountCents || order.paymentStatus === "PAID") return fail("Payment not available");
 
-  const session = await createOrderPaymentCheckout(
-    user.id,
-    user.email,
-    order.id,
-    order.invoiceNumber ?? order.id,
-    order.finalAmountCents,
-    locale
-  );
+  try {
+    assertStripeConfigured();
+    const session = await createOrderPaymentCheckout(
+      user.id,
+      user.email,
+      order.id,
+      order.invoiceNumber ?? order.id,
+      order.finalAmountCents,
+      locale,
+      { clientOrigin }
+    );
 
-  return ok({ url: session.url });
+    if (!session.url) return fail("Stripe did not return a checkout URL");
+    return ok({ url: session.url, sessionId: session.id });
+  } catch (err) {
+    return fail(`Checkout failed: ${formatStripeError(err)}`);
+  }
 }
 
 export async function markOrderPaidManual(

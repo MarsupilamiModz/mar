@@ -223,9 +223,14 @@ export async function getAdminPermissionGroups() {
     if (groups.length === 0) {
       await prisma.permissionGroup.createMany({
         data: [
-          { slug: "staff-full", name: "Staff Full Access", permissions: ["*"], isSystem: true },
-          { slug: "creator-standard", name: "Creator Standard", permissions: ["mods.read", "assets.read", "analytics.creator", "licenses.write"], isSystem: true },
-          { slug: "partner-standard", name: "Partner Standard", permissions: ["analytics.creator", "coupons.write"], isSystem: true },
+          { slug: "staff-full", name: "Staff Full Access", permissions: ["*"], isSystem: true, hierarchyTier: "Admin", icon: "🛡️" },
+          { slug: "manager", name: "Manager", permissions: ["manager.creators", "manager.partners", "manager.content", "users.read", "analytics.read"], isSystem: true, hierarchyTier: "Manager", icon: "📊", color: "#6366f1" },
+          { slug: "verified-creator", name: "Verified Creator", permissions: ["creator.upload", "creator.manage", "mods.read", "analytics.creator"], isSystem: true, hierarchyTier: "Creator", icon: "✓", color: "#22c55e" },
+          { slug: "trusted-creator", name: "Trusted Creator", permissions: ["creator.upload", "creator.manage", "mods.read", "mods.write", "analytics.creator"], isSystem: true, hierarchyTier: "Creator", icon: "⭐", color: "#eab308" },
+          { slug: "elite-creator", name: "Elite Creator", permissions: ["creator.upload", "creator.manage", "mods.read", "mods.write", "analytics.creator", "licenses.write"], isSystem: true, hierarchyTier: "Creator", icon: "👑", color: "#a855f7" },
+          { slug: "creator-standard", name: "Creator Standard", permissions: ["mods.read", "assets.read", "analytics.creator", "licenses.write", "creator.upload"], isSystem: true, hierarchyTier: "Creator", icon: "🎨" },
+          { slug: "official-partner", name: "Official Partner", permissions: ["partner.analytics", "partner.referral", "coupons.write", "analytics.creator"], isSystem: true, hierarchyTier: "Partner", icon: "🤝", color: "#3b82f6" },
+          { slug: "partner-standard", name: "Partner Standard", permissions: ["analytics.creator", "coupons.write", "partner.analytics"], isSystem: true, hierarchyTier: "Partner", icon: "🔗" },
         ],
       });
       groups = await prisma.permissionGroup.findMany({

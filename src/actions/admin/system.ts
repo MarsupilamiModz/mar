@@ -92,11 +92,31 @@ export async function getAdminSystemHealth() {
     detail: process.env.DISCORD_CLIENT_ID ? "Client configured" : "Missing Discord credentials",
   });
 
-  checks.push({
-    name: "Stripe",
-    ok: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET),
-    detail: process.env.STRIPE_SECRET_KEY ? "Configured" : "Missing Stripe keys",
-  });
+  try {
+    const { getStripeConfigStatus } = await import("@/lib/stripe-config");
+    const stripeStatus = getStripeConfigStatus();
+    let stripeDetail = stripeStatus.configured ? "Configured" : `Missing: ${stripeStatus.missing.join(", ")}`;
+    if (stripeStatus.configured) {
+      try {
+        const { getStripe } = await import("@/lib/stripe");
+        await getStripe().products.list({ limit: 1 });
+        stripeDetail = "Connected — API reachable";
+      } catch (err) {
+        stripeDetail = err instanceof Error ? `API error: ${err.message}` : "API check failed";
+      }
+    }
+    checks.push({
+      name: "Stripe",
+      ok: stripeStatus.configured && stripeDetail.includes("reachable"),
+      detail: stripeDetail,
+    });
+  } catch (err) {
+    checks.push({
+      name: "Stripe",
+      ok: false,
+      detail: err instanceof Error ? err.message : "Check failed",
+    });
+  }
 
   checks.push({
     name: "PayPal",

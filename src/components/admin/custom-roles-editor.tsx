@@ -323,6 +323,40 @@ function CustomRolesEditorInner({ groups: initial }: { groups: CustomRole[] }) {
             <Input placeholder="Badge" value={badge} onChange={(e) => setBadge(e.target.value)} />
             <Input placeholder="Icon" value={icon} onChange={(e) => setIcon(e.target.value)} />
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-xs text-muted-foreground">Hierarchy tier</label>
+              <select
+                value={hierarchyTier}
+                onChange={(e) => setHierarchyTier(e.target.value)}
+                className="mt-1 h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm"
+              >
+                <option value="">—</option>
+                {HIERARCHY_TIERS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Dashboard access</label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {DASHBOARD_OPTIONS.map((opt) => (
+                  <label key={opt} className="flex items-center gap-1.5 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={dashboardAccess.includes(opt)}
+                      onChange={(e) =>
+                        setDashboardAccess((prev) =>
+                          e.target.checked ? [...prev, opt] : prev.filter((x) => x !== opt)
+                        )
+                      }
+                    />
+                    {opt}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <Switch checked={isDisabled} onCheckedChange={setIsDisabled} />
             Role disabled

@@ -15,7 +15,7 @@ export async function AdLocationSlot({ location, className }: AdLocationSlotProp
   const user = await getCurrentUser();
   if (user) {
     const adFree = await userHasAdFree(user.id, user.role);
-    if (adFree || ["PREMIUM", "OWNER", "ADMIN", "MODERATOR"].includes(user.role)) return null;
+    if (adFree) return null;
   }
 
   const ads = await getAdsForLocation(location);

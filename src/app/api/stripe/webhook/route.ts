@@ -4,9 +4,11 @@ import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 import { syncDiscordRoles, logToDiscordWebhook } from "@/lib/discord";
 import { trackAffiliateConversion } from "@/actions/affiliate";
-import { grantMembershipPurchase } from "@/lib/membership";
+import { grantMembershipPurchase, getPlanDiscordRoles } from "@/lib/membership";
 import { sendPaymentNotification, sendPremiumActivationEmail } from "@/lib/email/send";
 import { notifyPremiumActivated } from "@/lib/notifications-service";
+import { createAuditLog } from "@/lib/audit";
+import { logStripeServer } from "@/lib/stripe-config";
 import type Stripe from "stripe";
 
 export async function POST(req: Request) {
@@ -45,15 +47,31 @@ export async function POST(req: Request) {
             : null;
 
           if (!existing) {
-            await grantMembershipPurchase({
+            const planSlug = session.metadata?.planSlug;
+            const purchase = await grantMembershipPurchase({
               userId,
               planId,
               stripePaymentId: paymentId ?? undefined,
               amountCents: session.amount_total ?? 0,
             });
 
+            await createAuditLog({
+              actorId: userId,
+              action: "membership.purchase",
+              entityType: "MembershipPurchase",
+              entityId: purchase.id,
+              metadata: {
+                planId,
+                planSlug,
+                amountCents: session.amount_total ?? 0,
+                stripeSessionId: session.id,
+                paymentId,
+              },
+            });
+
             const user = await prisma.user.findUnique({ where: { id: userId } });
-            if (user?.discordId) await syncDiscordRoles(user.discordId, ["premium"]);
+            const discordRoles = planSlug ? getPlanDiscordRoles(planSlug) : ["premium"];
+            if (user?.discordId) await syncDiscordRoles(user.discordId, discordRoles);
             if (user?.email) {
               void sendPremiumActivationEmail({
                 email: user.email,
@@ -61,6 +79,7 @@ export async function POST(req: Request) {
               });
             }
             void notifyPremiumActivated(userId);
+            logStripeServer("webhook_membership_granted", { userId, planId, purchaseId: purchase.id });
           }
 
           const refCode = session.metadata?.refCode;
@@ -118,23 +137,37 @@ export async function POST(req: Request) {
               : session.payment_intent?.id;
 
           if (productId && creditsAmount > 0) {
-            const { creditWallet } = await import("@/lib/credits");
-            await creditWallet({
-              userId,
-              amount: creditsAmount,
-              type: "PURCHASE",
-              description: "Credit pack purchase",
-              referenceId: productId,
-            });
-            await prisma.shopPurchase.create({
-              data: {
+            const existingCredit = paymentId
+              ? await prisma.shopPurchase.findFirst({ where: { stripePaymentId: paymentId } })
+              : null;
+
+            if (!existingCredit) {
+              const { creditWallet } = await import("@/lib/credits");
+              await creditWallet({
                 userId,
-                productId,
-                creditsSpent: 0,
-                priceCents: session.amount_total ?? 0,
-                stripePaymentId: paymentId ?? undefined,
-              },
-            });
+                amount: creditsAmount,
+                type: "PURCHASE",
+                description: "Credit pack purchase",
+                referenceId: productId,
+              });
+              await prisma.shopPurchase.create({
+                data: {
+                  userId,
+                  productId,
+                  creditsSpent: 0,
+                  priceCents: session.amount_total ?? 0,
+                  stripePaymentId: paymentId ?? undefined,
+                },
+              });
+
+              await createAuditLog({
+                actorId: userId,
+                action: "credits.purchase",
+                entityType: "ShopProduct",
+                entityId: productId,
+                metadata: { creditsAmount, paymentId, sessionId: session.id },
+              });
+            }
           }
 
           void sendPaymentNotification({

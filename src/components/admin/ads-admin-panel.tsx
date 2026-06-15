@@ -109,6 +109,74 @@ export function AdsAdminPanel({ data }: Props) {
       </Card>
 
       <Card className="glass p-6 space-y-4">
+        <h3 className="font-semibold">Ad visibility by role</h3>
+        <p className="text-xs text-muted-foreground">
+          Configure which built-in roles see ads. Membership plans with ad-free perks are always respected.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-sm font-medium mb-2">Roles that see ads</p>
+            <div className="space-y-2">
+              {(["USER", "PREMIUM", "CREATOR", "PARTNER", "DESIGNER"] as const).map((role) => (
+                <label key={role} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={settings.rolesWithAds?.includes(role) ?? false}
+                    onChange={(e) =>
+                      setSettings((s) => ({
+                        ...s,
+                        rolesWithAds: e.target.checked
+                          ? [...(s.rolesWithAds ?? []).filter((r) => r !== role), role]
+                          : (s.rolesWithAds ?? []).filter((r) => r !== role),
+                      }))
+                    }
+                  />
+                  {role}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-medium mb-2">Roles without ads</p>
+            <div className="space-y-2">
+              {(["PREMIUM", "CREATOR", "PARTNER", "DESIGNER", "MODERATOR", "SUPPORT", "ADMIN", "OWNER"] as const).map(
+                (role) => (
+                  <label key={role} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={settings.rolesWithoutAds?.includes(role) ?? false}
+                      onChange={(e) =>
+                        setSettings((s) => ({
+                          ...s,
+                          rolesWithoutAds: e.target.checked
+                            ? [...(s.rolesWithoutAds ?? []).filter((r) => r !== role), role]
+                            : (s.rolesWithoutAds ?? []).filter((r) => r !== role),
+                        }))
+                      }
+                    />
+                    {role}
+                  </label>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              const r = await saveAdminAdSettings(settings);
+              if (r.success) appToast.saved("Ad visibility saved");
+              else appToast.error(r.error);
+            })
+          }
+        >
+          Save ad visibility
+        </Button>
+      </Card>
+
+      <Card className="glass p-6 space-y-4">
         <h3 className="font-semibold">Ad Placements</h3>
         <div className="space-y-2">
           {data.placements.map((ad) => (
