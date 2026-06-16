@@ -156,6 +156,71 @@ export async function getAdminSystemHealth() {
   return ok(checks);
 }
 
+export async function getAdminPlatformMetrics() {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+
+  const { prisma } = await import("@/lib/db");
+  const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+  const [
+    scanQueue,
+    uploadQueue,
+    emailQueue,
+    activeUsers,
+    adTotals,
+    modCount,
+    soundCount,
+    storageBytes,
+  ] = await Promise.all([
+    prisma.scanQueue.count({ where: { status: { in: ["PENDING", "PROCESSING"] } } }).catch(() => 0),
+    prisma.storageUploadSession.count({ where: { status: "IN_PROGRESS" } }).catch(() => 0),
+    prisma.emailLog.count({ where: { status: "PENDING" } }).catch(() => 0),
+    prisma.download.count({ where: { createdAt: { gte: hourAgo } } }).catch(() => 0),
+    prisma.adPlacement.aggregate({ _sum: { impressions: true, clicks: true } }),
+    prisma.mod.count({ where: { productType: "MOD" } }),
+    prisma.mod.count({ where: { productType: "SOUND" } }),
+    prisma.modVersion.aggregate({ _sum: { fileSize: true } }),
+  ]);
+
+  const mem = process.memoryUsage();
+  const totalImpressions = adTotals._sum.impressions ?? 0;
+  const totalClicks = adTotals._sum.clicks ?? 0;
+
+  const storageTotal = Number(storageBytes._sum.fileSize ?? 0);
+
+  return ok({
+    cpu: { usagePercent: null, detail: "Serverless — CPU metrics require host agent" },
+    memory: {
+      heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+      rssMb: Math.round(mem.rss / 1024 / 1024),
+    },
+    database: { mods: modCount, sounds: soundCount },
+    storage: {
+      bytes: storageTotal,
+      detail: storageTotal
+        ? `${Math.round(storageTotal / 1024 / 1024)} MB tracked in versions`
+        : "No file size data",
+    },
+    queues: {
+      scan: scanQueue,
+      upload: uploadQueue,
+      email: typeof emailQueue === "number" ? emailQueue : 0,
+    },
+    ads: {
+      impressions: totalImpressions,
+      clicks: totalClicks,
+      ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
+      rpm: null,
+    },
+    activeUsers,
+    virusTotal: {
+      envEnabled: process.env.VIRUSTOTAL_ENABLED !== "false",
+      apiKeyConfigured: Boolean(process.env.VIRUSTOTAL_API_KEY),
+    },
+  });
+}
+
 export async function getAdminTranslationAudit() {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;

@@ -6,6 +6,15 @@ import { getSiteSetting, setSiteSetting } from "@/lib/site-settings";
 export type AdProviderSettings = {
   adsenseClientId?: string;
   adsenseEnabled?: boolean;
+  adsenseAutoAds?: boolean;
+  adsenseSlotIds?: Record<string, string>;
+  microsoftEnabled?: boolean;
+  microsoftAccountId?: string;
+  microsoftTrackingId?: string;
+  microsoftConversionId?: string;
+  adProviderPriority?: AdProviderType[];
+  placementEnabled?: Record<string, boolean>;
+  roleAdLevels?: Record<string, "full" | "reduced" | "none">;
   nitropayId?: string;
   nitropayEnabled?: boolean;
   ezoicId?: string;
@@ -24,6 +33,34 @@ export const DEFAULT_AD_SETTINGS: AdProviderSettings = {
   globalAdsEnabled: false,
   popupAdsEnabled: false,
   adsenseEnabled: false,
+  adsenseAutoAds: false,
+  adsenseSlotIds: {},
+  microsoftEnabled: false,
+  adProviderPriority: ["ADSENSE", "MICROSOFT", "CUSTOM"],
+  placementEnabled: {
+    homepage: true,
+    listing: true,
+    "mod-detail": true,
+    dashboard: true,
+    sidebar: true,
+    footer: true,
+    search: true,
+    creator: true,
+    category: true,
+  },
+  roleAdLevels: {
+    GUEST: "full",
+    USER: "full",
+    "premium-lite": "reduced",
+    premium: "none",
+    "premium-max": "none",
+    PREMIUM: "none",
+    CREATOR: "reduced",
+    PARTNER: "reduced",
+    MODERATOR: "none",
+    ADMIN: "none",
+    OWNER: "none",
+  },
   nitropayEnabled: false,
   ezoicEnabled: false,
   rolesWithoutAds: [
@@ -141,6 +178,11 @@ export function buildProviderScript(
       if (!id) return null;
       return `<script async src="//www.ezojs.com/ezoic/sa.min.js?id=${id}"></script>`;
     }
+    case "MICROSOFT": {
+      const trackingId = config.microsoftTrackingId as string | undefined;
+      if (!trackingId) return null;
+      return `(function(w,d,t,r,u){var f,n,i;w[u]=w[u]||[],f=function(){var o={ti:"${trackingId}", enableAutoSpaTracking: true};o.q=w[u],w[u]=new UET(o),w[u].push("pageLoad")},n=d.createElement(t),n.src=r,n.async=1,n.onload=n.onreadystatechange=function(){var s=this.readyState;s&&s!=="loaded"&&s!=="complete"||(f(),n.onload=n.onreadystatechange=null)},i=d.getElementsByTagName(t)[0],i.parentNode.insertBefore(n,i)})(window,document,"script","//bat.bing.com/bat.js","uetq");`;
+    }
     default:
       return null;
   }
@@ -174,7 +216,7 @@ export async function seedDefaultAdPlacements() {
 }
 
 export async function seedDefaultAdProviders() {
-  const types: AdProviderType[] = ["ADSENSE", "NITROPAY", "EZOIC", "CUSTOM", "AFFILIATE", "DIRECT"];
+  const types: AdProviderType[] = ["ADSENSE", "MICROSOFT", "NITROPAY", "EZOIC", "CUSTOM", "AFFILIATE", "DIRECT"];
   for (const type of types) {
     await prisma.adProviderConfig.upsert({
       where: { type },

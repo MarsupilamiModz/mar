@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db";
 import { fail, ok, requireActionPermission, requireActionUser } from "@/lib/action-utils";
 import {
   getMalwareScannerSettings,
+  getMalwareScannerSettingsRaw,
+  isVirusTotalEnvEnabled,
   saveMalwareScannerSettings,
   type MalwareScannerSettings,
 } from "@/lib/malware-settings";
@@ -18,10 +20,13 @@ export async function getMalwareSettingsAdmin() {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
   const settings = await getMalwareScannerSettings();
+  const raw = await getMalwareScannerSettingsRaw();
   return ok({
     ...settings,
-    virusTotalApiKey: settings.virusTotalApiKey ? "••••••••" : "",
-    hasKey: Boolean(settings.virusTotalApiKey),
+    virusTotalApiKey: raw.virusTotalApiKey ? "••••••••" : "",
+    hasKey: Boolean(raw.virusTotalApiKey || process.env.VIRUSTOTAL_API_KEY),
+    envEnabled: isVirusTotalEnvEnabled(),
+    envKeyConfigured: Boolean(process.env.VIRUSTOTAL_API_KEY),
   });
 }
 
@@ -31,7 +36,7 @@ export async function updateMalwareSettingsAdmin(
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
-  const current = await getMalwareScannerSettings();
+  const current = await getMalwareScannerSettingsRaw();
   const next: MalwareScannerSettings = {
     ...current,
     scanThreshold: data.scanThreshold ?? current.scanThreshold,

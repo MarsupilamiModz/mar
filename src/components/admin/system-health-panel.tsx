@@ -20,12 +20,24 @@ import type { PlatformAuditIssue } from "@/lib/platform-audit";
 
 type HealthCheck = { name: string; ok: boolean; detail?: string };
 
-type Tab = "health" | "errors" | "audit" | "translations";
+type Tab = "health" | "metrics" | "errors" | "audit" | "translations";
+
+export type PlatformMetrics = {
+  cpu: { usagePercent: number | null; detail: string };
+  memory: { heapUsedMb: number; rssMb: number };
+  database: { mods: number; sounds: number };
+  storage: { bytes: number; detail: string };
+  queues: { scan: number; upload: number; email: number };
+  ads: { impressions: number; clicks: number; ctr: number; rpm: number | null };
+  activeUsers: number;
+  virusTotal: { envEnabled: boolean; apiKeyConfigured: boolean };
+};
 
 export function SystemHealthPanel({
   locale,
   logs,
   health,
+  metrics = null,
   translationAudit = { referenceLocale: "en", totalReferenceKeys: 0, locales: [], summary: "" },
   platformAudit,
   lazyAudit = false,
@@ -33,6 +45,7 @@ export function SystemHealthPanel({
   locale: string;
   logs: PlatformErrorEntry[];
   health: HealthCheck[];
+  metrics?: PlatformMetrics | null;
   translationAudit?: TranslationAuditResult;
   platformAudit?: { issues: PlatformAuditIssue[]; scannedAt: string } | null;
   lazyAudit?: boolean;
@@ -55,6 +68,7 @@ export function SystemHealthPanel({
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "health", label: t("healthTab") },
+    { id: "metrics", label: t("metricsTab") },
     { id: "errors", label: t("errorsTab") },
     { id: "audit", label: t("auditTab") },
     { id: "translations", label: t("translationsTab") },
@@ -97,6 +111,58 @@ export function SystemHealthPanel({
                 )}
               </div>
             ))}
+          </div>
+        </Card>
+      )}
+
+      {tab === "metrics" && metrics && (
+        <Card className="glass p-6 dark-reader-lock">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-lg border border-border/40 p-4">
+              <p className="text-xs text-muted-foreground">{t("memoryUsage")}</p>
+              <p className="text-lg font-semibold">
+                {metrics.memory.heapUsedMb} MB heap · {metrics.memory.rssMb} MB RSS
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/40 p-4">
+              <p className="text-xs text-muted-foreground">{t("storageUsage")}</p>
+              <p className="text-lg font-semibold">{metrics.storage.detail}</p>
+            </div>
+            <div className="rounded-lg border border-border/40 p-4">
+              <p className="text-xs text-muted-foreground">{t("scanQueue")}</p>
+              <p className="text-lg font-semibold">{metrics.queues.scan} pending</p>
+            </div>
+            <div className="rounded-lg border border-border/40 p-4">
+              <p className="text-xs text-muted-foreground">{t("uploadQueue")}</p>
+              <p className="text-lg font-semibold">{metrics.queues.upload} in progress</p>
+            </div>
+            <div className="rounded-lg border border-border/40 p-4">
+              <p className="text-xs text-muted-foreground">{t("emailQueue")}</p>
+              <p className="text-lg font-semibold">{metrics.queues.email} pending</p>
+            </div>
+            <div className="rounded-lg border border-border/40 p-4">
+              <p className="text-xs text-muted-foreground">{t("activeUsers")}</p>
+              <p className="text-lg font-semibold">{metrics.activeUsers} downloads (1h)</p>
+            </div>
+            <div className="rounded-lg border border-border/40 p-4">
+              <p className="text-xs text-muted-foreground">{t("adRevenue")}</p>
+              <p className="text-lg font-semibold">
+                {metrics.ads.impressions.toLocaleString()} imp · {metrics.ads.ctr.toFixed(2)}% CTR
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/40 p-4">
+              <p className="text-xs text-muted-foreground">Catalog</p>
+              <p className="text-lg font-semibold">
+                {metrics.database.mods} mods · {metrics.database.sounds} sounds
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/40 p-4">
+              <p className="text-xs text-muted-foreground">VirusTotal</p>
+              <p className="text-lg font-semibold">
+                {metrics.virusTotal.envEnabled ? "Enabled" : "Disabled"} ·{" "}
+                {metrics.virusTotal.apiKeyConfigured ? "API key set" : "No env key"}
+              </p>
+            </div>
           </div>
         </Card>
       )}

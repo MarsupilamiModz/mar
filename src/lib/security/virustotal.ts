@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import type { FileScanStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { getMalwareScannerSettings } from "@/lib/malware-settings";
+import { getMalwareScannerSettingsRaw } from "@/lib/malware-settings";
 import { hashObjectFromR2, getObjectBufferFromR2 } from "@/lib/r2";
 import { VIRUSTOTAL_UPLOAD_MAX_BYTES } from "@/lib/upload-limits";
 import { consumeVtRequest } from "@/lib/security/quota";
@@ -171,7 +171,7 @@ async function getCachedScan(sha256: string): Promise<ScanResult | null> {
 async function scanByHash(
   apiKey: string,
   sha256: string,
-  settings: Awaited<ReturnType<typeof getMalwareScannerSettings>>
+  settings: Awaited<ReturnType<typeof getMalwareScannerSettingsRaw>>
 ): Promise<ScanResult | null> {
   const existing = await queryVirusTotalHash(apiKey, sha256);
   if (!existing) return null;
@@ -200,7 +200,7 @@ async function scanByHash(
 export async function scanFileBuffer(buffer: Buffer, fileName: string): Promise<ScanResult> {
   const sha256 = createHash("sha256").update(buffer).digest("hex");
   const md5 = createHash("md5").update(buffer).digest("hex");
-  const settings = await getMalwareScannerSettings();
+  const settings = await getMalwareScannerSettingsRaw();
 
   if (!settings.enabled) {
     return buildResult({
@@ -293,7 +293,7 @@ export async function scanStoredObject(input: {
   fileName: string;
   fileSize: number;
 }): Promise<ScanResult> {
-  const settings = await getMalwareScannerSettings();
+  const settings = await getMalwareScannerSettingsRaw();
   const { sha256, size } = await hashObjectFromR2(input.r2Key);
   const md5 = createHash("md5").update(sha256).digest("hex");
 

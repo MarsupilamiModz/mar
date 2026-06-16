@@ -343,6 +343,7 @@ enum AdFormat {
 
 enum AdProviderType {
   ADSENSE
+  MICROSOFT
   NITROPAY
   EZOIC
   CUSTOM

@@ -8,6 +8,8 @@ import {
   updateMod,
 } from "@/actions/mods";
 import { CreatorModVersionUpload } from "@/components/creator/creator-mod-version-upload";
+import { SoundPreviewUpload } from "@/components/creator/sound-preview-upload";
+import { SoundProfileEditor } from "@/components/creator/sound-profile-editor";
 import { ModMediaUploader } from "@/components/mods/mod-media-uploader";
 import { mapModMedia } from "@/lib/mod-media";
 import type { MediaSettings } from "@/lib/media-settings";
@@ -21,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAppToast } from "@/hooks/use-app-toast";
 import { formatCategoryOptions, type FlatCategory } from "@/lib/categories";
 import { formatRoleLabel } from "@/lib/role-display";
+import type { SoundAudioCategory, SoundPreviewType } from "@prisma/client";
 
 type Game = { id: string; name: string; categories: FlatCategory[] };
 type Author = { id: string; username: string; displayName: string | null; role: string };
@@ -39,6 +42,18 @@ type ModData = {
   status: string;
   visibility: string;
   isFeatured: boolean;
+  productType?: string;
+  soundProfile?: {
+    previewFileKey: string | null;
+    coverImageKey: string | null;
+    artist: string | null;
+    audioCategory: SoundAudioCategory;
+    durationSeconds: number | null;
+    bpm: number | null;
+    genre: string | null;
+    previewType: SoundPreviewType;
+    previewCustomSeconds: number | null;
+  } | null;
   tags: { name: string }[];
   media?: {
     id: string;
@@ -97,6 +112,7 @@ export function ModAdminPanel({
   }, [gameId, gameCategories, categoryId]);
 
   if (mod) {
+    const isSound = mod.productType === "SOUND";
     return (
       <div className="space-y-6 max-w-3xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -105,6 +121,7 @@ export function ModAdminPanel({
             <p className="text-sm text-muted-foreground mt-1">/{mod.slug}</p>
           </div>
           <div className="flex gap-2">
+            <Badge variant="outline">{isSound ? "SOUND" : "MOD"}</Badge>
             <Badge variant="outline">{mod.status}</Badge>
             {mod.isFeatured && <Badge variant="premium">{t("featured")}</Badge>}
           </div>
@@ -210,13 +227,26 @@ export function ModAdminPanel({
           </form>
         </Card>
 
+        {isSound && (
+          <>
+            <SoundProfileEditor modId={mod.id} profile={mod.soundProfile ?? null} />
+            <SoundPreviewUpload
+              modId={mod.id}
+              hasPreview={!!mod.soundProfile?.previewFileKey}
+              hasCover={!!mod.soundProfile?.coverImageKey}
+            />
+          </>
+        )}
+
         <CreatorModVersionUpload modId={mod.id} />
 
-        <ModMediaUploader
-          modId={mod.id}
-          media={mapModMedia(mod.media ?? [])}
-          settings={mediaSettings ?? { minScreenshots: 0, maxScreenshots: 15, allowedTypes: ["image/jpeg", "image/png", "image/webp"], maxFileSizeMb: 5, imageQuality: 0.85 }}
-        />
+        {!isSound && (
+          <ModMediaUploader
+            modId={mod.id}
+            media={mapModMedia(mod.media ?? [])}
+            settings={mediaSettings ?? { minScreenshots: 0, maxScreenshots: 15, allowedTypes: ["image/jpeg", "image/png", "image/webp"], maxFileSizeMb: 5, imageQuality: 0.85 }}
+          />
+        )}
       </div>
     );
   }

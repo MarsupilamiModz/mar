@@ -1,5 +1,5 @@
 import { requirePagePermission } from "@/lib/auth";
-import { getAdminSystemHealth, getAdminSystemLogs } from "@/actions/admin/system";
+import { getAdminSystemHealth, getAdminSystemLogs, getAdminPlatformMetrics } from "@/actions/admin/system";
 import { SystemHealthPanel } from "@/components/admin/system-health-panel";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/config";
@@ -9,13 +9,15 @@ export default async function AdminSystemPage({ params: { locale } }: { params: 
   await requirePagePermission("settings.write");
   const t = await getTranslations("admin.system");
 
-  const [logsResult, healthResult] = await Promise.all([
+  const [logsResult, healthResult, metricsResult] = await Promise.all([
     getAdminSystemLogs(),
     getAdminSystemHealth(),
+    getAdminPlatformMetrics(),
   ]);
 
   const logs = logsResult.success ? logsResult.data : [];
   const health = healthResult.success ? healthResult.data : [];
+  const metrics = metricsResult.success ? metricsResult.data : null;
 
   const loadError = !logsResult.success
     ? logsResult.error
@@ -36,7 +38,7 @@ export default async function AdminSystemPage({ params: { locale } }: { params: 
         </div>
       )}
 
-      <SystemHealthPanel locale={locale} logs={logs} health={health} lazyAudit />
+      <SystemHealthPanel locale={locale} logs={logs} health={health} metrics={metrics} lazyAudit />
     </div>
   );
 }

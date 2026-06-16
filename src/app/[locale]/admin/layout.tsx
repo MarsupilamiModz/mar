@@ -13,6 +13,7 @@ const linkDefs = [
   { href: "/users", labelKey: "users", permission: "users.read" as const },
   { href: "/tickets", labelKey: "tickets", permission: "tickets.read" as const },
   { href: "/mods", labelKey: "mods", permission: "mods.read" as const },
+  { href: "/media", labelKey: "mediaCenter", permission: "mods.read" as const },
   { href: "/games", labelKey: "games", permission: "games.write" as const },
   { href: "/analytics", labelKey: "analytics", permission: "analytics.read" as const },
   { href: "/subscriptions", labelKey: "subscriptions", permission: "subscriptions.read" as const },

@@ -16,7 +16,7 @@ import { fail, ok, requireActionUser, requireActionPermission } from "@/lib/acti
 import { hasPermission } from "@/lib/permissions";
 import { modCreateSchema } from "@/lib/validations";
 import { modFileKey, uploadToR2, copyObjectInR2, deleteFromR2, hashObjectFromR2 } from "@/lib/r2";
-import { getMalwareScannerSettings } from "@/lib/malware-settings";
+import { getMalwareScannerSettings, getMalwareScannerSettingsRaw } from "@/lib/malware-settings";
 import { enqueueScan, getCreatorScanPriority } from "@/lib/security/scan-queue";
 import { logSecurityEvent } from "@/lib/security/audit";
 import { createHash } from "crypto";
@@ -266,7 +266,7 @@ async function persistModVersion(input: {
   authorId?: string;
   userId?: string;
 }) {
-  const settings = await getMalwareScannerSettings();
+  const settings = await getMalwareScannerSettingsRaw();
   const initialStatus: FileScanStatus = settings.enabled ? "PENDING" : "CLEAN";
   const makePrimary = input.channel !== "ARCHIVED" && !settings.enabled;
 

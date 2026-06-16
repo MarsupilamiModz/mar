@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { getMalwareScannerSettings } from "@/lib/malware-settings";
+import { getMalwareScannerSettingsRaw } from "@/lib/malware-settings";
 import { isScannableFileName } from "@/lib/malware-settings";
 import { fileSizeBigInt } from "@/lib/file-size";
 import {
@@ -24,7 +24,7 @@ async function applyScanToVersion(
   fileSize: number,
   scanResult: Awaited<ReturnType<typeof scanStoredObject>>
 ) {
-  const settings = await getMalwareScannerSettings();
+  const settings = await getMalwareScannerSettingsRaw();
   const modStatusOverride = resolvePostScanModStatus(scanResult.status, settings.autoApproveClean);
   const makePrimary = scanResult.status === "CLEAN" || scanResult.status === "APPROVED";
 

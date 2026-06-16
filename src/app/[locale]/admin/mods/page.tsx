@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Music, Plus } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { getAdminMods } from "@/actions/mods";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +47,11 @@ export default async function AdminModsPage({
           <Button variant="neon" size="sm" asChild>
             <Link href={`/${locale}/admin/mods/new`}>
               <Plus className="h-4 w-4 mr-1" /> {t("uploadMod")}
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/${locale}/admin/mods/new-sound`}>
+              <Music className="h-4 w-4 mr-1" /> {t("uploadSound")}
             </Link>
           </Button>
         </div>

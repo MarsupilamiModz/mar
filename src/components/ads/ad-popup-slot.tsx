@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { getAdSettings, getPopupAds } from "@/lib/ads";
-import { userHasAdFree } from "@/lib/membership";
+import { getUserAdExperience, shouldRenderAds } from "@/lib/ad-experience";
 import { AdPopup } from "@/components/ads/ad-popup";
 
 export async function AdPopupSlot() {
@@ -8,10 +8,9 @@ export async function AdPopupSlot() {
   if (!settings.globalAdsEnabled || !settings.popupAdsEnabled) return null;
 
   const user = await getCurrentUser();
-  if (user) {
-    const adFree = await userHasAdFree(user.id, user.role);
-    if (adFree) return null;
-  }
+  const level = await getUserAdExperience(user?.id ?? null, user?.role ?? null);
+  if (!shouldRenderAds(level)) return null;
+  if (level === "reduced") return null;
 
   const ads = await getPopupAds();
   if (ads.length === 0) return null;
