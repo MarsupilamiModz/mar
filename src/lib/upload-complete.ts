@@ -12,6 +12,8 @@ import { invalidateBrandingCache } from "@/lib/branding-data";
 export type UploadPurpose =
   | "mod-version"
   | "mod-screenshot"
+  | "sound-preview"
+  | "sound-cover"
   | "creator-portfolio"
   | "creator-banner"
   | "creator-avatar"

@@ -1,0 +1,40 @@
+{
+  "sounds": {
+    "productType": "Product type",
+    "typeMod": "Mod",
+    "typeSound": "Sound",
+    "soundTitle": "Sound title",
+    "artist": "Artist / Creator",
+    "audioCategory": "Audio category",
+    "duration": "Duration (seconds)",
+    "bpm": "BPM",
+    "genre": "Genre",
+    "previewType": "Preview type",
+    "previewCustomSeconds": "Custom preview length (seconds)",
+    "createSound": "Publish sound",
+    "metadata": "Sound metadata",
+    "plays": "plays",
+    "loadingPreview": "Loading preview…",
+    "previewUnavailable": "Preview not available yet",
+    "filterAllTypes": "All products",
+    "allAudioCategories": "All audio categories",
+    "categories": {
+      "engineSounds": "Engine Sounds",
+      "weaponSounds": "Weapon Sounds",
+      "sirens": "Sirens",
+      "uiSounds": "UI Sounds",
+      "ambientSounds": "Ambient Sounds",
+      "radioPacks": "Radio Packs",
+      "voicePacks": "Voice Packs",
+      "effects": "Effects",
+      "musicPacks": "Music Packs",
+      "customAudio": "Custom Audio"
+    },
+    "preview": {
+      "fullPreview": "Full preview",
+      "preview30": "30 seconds",
+      "preview60": "60 seconds",
+      "previewCustom": "Custom length"
+    }
+  }
+}

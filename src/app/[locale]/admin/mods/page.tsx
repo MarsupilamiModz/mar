@@ -19,10 +19,13 @@ export default async function AdminModsPage({
   searchParams,
 }: {
   params: { locale: Locale };
-  searchParams: { page?: string };
+  searchParams: { page?: string; type?: string };
 }) {
   const t = await getTranslations("admin");
-  const result = await getAdminMods({ page: Number(searchParams.page) || 1 });
+  const result = await getAdminMods({
+    page: Number(searchParams.page) || 1,
+    productType: (searchParams.type as "MOD" | "SOUND" | "ALL") || undefined,
+  });
   const data = result.success ? result.data : { mods: [], total: 0, pages: 0, page: 1 };
 
   return (
@@ -34,17 +37,26 @@ export default async function AdminModsPage({
             {t("modTotal", { count: data.total })}
           </p>
         </div>
-        <Button variant="neon" size="sm" asChild>
-          <Link href={`/${locale}/admin/mods/new`}>
-            <Plus className="h-4 w-4 mr-1" /> {t("uploadMod")}
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant={searchParams.type === "MOD" ? "default" : "outline"} size="sm" asChild>
+            <Link href={`/${locale}/admin/mods?type=MOD`}>Mods</Link>
+          </Button>
+          <Button variant={searchParams.type === "SOUND" ? "default" : "outline"} size="sm" asChild>
+            <Link href={`/${locale}/admin/mods?type=SOUND`}>Sounds</Link>
+          </Button>
+          <Button variant="neon" size="sm" asChild>
+            <Link href={`/${locale}/admin/mods/new`}>
+              <Plus className="h-4 w-4 mr-1" /> {t("uploadMod")}
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="mt-8 glass rounded-xl border border-border/50 overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Type</TableHead>
               <TableHead>Mod</TableHead>
               <TableHead>Game</TableHead>
               <TableHead>Author</TableHead>
@@ -56,13 +68,16 @@ export default async function AdminModsPage({
           <TableBody>
             {data.mods.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                   {t("noMods")}
                 </TableCell>
               </TableRow>
             ) : (
               data.mods.map((m) => (
                 <TableRow key={m.id}>
+                  <TableCell>
+                    <Badge variant="outline">{m.productType ?? "MOD"}</Badge>
+                  </TableCell>
                   <TableCell>
                     <Link
                       href={`/${locale}/mods/${m.slug}`}

@@ -231,6 +231,7 @@ export function ModAdminPanel({
           const tags = parseTags(fd.get("tags"));
           startTransition(async () => {
             const r = await createMod({
+              productType: "MOD",
               title: safeFormString(fd, "title"),
               description: safeFormString(fd, "description"),
               shortDescription: safeFormOptional(fd, "shortDescription"),

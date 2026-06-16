@@ -32,6 +32,31 @@ enum ModPricing {
   PAID
 }
 
+enum ProductType {
+  MOD
+  SOUND
+}
+
+enum SoundAudioCategory {
+  ENGINE_SOUNDS
+  WEAPON_SOUNDS
+  SIRENS
+  UI_SOUNDS
+  AMBIENT_SOUNDS
+  RADIO_PACKS
+  VOICE_PACKS
+  EFFECTS
+  MUSIC_PACKS
+  CUSTOM_AUDIO
+}
+
+enum SoundPreviewType {
+  FULL
+  SECONDS_30
+  SECONDS_60
+  CUSTOM
+}
+
 enum ModStatus {
   DRAFT
   PENDING
@@ -683,6 +708,7 @@ model Mod {
   authorId        String
   author          User          @relation("ModAuthor", fields: [authorId], references: [id])
   visibility      ModVisibility @default(PUBLIC)
+  productType     ProductType   @default(MOD)
   pricing         ModPricing    @default(FREE)
   status          ModStatus     @default(DRAFT)
   priceCents      Int?
@@ -715,12 +741,15 @@ model Mod {
   exclusivePrograms ExclusiveProgram[]
 
   collections ModCollectionItem[]
+  soundProfile SoundProfile?
+  soundPlays   SoundPlay[]
 
   @@index([status, visibility, downloadCount])
   @@index([gameId, status])
   @@index([isFeatured, status])
   @@index([authorId])
   @@index([publishedAt])
+  @@index([productType, status])
 }
 
 model ModVersion {
@@ -754,6 +783,45 @@ model ModVersion {
   @@index([modId, isPrimary])
   @@index([scanStatus])
   @@index([scannedAt])
+}
+
+model SoundProfile {
+  id                   String             @id @default(cuid())
+  modId                String             @unique
+  mod                  Mod                @relation(fields: [modId], references: [id], onDelete: Cascade)
+  artist               String?
+  audioCategory        SoundAudioCategory @default(CUSTOM_AUDIO)
+  durationSeconds      Int?
+  bpm                  Int?
+  genre                String?
+  previewFileKey       String?
+  previewFileName      String?
+  previewFileSize      BigInt?
+  previewDurationSeconds Int?
+  previewType          SoundPreviewType   @default(FULL)
+  previewCustomSeconds Int?
+  waveformPeaks        Json?
+  coverImageKey        String?
+  playCount            Int                @default(0)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([audioCategory])
+  @@index([genre])
+  @@map("sound_profiles")
+}
+
+model SoundPlay {
+  id        String   @id @default(cuid())
+  modId     String
+  mod       Mod      @relation(fields: [modId], references: [id], onDelete: Cascade)
+  userId    String?
+  ipHash    String?
+  createdAt DateTime @default(now())
+
+  @@index([modId, createdAt])
+  @@index([userId])
+  @@map("sound_plays")
 }
 
 enum ModMediaType {

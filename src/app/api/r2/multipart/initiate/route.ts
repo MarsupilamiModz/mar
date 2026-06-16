@@ -13,10 +13,13 @@ import { storageKey } from "@/lib/storage";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 import { fileSizeBigInt } from "@/lib/file-size";
 import { getMediaSettings } from "@/lib/media-settings";
+import { isAudioFileName, MAX_PREVIEW_BYTES } from "@/lib/sound";
 
 const purposeSchema = z.enum([
   "mod-version",
   "mod-screenshot",
+  "sound-preview",
+  "sound-cover",
   "creator-portfolio",
   "creator-banner",
   "creator-avatar",
@@ -73,7 +76,7 @@ export async function POST(req: Request) {
   const { purpose, fileName, fileSize, contentType, modId, metadata } = parsed.data;
 
   try {
-    if (purpose === "mod-version" || purpose === "mod-screenshot") {
+    if (purpose === "mod-version" || purpose === "mod-screenshot" || purpose === "sound-preview" || purpose === "sound-cover") {
       if (!modId) return jsonError("modId required for mod uploads", 400, "VALIDATION");
       const mod = await prisma.mod.findUnique({ where: { id: modId } });
       if (!mod) return jsonError("Mod not found", 404, "VALIDATION");
@@ -86,6 +89,20 @@ export async function POST(req: Request) {
         if (count >= settings.maxScreenshots) {
           return jsonError(`Maximum ${settings.maxScreenshots} screenshots`, 400, "VALIDATION");
         }
+      }
+      if (purpose === "sound-preview") {
+        if (mod.productType !== "SOUND") {
+          return jsonError("Preview upload only for sound products", 400, "VALIDATION");
+        }
+        if (!isAudioFileName(fileName)) {
+          return jsonError("Invalid audio format for preview", 400, "VALIDATION");
+        }
+        if (fileSize > MAX_PREVIEW_BYTES) {
+          return jsonError("Preview audio exceeds size limit", 400, "VALIDATION");
+        }
+      }
+      if (purpose === "sound-cover" && mod.productType !== "SOUND") {
+        return jsonError("Cover upload only for sound products", 400, "VALIDATION");
       }
     }
 

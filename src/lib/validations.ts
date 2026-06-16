@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const modCreateSchema = z.object({
+  productType: z.enum(["MOD", "SOUND"]).default("MOD"),
   title: z.string().min(3).max(120),
   description: z.string().min(20).max(50000),
   shortDescription: z.string().max(300).optional(),
@@ -10,6 +11,30 @@ export const modCreateSchema = z.object({
   priceCents: z.number().int().min(0).optional(),
   tags: z.array(z.string().max(40)).max(20).optional(),
   supportedVersions: z.array(z.string()).optional(),
+  sound: z
+    .object({
+      artist: z.string().max(120).optional(),
+      audioCategory: z.enum([
+        "ENGINE_SOUNDS",
+        "WEAPON_SOUNDS",
+        "SIRENS",
+        "UI_SOUNDS",
+        "AMBIENT_SOUNDS",
+        "RADIO_PACKS",
+        "VOICE_PACKS",
+        "EFFECTS",
+        "MUSIC_PACKS",
+        "CUSTOM_AUDIO",
+      ]),
+      durationSeconds: z.number().int().min(0).max(86400).optional(),
+      bpm: z.number().int().min(0).max(999).optional(),
+      genre: z.string().max(80).optional(),
+      previewType: z
+        .enum(["FULL", "SECONDS_30", "SECONDS_60", "CUSTOM"])
+        .default("FULL"),
+      previewCustomSeconds: z.number().int().min(5).max(600).optional(),
+    })
+    .optional(),
 });
 
 export const reviewSchema = z.object({

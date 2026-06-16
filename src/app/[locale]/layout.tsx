@@ -10,6 +10,7 @@ import { AuthSync } from "@/components/auth/auth-sync";
 import { LocaleHtmlLang } from "@/components/layout/locale-html-lang";
 import { ScrollRestoration } from "@/components/layout/scroll-restoration";
 import { SnakeEasterEgg } from "@/components/easter-egg/snake-game";
+import { PlatformAudioShell } from "@/components/audio/platform-audio-shell";
 import { AdProviderScripts } from "@/components/ads/ad-provider-scripts";
 import { AdPopupSlot } from "@/components/ads/ad-popup-slot";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
@@ -64,7 +65,9 @@ export default async function LocaleLayout({
       <AuthSync />
       <div className="flex min-h-screen flex-col">
         <AsyncHeader locale={locale} />
-        <main className="flex-1">{children}</main>
+        <PlatformAudioShell>
+          <main className="flex-1">{children}</main>
+        </PlatformAudioShell>
         <AdLocationSlot location="footer" className="mx-auto max-w-7xl px-4 pb-4 sm:px-6" />
         <AsyncFooter locale={locale} />
       </div>

@@ -25,6 +25,18 @@ const modListSelect = {
       trustedFile: { select: { id: true } },
     },
   },
+  productType: true,
+  soundProfile: {
+    select: {
+      artist: true,
+      audioCategory: true,
+      genre: true,
+      playCount: true,
+      coverImageKey: true,
+      previewDurationSeconds: true,
+      durationSeconds: true,
+    },
+  },
 };
 
 const modListSelectWithMedia = {
@@ -87,6 +99,7 @@ const modDetailInclude = {
   screenshots: { orderBy: { sortOrder: "asc" as const } },
   videos: { orderBy: { sortOrder: "asc" as const } },
   tags: true,
+  soundProfile: true,
   versions: {
     orderBy: { createdAt: "desc" as const },
     include: { trustedFile: { select: { id: true } } },
@@ -243,6 +256,9 @@ export async function getMods(filters: {
   pricing?: string;
   search?: string;
   categorySlug?: string;
+  productType?: string;
+  audioCategory?: string;
+  genre?: string;
   page?: number;
   limit?: number;
 }) {
@@ -262,18 +278,28 @@ export async function getMods(filters: {
     }
   }
 
+  const soundProfileFilter = {
+    ...(filters.audioCategory && { audioCategory: filters.audioCategory as never }),
+    ...(filters.genre && { genre: { equals: filters.genre, mode: "insensitive" as const } }),
+  };
+
   const where = {
     status: "PUBLISHED" as const,
     visibility: "PUBLIC" as const,
+    ...(filters.productType && filters.productType !== "ALL" && {
+      productType: filters.productType as "MOD" | "SOUND",
+    }),
     ...(filters.pricing && { pricing: filters.pricing as "FREE" | "PREMIUM" | "PAID" }),
     ...(filters.search && {
       OR: [
         { title: { contains: filters.search, mode: "insensitive" as const } },
         { description: { contains: filters.search, mode: "insensitive" as const } },
+        { soundProfile: { artist: { contains: filters.search, mode: "insensitive" as const } } },
       ],
     }),
     ...(filters.gameSlug && { game: { slug: filters.gameSlug } }),
     ...(categoryFilter && { categoryId: { in: categoryFilter } }),
+    ...(Object.keys(soundProfileFilter).length > 0 && { soundProfile: soundProfileFilter }),
   };
 
   const [mods, total] = await Promise.all([

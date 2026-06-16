@@ -82,6 +82,7 @@ export async function createMod(input: z.infer<typeof modCreateSchema> & { autho
       gameId: parsed.data.gameId,
       categoryId: parsed.data.categoryId,
       authorId,
+      productType: parsed.data.productType,
       pricing: parsed.data.pricing as ModPricing,
       priceCents: parsed.data.priceCents,
       supportedVersions: parsed.data.supportedVersions ?? [],
@@ -90,6 +91,20 @@ export async function createMod(input: z.infer<typeof modCreateSchema> & { autho
       tags: parsed.data.tags
         ? { create: parsed.data.tags.map((name) => ({ name })) }
         : undefined,
+      soundProfile:
+        parsed.data.productType === "SOUND" && parsed.data.sound
+          ? {
+              create: {
+                artist: parsed.data.sound.artist,
+                audioCategory: parsed.data.sound.audioCategory,
+                durationSeconds: parsed.data.sound.durationSeconds,
+                bpm: parsed.data.sound.bpm,
+                genre: parsed.data.sound.genre,
+                previewType: parsed.data.sound.previewType,
+                previewCustomSeconds: parsed.data.sound.previewCustomSeconds,
+              },
+            }
+          : undefined,
     },
   });
 
@@ -680,6 +695,7 @@ export async function getAdminMods(params: {
   search?: string;
   status?: ModStatus;
   gameId?: string;
+  productType?: "MOD" | "SOUND" | "ALL";
 }) {
   const { error } = await requireActionPermission("mods.read");
   if (error) return error;
@@ -691,6 +707,7 @@ export async function getAdminMods(params: {
   const where = {
     ...(params.status && { status: params.status }),
     ...(params.gameId && { gameId: params.gameId }),
+    ...(params.productType && params.productType !== "ALL" && { productType: params.productType }),
     ...(params.search && {
       OR: [
         { title: { contains: params.search, mode: "insensitive" as const } },
@@ -708,6 +725,7 @@ export async function getAdminMods(params: {
       include: {
         game: { select: { name: true } },
         author: { select: { username: true } },
+        soundProfile: { select: { audioCategory: true, artist: true } },
         _count: { select: { versions: true, screenshots: true } },
       },
     }),
@@ -739,6 +757,7 @@ export async function getModForEdit(modId: string) {
         category: { select: { id: true, name: true } },
         author: { select: { id: true, username: true } },
         tags: true,
+        soundProfile: true,
         media: { orderBy: [{ isFeatured: "desc" }, { orderIndex: "asc" }] },
         screenshots: { orderBy: { sortOrder: "asc" } },
         videos: { orderBy: { sortOrder: "asc" } },
@@ -757,6 +776,7 @@ export async function getModForEdit(modId: string) {
         category: { select: { id: true, name: true } },
         author: { select: { id: true, username: true } },
         tags: true,
+        soundProfile: true,
         screenshots: { orderBy: { sortOrder: "asc" } },
         videos: { orderBy: { sortOrder: "asc" } },
         versions: { orderBy: { createdAt: "desc" } },

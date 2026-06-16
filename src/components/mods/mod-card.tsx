@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, Play, Star } from "lucide-react";
+import { Download, Play, Star, Music } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { SafeImage } from "@/components/ui/safe-image";
@@ -25,6 +25,11 @@ type ModCardProps = {
     game?: { name: string; slug: string };
     media?: ModMediaItem[];
     screenshots?: { url: string }[];
+    productType?: "MOD" | "SOUND";
+    soundProfile?: {
+      artist?: string | null;
+      playCount?: number;
+    } | null;
     versions?: Array<{
       scanStatus?: FileScanStatus;
       trustedFile?: { id: string } | null;
@@ -79,6 +84,11 @@ export function ModCard({ locale, mod, pricingLabel, isFavorited, showLike = tru
           >
             {label}
           </Badge>
+          {mod.productType === "SOUND" && (
+            <Badge className="absolute left-2.5 top-2.5 backdrop-blur-sm gap-1" variant="secondary">
+              <Music className="h-3 w-3" /> Sound
+            </Badge>
+          )}
           {showLike && mod.id && (
             <ModCardLikeButton modId={mod.id} initialFavorited={isFavorited} />
           )}

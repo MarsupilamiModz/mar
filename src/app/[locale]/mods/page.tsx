@@ -19,7 +19,15 @@ async function CatalogContent({
   searchParams,
 }: {
   locale: Locale;
-  searchParams: { q?: string; game?: string; pricing?: string; page?: string };
+  searchParams: {
+    q?: string;
+    game?: string;
+    pricing?: string;
+    page?: string;
+    type?: string;
+    audioCategory?: string;
+    genre?: string;
+  };
 }) {
   const page = Number(searchParams.page) || 1;
   const [{ mods, total, pages }, games] = await Promise.all([
@@ -27,6 +35,9 @@ async function CatalogContent({
       search: searchParams.q,
       gameSlug: searchParams.game,
       pricing: searchParams.pricing,
+      productType: searchParams.type,
+      audioCategory: searchParams.audioCategory,
+      genre: searchParams.genre,
       page,
     }),
     getAllGames(),
@@ -42,6 +53,9 @@ async function CatalogContent({
       initialQuery={searchParams.q}
       initialGame={searchParams.game}
       initialPricing={searchParams.pricing}
+      initialType={searchParams.type}
+      initialAudioCategory={searchParams.audioCategory}
+      initialGenre={searchParams.genre}
       initialPage={page}
       listingAdBreak={<AdLocationSlot location="listing" className="col-span-full my-2" />}
     />
@@ -53,7 +67,15 @@ export default async function ModsPage({
   searchParams,
 }: {
   params: { locale: Locale };
-  searchParams: { q?: string; game?: string; pricing?: string; page?: string };
+  searchParams: {
+    q?: string;
+    game?: string;
+    pricing?: string;
+    page?: string;
+    type?: string;
+    audioCategory?: string;
+    genre?: string;
+  };
 }) {
   setRequestLocale(locale);
   const t = await getTranslations("mods");

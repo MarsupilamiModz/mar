@@ -7,6 +7,8 @@ import { logUploadDiagnostic, MAX_UPLOAD_BYTES, MULTIPART_PART_SIZE } from "@/li
 export type MultipartPurpose =
   | "mod-version"
   | "mod-screenshot"
+  | "sound-preview"
+  | "sound-cover"
   | "creator-portfolio"
   | "creator-banner"
   | "creator-avatar"

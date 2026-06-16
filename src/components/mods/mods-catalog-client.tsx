@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { ModCard } from "@/components/mods/mod-card";
 import { formatNumber } from "@/lib/format-locale";
+import { SOUND_CATEGORIES } from "@/lib/sound";
 
 type Game = { id: string; slug: string; name: string };
 type Mod = Parameters<typeof ModCard>[0]["mod"];
@@ -20,6 +21,9 @@ export function ModsCatalogClient({
   initialQuery,
   initialGame,
   initialPricing,
+  initialType,
+  initialAudioCategory,
+  initialGenre,
   initialPage,
   listingAdBreak,
 }: {
@@ -31,30 +35,41 @@ export function ModsCatalogClient({
   initialQuery?: string;
   initialGame?: string;
   initialPricing?: string;
+  initialType?: string;
+  initialAudioCategory?: string;
+  initialGenre?: string;
   initialPage: number;
   listingAdBreak?: React.ReactNode;
 }) {
   const t = useTranslations("mods");
+  const ts = useTranslations("sounds");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [q, setQ] = useState(initialQuery ?? "");
   const [pending, startTransition] = useTransition();
 
   const pushFilters = useCallback(
-    (next: { q?: string; game?: string; pricing?: string; page?: number }) => {
+    (next: {
+      q?: string;
+      game?: string;
+      pricing?: string;
+      type?: string;
+      audioCategory?: string;
+      genre?: string;
+      page?: number;
+    }) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (next.q !== undefined) {
-        if (next.q) params.set("q", next.q);
-        else params.delete("q");
-      }
-      if (next.game !== undefined) {
-        if (next.game) params.set("game", next.game);
-        else params.delete("game");
-      }
-      if (next.pricing !== undefined) {
-        if (next.pricing) params.set("pricing", next.pricing);
-        else params.delete("pricing");
-      }
+      const setOrDelete = (key: string, val?: string) => {
+        if (val === undefined) return;
+        if (val) params.set(key, val);
+        else params.delete(key);
+      };
+      setOrDelete("q", next.q);
+      setOrDelete("game", next.game);
+      setOrDelete("pricing", next.pricing);
+      setOrDelete("type", next.type);
+      setOrDelete("audioCategory", next.audioCategory);
+      setOrDelete("genre", next.genre);
       if (next.page !== undefined) {
         if (next.page > 1) params.set("page", String(next.page));
         else params.delete("page");
@@ -79,6 +94,8 @@ export function ModsCatalogClient({
     PAID: t("paid"),
   };
 
+  const showAudioFilters = initialType === "SOUND" || !initialType;
+
   return (
     <>
       <p className="mt-2 text-muted-foreground">
@@ -92,6 +109,15 @@ export function ModsCatalogClient({
           placeholder={t("search")}
           className="max-w-md"
         />
+        <select
+          defaultValue={initialType ?? ""}
+          onChange={(e) => pushFilters({ type: e.target.value, page: 1 })}
+          className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm"
+        >
+          <option value="">{ts("filterAllTypes")}</option>
+          <option value="MOD">{ts("typeMod")}</option>
+          <option value="SOUND">{ts("typeSound")}</option>
+        </select>
         <select
           defaultValue={initialGame}
           onChange={(e) => pushFilters({ game: e.target.value, page: 1 })}
@@ -114,6 +140,28 @@ export function ModsCatalogClient({
           <option value="PREMIUM">{t("premium")}</option>
           <option value="PAID">{t("paid")}</option>
         </select>
+        {(initialType === "SOUND" || showAudioFilters) && (
+          <>
+            <select
+              defaultValue={initialAudioCategory ?? ""}
+              onChange={(e) => pushFilters({ audioCategory: e.target.value, type: "SOUND", page: 1 })}
+              className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm"
+            >
+              <option value="">{ts("allAudioCategories")}</option>
+              {SOUND_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {ts(`categories.${c.labelKey}`)}
+                </option>
+              ))}
+            </select>
+            <Input
+              defaultValue={initialGenre ?? ""}
+              placeholder={ts("genre")}
+              className="max-w-[140px]"
+              onBlur={(e) => pushFilters({ genre: e.target.value, page: 1 })}
+            />
+          </>
+        )}
       </div>
 
       <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

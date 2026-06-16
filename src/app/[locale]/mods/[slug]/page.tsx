@@ -30,6 +30,7 @@ import { getInlineBadgesForUsers } from "@/lib/user-badges";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import { ModPurchaseButton } from "@/components/mods/mod-purchase-button";
 import { ModSecurityPanel } from "@/components/security/mod-security-panel";
+import { SoundProductPlayer } from "@/components/sounds/sound-product-player";
 import { formatCreditsFromCents } from "@/lib/credits";
 import type { Locale } from "@/i18n/config";
 import { serializeModVersions } from "@/lib/file-size";
@@ -112,20 +113,42 @@ export default async function ModDetailPage({
   const securityStatus = primaryVersion?.scanStatus ?? "PENDING";
   const securityScannedAt = primaryVersion?.scannedAt;
   const isTrustedFile = !!(primaryVersion as { trustedFile?: { id: string } | null })?.trustedFile;
+  const isSound = mod.productType === "SOUND";
+  const soundProfile = mod.soundProfile;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
       <AdLocationSlot location="mod-detail" className="mb-6" />
       <div className="grid gap-8 lg:grid-cols-5">
         <div className="lg:col-span-3 space-y-8">
-          <ModDetailMedia
-            title={localized.title}
-            media={media}
-            featuredUrl={heroIsVideo ? featuredUrl : heroImageUrl}
-            featuredIsVideo={heroIsVideo}
-            featuredVideoId={heroVideoId}
-            excludeVideoId={heroIsVideo ? heroVideoId : null}
-          />
+          {isSound && soundProfile ? (
+            <SoundProductPlayer
+              modId={mod.id}
+              slug={mod.slug}
+              title={localized.title}
+              sound={{
+                artist: soundProfile.artist,
+                audioCategory: soundProfile.audioCategory,
+                genre: soundProfile.genre,
+                durationSeconds: soundProfile.durationSeconds,
+                previewDurationSeconds: soundProfile.previewDurationSeconds,
+                previewType: soundProfile.previewType,
+                previewCustomSeconds: soundProfile.previewCustomSeconds,
+                coverImageKey: soundProfile.coverImageKey,
+                waveformPeaks: (soundProfile.waveformPeaks as number[] | null) ?? null,
+                playCount: soundProfile.playCount,
+              }}
+            />
+          ) : (
+            <ModDetailMedia
+              title={localized.title}
+              media={media}
+              featuredUrl={heroIsVideo ? featuredUrl : heroImageUrl}
+              featuredIsVideo={heroIsVideo}
+              featuredVideoId={heroVideoId}
+              excludeVideoId={heroIsVideo ? heroVideoId : null}
+            />
+          )}
 
           <div className="glass rounded-xl border border-border/50 p-6">
             <div className="flex flex-wrap gap-2 mb-3">
@@ -144,12 +167,14 @@ export default async function ModDetailPage({
 
           <ModVersionsPanel modId={mod.id} versions={serializeModVersions(mod.versions)} />
 
-          <ModDependenciesPanel
-            locale={locale}
-            required={depCheck.required}
-            optional={depCheck.optional}
-            missing={depCheck.missing}
-          />
+          {!isSound && (
+            <ModDependenciesPanel
+              locale={locale}
+              required={depCheck.required}
+              optional={depCheck.optional}
+              missing={depCheck.missing}
+            />
+          )}
 
           <Card className="glass">
             <CardHeader><CardTitle>{t("reviews")}</CardTitle></CardHeader>
