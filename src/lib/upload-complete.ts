@@ -52,7 +52,7 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
         data: {
           modId: session.modId,
           mediaType: "IMAGE",
-          imageUrl: publicUrl,
+          imageUrl: session.fileKey,
           orderIndex,
           isFeatured: hasFeatured === 0,
         },
@@ -74,9 +74,8 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
     }
     case "user-avatar":
     case "creator-avatar":
-    case "partner-avatar":
-    case "designer-avatar": {
-      await prisma.user.update({ where: { id: userId }, data: { avatarUrl: publicUrl } });
+    case "partner-avatar": {
+      await prisma.user.update({ where: { id: userId }, data: { avatarUrl: session.fileKey } });
       break;
     }
     case "creator-banner": {
@@ -100,10 +99,18 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
       }
       break;
     }
+    case "designer-avatar":
     case "designer-banner": {
       const profile = await prisma.designerProfile.findUnique({ where: { userId } });
       if (profile) {
-        await prisma.designerProfile.update({ where: { id: profile.id }, data: { bannerUrl: publicUrl } });
+        if (session.purpose === "designer-banner") {
+          await prisma.designerProfile.update({ where: { id: profile.id }, data: { bannerUrl: publicUrl } });
+        } else {
+          await prisma.designerProfile.update({ where: { id: profile.id }, data: { avatarUrl: session.fileKey } });
+          await prisma.user.update({ where: { id: userId }, data: { avatarUrl: session.fileKey } });
+        }
+      } else if (session.purpose === "designer-avatar") {
+        await prisma.user.update({ where: { id: userId }, data: { avatarUrl: session.fileKey } });
       }
       break;
     }

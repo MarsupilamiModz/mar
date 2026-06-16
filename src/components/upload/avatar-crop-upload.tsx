@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
-import { Loader2, ZoomIn } from "lucide-react";
+import { Loader2, RotateCw, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,6 +36,7 @@ export function AvatarCropUpload({
   const [croppedArea, setCroppedArea] = useState<Area | null>(null);
   const [saving, setSaving] = useState(false);
   const [fileName, setFileName] = useState("avatar.jpg");
+  const [rotation, setRotation] = useState(0);
 
   const onCropComplete = useCallback((_: Area, pixels: Area) => {
     setCroppedArea(pixels);
@@ -49,6 +50,7 @@ export function AvatarCropUpload({
       setImageSrc(reader.result as string);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
+      setRotation(0);
       setOpen(true);
     };
     reader.readAsDataURL(file);
@@ -58,7 +60,7 @@ export function AvatarCropUpload({
     if (!imageSrc || !croppedArea) return;
     setSaving(true);
     try {
-      const blob = await getCroppedImageBlob(imageSrc, croppedArea, 512, "image/jpeg");
+      const blob = await getCroppedImageBlob(imageSrc, croppedArea, 512, "image/jpeg", rotation);
       const file = new File([blob], fileName, { type: "image/jpeg" });
       await onCropped(file);
       setOpen(false);
@@ -98,11 +100,13 @@ export function AvatarCropUpload({
                 image={imageSrc}
                 crop={crop}
                 zoom={zoom}
+                rotation={rotation}
                 aspect={aspect}
-                cropShape="rect"
+                cropShape="round"
                 showGrid={false}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
+                onRotationChange={setRotation}
                 onCropComplete={onCropComplete}
               />
             )}
@@ -116,6 +120,26 @@ export function AvatarCropUpload({
               step={0.05}
               value={zoom}
               onChange={(e) => setZoom(Number(e.target.value))}
+              className="w-full accent-[#a855f7]"
+            />
+          </div>
+          <div className="flex items-center gap-3 px-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setRotation((r) => (r + 90) % 360)}
+            >
+              <RotateCw className="h-4 w-4 mr-1" />
+              Rotate
+            </Button>
+            <input
+              type="range"
+              min={0}
+              max={360}
+              step={1}
+              value={rotation}
+              onChange={(e) => setRotation(Number(e.target.value))}
               className="w-full accent-[#a855f7]"
             />
           </div>

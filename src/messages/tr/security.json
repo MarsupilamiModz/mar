@@ -1,0 +1,32 @@
+{
+  "security": {
+    "badges": {
+      "verifiedClean": "Doğrulandı — temiz",
+      "manuallyApproved": "Manuel onaylandı",
+      "manualReview": "Manuel inceleme",
+      "malwareDetected": "Zararlı yazılım tespit edildi",
+      "pendingScan": "Tarama bekleniyor",
+      "scanning": "Taranıyor",
+      "suspicious": "Şüpheli",
+      "rejected": "Reddedildi",
+      "securityChecked": "Güvenlik kontrol edildi",
+      "approved": "Onaylandı",
+      "verifiedSafeDownload": "Doğrulanmış güvenli indirme",
+      "virusTotalPassed": "VirusTotal taraması geçti",
+      "manuallyVerified": "Manuel doğrulandı",
+      "safeDownload": "Güvenli indirme",
+      "secureStorage": "Güvenli depolama",
+      "trustedByTeam": "XUMARI MODZ Güvenlik Ekibi tarafından onaylandı"
+    },
+    "panel": {
+      "title": "Güvenlik doğrulaması",
+      "virusTotalPassed": "✓ VirusTotal taraması geçti",
+      "manuallyVerified": "✓ Manuel doğrulandı",
+      "safeDownload": "✓ Güvenli indirme",
+      "secureStorage": "✓ Güvenli depolama",
+      "trustedByTeam": "✓ XUMARI MODZ Güvenlik Ekibi tarafından onaylandı",
+      "lastScan": "Son tarama",
+      "securityLevel": "Güvenlik seviyesi"
+    }
+  }
+}

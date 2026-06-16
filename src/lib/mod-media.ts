@@ -49,7 +49,11 @@ export function getGalleryImages(media: ModMediaItem[]) {
   return media
     .filter((m) => m.mediaType === "IMAGE" && m.imageUrl)
     .sort((a, b) => a.orderIndex - b.orderIndex)
-    .map((m) => ({ id: m.id, url: resolveAssetUrl(m.imageUrl!)! }));
+    .map((m) => {
+      const url = resolveAssetUrl(m.imageUrl!);
+      return url ? { id: m.id, url } : null;
+    })
+    .filter((item): item is { id: string; url: string } => item !== null);
 }
 
 export function getYouTubeVideos(media: ModMediaItem[]) {
@@ -90,7 +94,7 @@ export async function ensureModMediaSynced(modId: string) {
       items.push({
         modId,
         mediaType: "IMAGE",
-        imageUrl: resolveAssetUrl(s.url) ?? s.url,
+        imageUrl: s.url,
         orderIndex: i,
         isFeatured: i === 0,
       });

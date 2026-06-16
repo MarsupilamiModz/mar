@@ -1,0 +1,32 @@
+{
+  "security": {
+    "badges": {
+      "verifiedClean": "Verified Clean",
+      "manuallyApproved": "Manually Approved",
+      "manualReview": "Manual Review",
+      "malwareDetected": "Malware Detected",
+      "pendingScan": "Pending Scan",
+      "scanning": "Scanning",
+      "suspicious": "Suspicious",
+      "rejected": "Rejected",
+      "securityChecked": "Security Checked",
+      "approved": "Approved",
+      "verifiedSafeDownload": "Verified Safe Download",
+      "virusTotalPassed": "VirusTotal Scan Passed",
+      "manuallyVerified": "Manually Verified",
+      "safeDownload": "Safe Download",
+      "secureStorage": "Secure Storage",
+      "trustedByTeam": "Approved by XUMARI MODZ Security Team"
+    },
+    "panel": {
+      "title": "Security Verification",
+      "virusTotalPassed": "✓ VirusTotal Scan Passed",
+      "manuallyVerified": "✓ Manually Verified",
+      "safeDownload": "✓ Safe Download",
+      "secureStorage": "✓ Secure Storage",
+      "trustedByTeam": "✓ Approved by XUMARI MODZ Security Team",
+      "lastScan": "Last Scan",
+      "securityLevel": "Security Level"
+    }
+  }
+}

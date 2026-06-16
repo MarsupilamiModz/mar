@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireStaff } from "@/lib/auth";
-import { userHasPermission } from "@/lib/permission-store";
+import { userHasPermission, getEffectivePermissions } from "@/lib/permission-store";
+import { permissionSetIncludes } from "@/lib/permission-types";
 import { formatDisplayName } from "@/lib/display-name";
 import type { PermissionKey } from "@/lib/permissions";
 
@@ -44,17 +45,8 @@ const linkDefs = [
 ] as const;
 
 async function filterLinks(user: { id: string; role: Parameters<typeof userHasPermission>[0]["role"]; permissionGroupId?: string | null }) {
-  const links: typeof linkDefs[number][] = [];
-  for (const link of linkDefs) {
-    try {
-      if (await userHasPermission(user, link.permission as PermissionKey)) {
-        links.push(link);
-      }
-    } catch {
-      /* skip */
-    }
-  }
-  return links;
+  const effective = await getEffectivePermissions(user);
+  return linkDefs.filter((link) => permissionSetIncludes(effective, link.permission as PermissionKey));
 }
 
 export default async function AdminLayout({

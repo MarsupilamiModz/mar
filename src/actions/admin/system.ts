@@ -76,14 +76,19 @@ export async function getAdminSystemHealth() {
   }
 
   try {
-    const { isStorageConfigured } = await import("@/lib/asset-storage");
+    const { getR2ConfigStatus } = await import("@/lib/r2-config");
+    const r2 = getR2ConfigStatus();
     checks.push({
-      name: "File storage (R2)",
-      ok: isStorageConfigured(),
-      detail: isStorageConfigured() ? "Configured" : "Missing credentials",
+      name: "Uploads (R2 multipart)",
+      ok: r2.configured,
+      detail: r2.configured
+        ? r2.publicUrl
+          ? `Configured · CDN ${r2.publicUrl}`
+          : "Configured · set NEXT_PUBLIC_R2_PUBLIC_URL for direct CDN delivery"
+        : `Missing: ${r2.missing.join(", ")}`,
     });
   } catch {
-    checks.push({ name: "File storage (R2)", ok: false, detail: "Check failed" });
+    checks.push({ name: "Uploads (R2 multipart)", ok: false, detail: "Check failed" });
   }
 
   checks.push({

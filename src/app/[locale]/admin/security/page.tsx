@@ -27,7 +27,29 @@ export default async function AdminSecurityPage({ params: { locale } }: { params
 
   const stats = statsResult.success
     ? statsResult.data
-    : { total: 0, clean: 0, suspicious: 0, malware: 0, blocked: 0, recent: [] };
+    : {
+        total: 0,
+        clean: 0,
+        suspicious: 0,
+        malware: 0,
+        blocked: 0,
+        pendingReviews: 0,
+        approved: 0,
+        rejected: 0,
+        failedScans: 0,
+        scannedToday: 0,
+        quota: {
+          requestsUsed: 0,
+          uploadsUsed: 0,
+          requestsLimit: 500,
+          uploadsLimit: 100,
+          requestsRemaining: 500,
+          uploadsRemaining: 100,
+        },
+        recent: [],
+        pendingApprovals: [],
+        auditRecent: [],
+      };
 
   return (
     <div className="space-y-6">

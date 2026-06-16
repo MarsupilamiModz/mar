@@ -64,7 +64,13 @@ export function CreatorModVersionManager({ versions }: { modId?: string; version
               {v.isPrimary && <Badge>Latest</Badge>}
               {v.channel === "BETA" && <Badge variant="outline">Beta</Badge>}
               {v.isArchived && <Badge variant="outline">Archived</Badge>}
-              <Badge variant={v.scanStatus === "CLEAN" ? "default" : "destructive"}>{v.scanStatus}</Badge>
+              <Badge
+                variant={
+                  v.scanStatus === "CLEAN" || v.scanStatus === "APPROVED" ? "default" : "destructive"
+                }
+              >
+                {v.scanStatus}
+              </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {formatDistanceToNow(new Date(v.createdAt), { addSuffix: true })}

@@ -8,6 +8,8 @@ import { evaluateUserAchievements } from "@/lib/achievements";
 import { rateLimit } from "@/lib/rate-limit";
 import { checkMissingDependencies } from "@/lib/mod-dependencies";
 import { createHash } from "crypto";
+import { isDownloadAllowed } from "@/lib/security/status";
+import { logSecurityEvent } from "@/lib/security/audit";
 
 export async function POST(
   req: Request,
@@ -38,8 +40,7 @@ export async function POST(
   }
 
   const version = mod.versions[0];
-  const blockedScanStatuses = ["MALWARE", "SUSPICIOUS", "MANUAL_REVIEW", "FAILED", "PENDING"];
-  if (blockedScanStatuses.includes(version.scanStatus)) {
+  if (!isDownloadAllowed(version.scanStatus)) {
     return NextResponse.json({ error: "File pending security review" }, { status: 403 });
   }
 
@@ -95,6 +96,15 @@ export async function POST(
       ipHash,
       userAgent: req.headers.get("user-agent")?.slice(0, 200),
     },
+  });
+
+  void logSecurityEvent({
+    action: "DOWNLOAD",
+    modId: mod.id,
+    modVersionId: version.id,
+    userId: user?.id,
+    ipHash,
+    userAgent: req.headers.get("user-agent")?.slice(0, 200) ?? undefined,
   });
 
   await prisma.$transaction([

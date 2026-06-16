@@ -57,12 +57,14 @@ async function seedRolePermissionsIfEmpty() {
 const loadRolePermissionMap = unstable_cache(
   async (): Promise<Record<UserRole, PermissionKey[]>> => {
     try {
-      await ensurePermissionCatalog();
-      await seedRolePermissionsIfEmpty();
-
       const rows = await prisma.rolePermission.findMany({
         include: { permission: { select: { key: true } } },
       });
+
+      if (rows.length === 0) {
+        await seedRolePermissionsIfEmpty();
+        return DEFAULT_ROLE_PERMISSIONS;
+      }
 
       const dbByRole = new Map<UserRole, PermissionKey[]>();
       for (const row of rows) {
@@ -84,8 +86,8 @@ const loadRolePermissionMap = unstable_cache(
       return DEFAULT_ROLE_PERMISSIONS;
     }
   },
-  ["role-permission-map-v2"],
-  { tags: [PERMISSION_CACHE_TAG], revalidate: 30 }
+  ["role-permission-map-v3"],
+  { tags: [PERMISSION_CACHE_TAG], revalidate: 60 }
 );
 
 const loadGroupPermissionMap = unstable_cache(

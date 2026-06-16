@@ -26,14 +26,16 @@ export function SystemHealthPanel({
   locale,
   logs,
   health,
-  translationAudit,
+  translationAudit = { referenceLocale: "en", totalReferenceKeys: 0, locales: [], summary: "" },
   platformAudit,
+  lazyAudit = false,
 }: {
   locale: string;
   logs: PlatformErrorEntry[];
   health: HealthCheck[];
-  translationAudit: TranslationAuditResult;
+  translationAudit?: TranslationAuditResult;
   platformAudit?: { issues: PlatformAuditIssue[]; scannedAt: string } | null;
+  lazyAudit?: boolean;
 }) {
   const t = useTranslations("admin.system");
   const appToast = useAppToast();
@@ -174,6 +176,9 @@ export function SystemHealthPanel({
 
       {tab === "audit" && (
         <Card className="glass p-6 space-y-4">
+          {!auditResult && (
+            <p className="text-sm text-muted-foreground">Run a platform audit to check uploads, Stripe, and configuration.</p>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <Button
               variant="neon"

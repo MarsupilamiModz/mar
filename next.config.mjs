@@ -8,6 +8,7 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co" },
       { protocol: "https", hostname: "**.r2.cloudflarestorage.com" },
+      { protocol: "https", hostname: "**.r2.dev" },
       { protocol: "https", hostname: "**.xumari-modz.com" },
       { protocol: "https", hostname: "**.xumarimodz.com" },
       { protocol: "https", hostname: "**.marsupilami-modz.com" },

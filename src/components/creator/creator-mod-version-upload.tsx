@@ -75,11 +75,9 @@ export function CreatorModVersionUpload({ modId }: { modId: string }) {
               if (r.success) {
                 logUploadDiagnostic("upload_finalize_ok", { modId, sessionId: sid, version });
                 const msg =
-                  r.data && "message" in r.data
+                  r.data && "message" in r.data && r.data.message
                     ? String(r.data.message)
-                    : r.data && "scanStatus" in r.data && r.data.scanStatus !== "CLEAN"
-                      ? `Uploaded — ${r.data.scanStatus}`
-                      : "Version uploaded";
+                    : "Version uploaded";
                 toast({ title: msg });
                 formRef.current?.reset();
                 setSelectedFile(null);

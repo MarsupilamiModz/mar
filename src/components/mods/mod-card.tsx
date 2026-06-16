@@ -5,6 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SafeImage } from "@/components/ui/safe-image";
 import { getFeaturedMediaUrl, type ModMediaItem } from "@/lib/mod-media";
 import { formatNumber } from "@/lib/format-locale";
+import { SecurityBadge } from "@/components/security/security-badge";
+import { isSecurityVerified } from "@/lib/security/status";
+import type { FileScanStatus } from "@prisma/client";
 
 import { ModCardLikeButton } from "@/components/mods/mod-card-like-button";
 
@@ -22,6 +25,13 @@ type ModCardProps = {
     game?: { name: string; slug: string };
     media?: ModMediaItem[];
     screenshots?: { url: string }[];
+    versions?: Array<{
+      scanStatus?: FileScanStatus;
+      trustedFile?: { id: string } | null;
+      fileSize?: bigint | number;
+      version?: string;
+      gameVersion?: string | null;
+    }>;
   };
   pricingLabel?: string;
   isFavorited?: boolean;
@@ -36,6 +46,10 @@ export function ModCard({ locale, mod, pricingLabel, isFavorited, showLike = tru
   );
   const hasVideo = media.some((m) => m.mediaType === "YOUTUBE" && m.youtubeVideoId);
   const label = pricingLabel ?? mod.pricing;
+  const primaryVersion = mod.versions?.[0];
+  const scanStatus = primaryVersion?.scanStatus;
+  const showSecurityBadge =
+    scanStatus && isSecurityVerified(scanStatus, !!primaryVersion?.trustedFile);
 
   return (
     <Link href={`/${locale}/mods/${mod.slug}`} prefetch className="group block h-full">
@@ -80,6 +94,13 @@ export function ModCard({ locale, mod, pricingLabel, isFavorited, showLike = tru
             <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
               {mod.shortDescription}
             </p>
+          )}
+          {showSecurityBadge && scanStatus && (
+            <SecurityBadge
+              scanStatus={scanStatus}
+              isTrusted={!!primaryVersion?.trustedFile}
+              compact
+            />
           )}
           <div className="mt-auto flex items-center gap-4 pt-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">

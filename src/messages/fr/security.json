@@ -1,0 +1,32 @@
+{
+  "security": {
+    "badges": {
+      "verifiedClean": "Vérifié propre",
+      "manuallyApproved": "Approuvé manuellement",
+      "manualReview": "Révision manuelle",
+      "malwareDetected": "Malware détecté",
+      "pendingScan": "Analyse en attente",
+      "scanning": "Analyse en cours",
+      "suspicious": "Suspect",
+      "rejected": "Rejeté",
+      "securityChecked": "Sécurité vérifiée",
+      "approved": "Approuvé",
+      "verifiedSafeDownload": "Téléchargement sûr vérifié",
+      "virusTotalPassed": "Analyse VirusTotal réussie",
+      "manuallyVerified": "Vérifié manuellement",
+      "safeDownload": "Téléchargement sûr",
+      "secureStorage": "Stockage sécurisé",
+      "trustedByTeam": "Approuvé par l'équipe sécurité XUMARI MODZ"
+    },
+    "panel": {
+      "title": "Vérification de sécurité",
+      "virusTotalPassed": "✓ Analyse VirusTotal réussie",
+      "manuallyVerified": "✓ Vérifié manuellement",
+      "safeDownload": "✓ Téléchargement sûr",
+      "secureStorage": "✓ Stockage sécurisé",
+      "trustedByTeam": "✓ Approuvé par l'équipe sécurité XUMARI MODZ",
+      "lastScan": "Dernière analyse",
+      "securityLevel": "Niveau de sécurité"
+    }
+  }
+}

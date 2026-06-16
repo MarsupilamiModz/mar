@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { AvatarCropUpload } from "@/components/upload/avatar-crop-upload";
 import { uploadViaApi } from "@/lib/upload-client";
 import { formatDisplayName } from "@/lib/display-name";
@@ -37,10 +37,7 @@ export function SettingsForm({ locale, user }: { locale: string; user: User }) {
         <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={user.avatarUrl ?? undefined} />
-              <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
+            <UserAvatar src={user.avatarUrl} name={formatDisplayName(user)} className="h-16 w-16" />
             <div>
               <AvatarCropUpload
                 label="Upload avatar"

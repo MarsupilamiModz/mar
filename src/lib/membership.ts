@@ -320,18 +320,18 @@ export async function userHasMembershipAccess(userId: string, role: UserRole): P
 }
 
 export async function userHasAdFree(userId: string, role: string): Promise<boolean> {
-  const { getAdSettings } = await import("@/lib/ads");
-  const adSettings = await getAdSettings();
-
-  if (adSettings.rolesWithoutAds?.includes(role)) return true;
-  if (adSettings.rolesWithAds?.length && !adSettings.rolesWithAds.includes(role)) return true;
-
   if (["OWNER", "ADMIN", "MODERATOR", "PREMIUM", "CREATOR", "PARTNER", "DESIGNER", "SUPPORT"].includes(role)) {
     return true;
   }
 
   const tier = await getUserMembershipTier(userId);
   if (tier?.perks.adFree === true) return true;
+
+  const { getAdSettings } = await import("@/lib/ads");
+  const adSettings = await getAdSettings();
+
+  if (adSettings.rolesWithoutAds?.includes(role)) return true;
+  if (adSettings.rolesWithAds?.length && !adSettings.rolesWithAds.includes(role)) return true;
 
   if (adSettings.membershipSlugsWithoutAds?.length && tier?.slug) {
     return adSettings.membershipSlugsWithoutAds.includes(tier.slug);

@@ -29,6 +29,7 @@ import { UserIdentity } from "@/components/user/user-identity";
 import { getInlineBadgesForUsers } from "@/lib/user-badges";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import { ModPurchaseButton } from "@/components/mods/mod-purchase-button";
+import { ModSecurityPanel } from "@/components/security/mod-security-panel";
 import { formatCreditsFromCents } from "@/lib/credits";
 import type { Locale } from "@/i18n/config";
 import { serializeModVersions } from "@/lib/file-size";
@@ -107,6 +108,10 @@ export default async function ModDetailPage({
   const relatedMods = related.filter((m) => m.id !== mod.id).slice(0, 4);
   const creatorSlug = mod.author.creatorProfile?.slug ?? mod.author.username;
   const creatorBadges = badgeMap.get(authorId) ?? [];
+  const primaryVersion = mod.versions.find((v) => v.isPrimary && !v.isArchived) ?? mod.versions[0];
+  const securityStatus = primaryVersion?.scanStatus ?? "PENDING";
+  const securityScannedAt = primaryVersion?.scannedAt;
+  const isTrustedFile = !!(primaryVersion as { trustedFile?: { id: string } | null })?.trustedFile;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
@@ -232,6 +237,14 @@ export default async function ModDetailPage({
               {mod.tags.map((tag) => (
                 <Badge key={tag.id} variant="outline">{tag.name}</Badge>
               ))}
+            </div>
+
+            <div className="mt-4">
+              <ModSecurityPanel
+                scanStatus={securityStatus}
+                scannedAt={securityScannedAt}
+                isTrusted={isTrustedFile}
+              />
             </div>
           </Card>
         </div>

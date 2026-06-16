@@ -17,6 +17,14 @@ const modListSelect = {
   game: { select: { name: true, slug: true } },
   screenshots: { take: 1, orderBy: { sortOrder: "asc" as const } },
   author: { select: { username: true, displayName: true, avatarUrl: true } },
+  versions: {
+    where: { isPrimary: true, isArchived: false },
+    take: 1,
+    select: {
+      scanStatus: true,
+      trustedFile: { select: { id: true } },
+    },
+  },
 };
 
 const modListSelectWithMedia = {
@@ -79,7 +87,10 @@ const modDetailInclude = {
   screenshots: { orderBy: { sortOrder: "asc" as const } },
   videos: { orderBy: { sortOrder: "asc" as const } },
   tags: true,
-  versions: { orderBy: { createdAt: "desc" as const } },
+  versions: {
+    orderBy: { createdAt: "desc" as const },
+    include: { trustedFile: { select: { id: true } } },
+  },
   changelog: { orderBy: { createdAt: "desc" as const }, take: 10 },
   reviews: {
     take: 20,

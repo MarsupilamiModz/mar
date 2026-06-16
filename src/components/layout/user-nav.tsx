@@ -14,7 +14,7 @@ import {
   Handshake,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,7 +46,6 @@ export type NavUser = {
 export function UserNav({ locale, user }: { locale: string; user: NavUser }) {
   const router = useRouter();
   const displayName = formatDisplayName(user);
-  const initials = displayName.slice(0, 2).toUpperCase();
 
   async function handleLogout() {
     const supabase = createClient();
@@ -61,10 +60,7 @@ export function UserNav({ locale, user }: { locale: string; user: NavUser }) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="flex items-center gap-2 px-2">
-          <Avatar className="h-8 w-8 border border-neon-purple/30">
-            <AvatarImage src={user.avatarUrl ?? undefined} alt={user.username} />
-            <AvatarFallback className="bg-neon-purple/20 text-xs">{initials}</AvatarFallback>
-          </Avatar>
+          <UserAvatar src={user.avatarUrl} name={displayName} className="h-8 w-8 border border-neon-purple/30" />
           <span className="hidden sm:inline text-sm font-medium max-w-[160px] truncate">{displayName}</span>
         </Button>
       </DropdownMenuTrigger>

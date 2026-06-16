@@ -1,10 +1,5 @@
 import { requirePagePermission } from "@/lib/auth";
-import {
-  getAdminSystemHealth,
-  getAdminSystemLogs,
-  getAdminTranslationAudit,
-  runAdminPlatformAudit,
-} from "@/actions/admin/system";
+import { getAdminSystemHealth, getAdminSystemLogs } from "@/actions/admin/system";
 import { SystemHealthPanel } from "@/components/admin/system-health-panel";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/config";
@@ -14,26 +9,19 @@ export default async function AdminSystemPage({ params: { locale } }: { params: 
   await requirePagePermission("settings.write");
   const t = await getTranslations("admin.system");
 
-  const [logsResult, healthResult, translationResult, auditResult] = await Promise.all([
+  const [logsResult, healthResult] = await Promise.all([
     getAdminSystemLogs(),
     getAdminSystemHealth(),
-    getAdminTranslationAudit(),
-    runAdminPlatformAudit(),
   ]);
 
   const logs = logsResult.success ? logsResult.data : [];
   const health = healthResult.success ? healthResult.data : [];
-  const translationAudit = translationResult.success
-    ? translationResult.data
-    : { referenceLocale: "en" as const, totalReferenceKeys: 0, locales: [], summary: "" };
-  const platformAudit = auditResult.success ? auditResult.data : null;
 
-  const loadError =
-    !logsResult.success
-      ? logsResult.error
-      : !healthResult.success
-        ? healthResult.error
-        : null;
+  const loadError = !logsResult.success
+    ? logsResult.error
+    : !healthResult.success
+      ? healthResult.error
+      : null;
 
   return (
     <div className="space-y-6">
@@ -48,13 +36,7 @@ export default async function AdminSystemPage({ params: { locale } }: { params: 
         </div>
       )}
 
-      <SystemHealthPanel
-        locale={locale}
-        logs={logs}
-        health={health}
-        translationAudit={translationAudit}
-        platformAudit={platformAudit}
-      />
+      <SystemHealthPanel locale={locale} logs={logs} health={health} lazyAudit />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { AdFormat, AdProviderType } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { getSiteSetting, setSiteSetting } from "@/lib/site-settings";
 
 export type AdProviderSettings = {
@@ -51,11 +52,19 @@ export type AdLocation =
   | "search";
 
 export async function getAdSettings() {
-  return getSiteSetting("ad_settings", DEFAULT_AD_SETTINGS);
+  return getCachedAdSettings();
 }
+
+const getCachedAdSettings = unstable_cache(
+  async () => getSiteSetting("ad_settings", DEFAULT_AD_SETTINGS),
+  ["ad-settings-v1"],
+  { revalidate: 120, tags: ["ad-settings"] }
+);
 
 export async function saveAdSettings(settings: AdProviderSettings) {
   await setSiteSetting("ad_settings", settings);
+  const { revalidateTag } = await import("next/cache");
+  revalidateTag("ad-settings");
 }
 
 export async function getAdProviders() {

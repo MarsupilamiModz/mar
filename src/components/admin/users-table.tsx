@@ -14,7 +14,7 @@ import {
   unbanUser,
   updateUserRole,
 } from "@/actions/admin/users";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -209,10 +209,7 @@ export function UsersTable({
                       href={`/${locale}/admin/users/${u.id}`}
                       className="flex items-center gap-3 hover:text-neon-purple"
                     >
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={u.avatarUrl ?? undefined} />
-                        <AvatarFallback>{u.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
+                      <UserAvatar src={u.avatarUrl} name={u.displayName ?? u.username} className="h-8 w-8" />
                       <div>
                         <p className="font-medium">{formatDisplayName(u)}</p>
                         <p className="text-xs text-muted-foreground">{u.email}</p>

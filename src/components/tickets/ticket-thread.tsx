@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { TicketStatus } from "@prisma/client";
 import { replyToTicket, closeTicket, reopenTicket, addInternalNote } from "@/actions/tickets";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -119,10 +119,11 @@ export function TicketThread({
                   : "border-border/50 bg-card/40 mr-0 ml-8"
             )}
           >
-            <Avatar className="h-8 w-8 shrink-0">
-              <AvatarImage src={msg.sender.avatarUrl ?? undefined} />
-              <AvatarFallback>{msg.sender.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
+            <UserAvatar
+              src={msg.sender.avatarUrl}
+              name={msg.sender.displayName ?? msg.sender.username}
+              className="h-8 w-8 shrink-0"
+            />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                 <span className="font-medium text-foreground">{formatDisplayName(msg.sender)}</span>

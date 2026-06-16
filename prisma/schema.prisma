@@ -42,11 +42,52 @@ enum ModStatus {
 
 enum FileScanStatus {
   PENDING
+  SCANNING
   CLEAN
+  APPROVED
   SUSPICIOUS
   MALWARE
+  REJECTED
   MANUAL_REVIEW
   FAILED
+}
+
+enum SecurityRiskLevel {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ScanQueueStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum SecurityAuditAction {
+  UPLOAD
+  SCAN_STARTED
+  SCAN_COMPLETED
+  APPROVAL
+  REJECTION
+  DOWNLOAD
+  RE_SCAN
+  TRUST_MARKED
+  REVIEW_REQUESTED
+  SCAN_REMOVED
+  BULK_APPROVE
+  BULK_REJECT
+}
+
+enum CreatorTrustLevel {
+  NEW
+  VERIFIED
+  TRUSTED
+  ELITE
 }
 
 enum VersionChannel {
@@ -426,6 +467,10 @@ model User {
   creatorApplications CreatorApplication[]
   partnerApplications PartnerApplication[]
   storageUploads    StorageUploadSession[]
+  securityReviews   SecurityReview[]       @relation("SecurityReviewer")
+  trustedFiles      TrustedFile[]          @relation("TrustedFileApprover")
+  trustedCreators   TrustedCreator[]       @relation("TrustedCreatorApprover")
+  securityLogs      SecurityLog[]
 
   @@index([email])
   @@index([username])
@@ -541,6 +586,7 @@ model CreatorProfile {
 
   socialLinks SocialLink[]
   collections ModCollection[]
+  trustRecord TrustedCreator?
 
   @@index([isVerified, isFeatured])
   @@index([isPublic, sortOrder])
@@ -697,12 +743,17 @@ model ModVersion {
   downloadCount Int          @default(0)
   createdAt   DateTime       @default(now())
 
-  downloads Download[]
-  scanLogs  FileScanLog[]
+  downloads        Download[]
+  scanLogs         FileScanLog[]
+  fileScans        FileScan[]
+  securityReviews  SecurityReview[]
+  trustedFile      TrustedFile?
+  scanQueueItems   ScanQueue[]
 
   @@unique([modId, version])
   @@index([modId, isPrimary])
   @@index([scanStatus])
+  @@index([scannedAt])
 }
 
 enum ModMediaType {
@@ -1666,6 +1717,134 @@ model FileScanLog {
   @@index([status, createdAt])
   @@index([sha256])
   @@index([modId])
+}
+
+model FileScan {
+  id            String            @id @default(cuid())
+  modVersionId  String?
+  modVersion    ModVersion?       @relation(fields: [modVersionId], references: [id], onDelete: SetNull)
+  fileKey       String
+  fileName      String
+  fileSize      BigInt
+  sha256        String
+  md5           String?
+  vtScanId      String?
+  vtPermalink   String?
+  scannedAt     DateTime?
+  status        FileScanStatus
+  riskLevel     SecurityRiskLevel @default(NONE)
+  riskScore     Int               @default(0)
+  detections    Int               @default(0)
+  totalEngines  Int               @default(0)
+  engineResults Json?
+  scanReport    Json?
+  cachedUntil   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  reviews SecurityReview[]
+
+  @@index([sha256])
+  @@index([modVersionId])
+  @@index([status, scannedAt])
+  @@map("file_scans")
+}
+
+model SecurityReview {
+  id           String     @id @default(cuid())
+  modVersionId String
+  modVersion   ModVersion @relation(fields: [modVersionId], references: [id], onDelete: Cascade)
+  fileScanId   String?
+  fileScan     FileScan?  @relation(fields: [fileScanId], references: [id], onDelete: SetNull)
+  status       String
+  approvedById String?
+  approvedBy   User?      @relation("SecurityReviewer", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt   DateTime?
+  reason       String?
+  notes        String?    @db.Text
+  isTrusted    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  @@index([modVersionId])
+  @@index([status])
+  @@map("security_reviews")
+}
+
+model SecurityLog {
+  id           String              @id @default(cuid())
+  modVersionId String?
+  modId        String?
+  userId       String?
+  user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action       SecurityAuditAction
+  ipHash       String?
+  userAgent    String?             @db.VarChar(512)
+  deviceInfo   String?
+  metadata     Json?
+  createdAt    DateTime            @default(now())
+
+  @@index([action, createdAt])
+  @@index([modVersionId])
+  @@index([modId])
+  @@index([userId])
+  @@map("security_logs")
+}
+
+model TrustedFile {
+  id           String     @id @default(cuid())
+  modVersionId String     @unique
+  modVersion   ModVersion @relation(fields: [modVersionId], references: [id], onDelete: Cascade)
+  approvedById String
+  approvedBy   User       @relation("TrustedFileApprover", fields: [approvedById], references: [id], onDelete: Cascade)
+  approvedAt   DateTime   @default(now())
+  reason       String?
+  notes        String?    @db.Text
+
+  @@map("trusted_files")
+}
+
+model TrustedCreator {
+  id               String            @id @default(cuid())
+  creatorProfileId String            @unique
+  creatorProfile   CreatorProfile    @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  trustLevel       CreatorTrustLevel @default(NEW)
+  approvedById     String?
+  approvedBy       User?             @relation("TrustedCreatorApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt       DateTime?
+  notes            String?           @db.Text
+  priorityScan     Boolean           @default(false)
+  fastTrack        Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([trustLevel])
+  @@map("trusted_creators")
+}
+
+model ScanQueue {
+  id           String          @id @default(cuid())
+  modVersionId String?
+  modVersion   ModVersion?     @relation(fields: [modVersionId], references: [id], onDelete: Cascade)
+  modId        String?
+  fileKey      String
+  fileName     String
+  fileSize     BigInt
+  sha256       String?
+  priority     Int             @default(0)
+  status       ScanQueueStatus @default(PENDING)
+  attempts     Int             @default(0)
+  maxAttempts  Int             @default(5)
+  lastError    String?         @db.Text
+  vtAnalysisId String?
+  scheduledAt  DateTime        @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([status, priority, scheduledAt])
+  @@index([modVersionId])
+  @@map("scan_queue")
 }
 
 model ModCollection {

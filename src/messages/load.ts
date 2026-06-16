@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import type { Locale } from "@/i18n/config";
 import { deepMergeMessages } from "@/lib/i18n-utils";
 import { getMessageOverrides } from "@/lib/message-overrides";
@@ -18,6 +19,7 @@ const modules = [
   "ecosystem",
   "media",
   "shop",
+  "security",
 ] as const;
 
 async function loadLocaleModules(locale: Locale) {
@@ -36,7 +38,7 @@ function mergeParts(parts: Record<string, unknown>[]) {
   );
 }
 
-export async function loadMessages(locale: Locale) {
+async function loadMessagesUncached(locale: Locale) {
   const enParts = await loadLocaleModules("en");
   const english = mergeParts(enParts);
 
@@ -50,4 +52,14 @@ export async function loadMessages(locale: Locale) {
   const merged = deepMergeMessages(english, localized);
   const overrides = await getMessageOverrides(locale);
   return deepMergeMessages(merged, overrides) as Record<string, string>;
+}
+
+const cachedMessages = unstable_cache(
+  async (locale: Locale) => loadMessagesUncached(locale),
+  ["i18n-messages-v1"],
+  { revalidate: 300, tags: ["i18n-messages"] }
+);
+
+export function loadMessages(locale: Locale) {
+  return cachedMessages(locale);
 }

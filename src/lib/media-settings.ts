@@ -12,7 +12,7 @@ export type MediaSettings = {
 
 export const DEFAULT_MEDIA_SETTINGS: MediaSettings = {
   minScreenshots: 0,
-  maxScreenshots: 15,
+  maxScreenshots: 100,
   allowedTypes: ["image/jpeg", "image/png", "image/webp"],
   maxFileSizeMb: 5,
   imageQuality: 0.85,
