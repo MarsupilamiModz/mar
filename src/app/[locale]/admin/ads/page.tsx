@@ -9,9 +9,9 @@ export default async function AdminAdsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Advertising Management</h1>
+      <h1 className="text-2xl font-bold">Advertising Center</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Configure ad providers, placements, and track performance.
+        AdSense verification, ad networks, placements, and site verification.
       </p>
       <div className="mt-8">
         <AdsAdminPanel data={result.data} />

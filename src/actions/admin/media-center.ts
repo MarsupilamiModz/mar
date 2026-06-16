@@ -83,13 +83,14 @@ export async function getAdminMediaCenter(input: {
 
   if (section === "screenshots") {
     const [items, total] = await Promise.all([
-      prisma.modScreenshot.findMany({
+      prisma.modMedia.findMany({
+        where: { mediaType: "IMAGE" },
         skip,
         take: limit,
-        orderBy: { id: "desc" },
+        orderBy: { createdAt: "desc" },
         include: { mod: { select: { id: true, title: true, slug: true } } },
       }),
-      prisma.modScreenshot.count(),
+      prisma.modMedia.count({ where: { mediaType: "IMAGE" } }),
     ]);
     return ok({ section, items, total, pages: Math.ceil(total / limit), page });
   }

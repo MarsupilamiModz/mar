@@ -6,7 +6,8 @@ import { prisma } from "@/lib/db";
 import { fail, ok, requireActionUser } from "@/lib/action-utils";
 import { hasPermission } from "@/lib/permissions";
 import { getSignedDownloadUrl } from "@/lib/r2";
-import { buildAssetPublicUrl } from "@/lib/assets";
+import { resolveAssetUrl } from "@/lib/assets";
+import { registerMediaFromSession } from "@/lib/media-files";
 import { getPreviewLimitSeconds, isAudioFileName, MAX_PREVIEW_BYTES } from "@/lib/sound";
 import { fileSizeBigInt, fileSizeNumber } from "@/lib/file-size";
 import { z } from "zod";
@@ -98,6 +99,8 @@ export async function attachSoundPreviewFromSession(
   if (!isAudioFileName(session.fileName)) return fail("Invalid audio format");
   if (fileSizeNumber(session.fileSize) > MAX_PREVIEW_BYTES) return fail("Preview file too large");
 
+  await registerMediaFromSession(session, "SOUND_PREVIEW", user.id, modId);
+
   await prisma.soundProfile.upsert({
     where: { modId },
     create: {
@@ -135,14 +138,17 @@ export async function attachSoundCoverFromSession(modId: string, sessionId: stri
   const mod = await prisma.mod.findUnique({ where: { id: modId } });
   if (!mod || !(await canEditMod(user.id, user.role, mod.authorId))) return fail("Forbidden");
 
+  const mediaFile = await registerMediaFromSession(session, "SOUND_COVER", user.id, modId);
+  const coverPublicUrl = mediaFile.publicUrl;
+
   await prisma.soundProfile.upsert({
     where: { modId },
-    create: { modId, coverImageKey: session.fileKey },
-    update: { coverImageKey: session.fileKey },
+    create: { modId, coverImageKey: coverPublicUrl },
+    update: { coverImageKey: coverPublicUrl },
   });
 
   revalidatePath(`/mods/${mod.slug}`);
-  return ok({ coverUrl: buildAssetPublicUrl(session.fileKey) });
+  return ok({ coverUrl: coverPublicUrl });
 }
 
 export async function getSoundStreamInfo(modId: string) {
@@ -168,7 +174,7 @@ export async function getSoundStreamInfo(modId: string) {
     slug: mod.slug,
     title: mod.title,
     artist: profile.artist,
-    coverUrl: profile.coverImageKey ? buildAssetPublicUrl(profile.coverImageKey) : null,
+    coverUrl: profile.coverImageKey ? resolveAssetUrl(profile.coverImageKey) : null,
     streamUrl: url,
     durationSeconds: profile.previewDurationSeconds ?? profile.durationSeconds,
     previewLimitSeconds: limit,

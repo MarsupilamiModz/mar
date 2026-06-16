@@ -20,6 +20,19 @@ enum UserRole {
   USER
 }
 
+enum MediaEntityType {
+  MOD_SCREENSHOT
+  MOD_MEDIA
+  USER_AVATAR
+  SOUND_PREVIEW
+  SOUND_COVER
+  CREATOR_BANNER
+  PARTNER_LOGO
+  GAME_ASSET
+  COLLECTION_COVER
+  OTHER
+}
+
 enum ModVisibility {
   PUBLIC
   UNLISTED
@@ -493,6 +506,7 @@ model User {
   creatorApplications CreatorApplication[]
   partnerApplications PartnerApplication[]
   storageUploads    StorageUploadSession[]
+  uploadedMedia     MediaFile[]            @relation("MediaUploader")
   securityReviews   SecurityReview[]       @relation("SecurityReviewer")
   trustedFiles      TrustedFile[]          @relation("TrustedFileApprover")
   trustedCreators   TrustedCreator[]       @relation("TrustedCreatorApprover")
@@ -2076,4 +2090,24 @@ model StorageUploadSession {
   @@index([userId, status])
   @@index([uploadId])
   @@index([createdAt])
+}
+
+model MediaFile {
+  id           String          @id @default(cuid())
+  fileName     String
+  originalName String
+  fileType     String
+  mimeType     String
+  fileSize     BigInt          @default(0)
+  storagePath  String          @unique
+  publicUrl    String
+  entityType   MediaEntityType
+  entityId     String?
+  uploadedById String
+  uploadedBy   User            @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime        @default(now())
+
+  @@index([entityType, entityId])
+  @@index([uploadedById])
+  @@map("media_files")
 }

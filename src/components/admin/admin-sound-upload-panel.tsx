@@ -18,6 +18,8 @@ import type { SoundAudioCategory, SoundPreviewType } from "@prisma/client";
 type Game = { id: string; name: string; categories: FlatCategory[] };
 type Author = { id: string; username: string; displayName: string | null; role: string };
 
+const NONE = "__none__";
+
 export function AdminSoundUploadPanel({
   locale,
   games,
@@ -34,25 +36,41 @@ export function AdminSoundUploadPanel({
   const appToast = useAppToast();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [gameId, setGameId] = useState(games[0]?.id ?? "");
-  const [categoryId, setCategoryId] = useState("");
-  const [authorId, setAuthorId] = useState(authors[0]?.id ?? "");
+  const [gameId, setGameId] = useState(games[0]?.id ?? NONE);
+  const [categoryId, setCategoryId] = useState(NONE);
+  const [authorId, setAuthorId] = useState(authors[0]?.id ?? NONE);
   const [pricing, setPricing] = useState<"FREE" | "PREMIUM" | "PAID">("FREE");
   const [audioCategory, setAudioCategory] = useState<SoundAudioCategory>("CUSTOM_AUDIO");
   const [previewType, setPreviewType] = useState<SoundPreviewType>("FULL");
 
+  const resolvedGameId = gameId === NONE ? "" : gameId;
+  const resolvedAuthorId = authorId === NONE ? "" : authorId;
   const gameCategories = formatCategoryOptions(
-    (games.find((g) => g.id === gameId)?.categories ?? []) as FlatCategory[]
+    (games.find((g) => g.id === resolvedGameId)?.categories ?? []) as FlatCategory[]
   );
+
+  if (games.length === 0 || authors.length === 0) {
+    return (
+      <Card className="glass p-6 max-w-2xl">
+        <p className="text-sm text-muted-foreground">
+          {games.length === 0
+            ? "Add at least one game before uploading sounds."
+            : "No creators found — assign an author after creating a creator account."}
+        </p>
+      </Card>
+    );
+  }
 
   return (
     <Card className="glass p-6 max-w-2xl">
-      <p className="text-sm text-muted-foreground mb-4">
-        {t("uploadSoundHint")}
-      </p>
+      <p className="text-sm text-muted-foreground mb-4">{t("uploadSoundHint")}</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          if (!resolvedGameId || !resolvedAuthorId) {
+            appToast.error("Select a game and author");
+            return;
+          }
           const fd = new FormData(e.currentTarget);
           const tags = (fd.get("tags") as string)
             .split(",")
@@ -65,12 +83,12 @@ export function AdminSoundUploadPanel({
               title: fd.get("title") as string,
               description: fd.get("description") as string,
               shortDescription: (fd.get("shortDescription") as string) || undefined,
-              gameId,
-              categoryId: categoryId || undefined,
+              gameId: resolvedGameId,
+              categoryId: categoryId !== NONE ? categoryId : undefined,
               pricing,
               priceCents: pricing === "PAID" ? Number(fd.get("priceCents")) * 100 : undefined,
               tags,
-              authorId: authorId || undefined,
+              authorId: resolvedAuthorId,
               sound: {
                 artist: (fd.get("artist") as string) || undefined,
                 audioCategory,
@@ -119,10 +137,10 @@ export function AdminSoundUploadPanel({
               ))}
             </SelectContent>
           </Select>
-          <Select value={categoryId || "__none__"} onValueChange={(v) => setCategoryId(v === "__none__" ? "" : v)}>
+          <Select value={categoryId} onValueChange={setCategoryId}>
             <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">—</SelectItem>
+              <SelectItem value={NONE}>—</SelectItem>
               {gameCategories.map((c) => (
                 <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
               ))}

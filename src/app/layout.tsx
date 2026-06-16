@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { SITE } from "@/lib/site";
+import { GlobalSiteHead } from "@/components/ads/global-site-ads";
+import { GlobalSiteScripts } from "@/components/ads/global-site-scripts";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-geist-sans" });
@@ -50,7 +52,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={`${inter.variable} ${mono.variable} font-sans`}>{children}</body>
+      <head>
+        <GlobalSiteHead />
+      </head>
+      <body className={`${inter.variable} ${mono.variable} font-sans`}>
+        {children}
+        <GlobalSiteScripts />
+      </body>
     </html>
   );
 }

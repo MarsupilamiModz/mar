@@ -101,7 +101,8 @@ export async function copyObjectInR2(
 }
 
 export async function getSignedDownloadUrl(key: string, expiresIn = 300) {
-  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
+  const normalizedKey = key.startsWith(STORAGE.prefix) ? key : storageKey(key);
+  const command = new GetObjectCommand({ Bucket: BUCKET, Key: normalizedKey });
   return getSignedUrl(r2, command, { expiresIn });
 }
 

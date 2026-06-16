@@ -12,6 +12,18 @@ import {
 } from "@/lib/ads";
 import type { AdFormat, AdProviderType, Prisma } from "@prisma/client";
 import { getAdSettings } from "@/lib/ads";
+import { getAdSenseReadinessReport } from "@/lib/ads-readiness";
+import {
+  getSiteVerificationSettings,
+  saveSiteVerificationSettings,
+  type SiteVerificationSettings,
+} from "@/lib/site-verification";
+import {
+  getHeadScriptsSettings,
+  saveHeadScriptsSettings,
+  type HeadScriptsSettings,
+} from "@/lib/head-scripts";
+import { DEFAULT_ADSENSE_CLIENT_ID } from "@/lib/adsense-config";
 
 export async function getAdminAdDashboard() {
   const { error } = await requireActionPermission("settings.write");
@@ -20,12 +32,27 @@ export async function getAdminAdDashboard() {
   await seedDefaultAdProviders();
   await seedDefaultAdPlacements();
 
-  const [settings, placements, providers, totals] = await Promise.all([
-    getAdSettings(),
-    prisma.adPlacement.findMany({ orderBy: [{ location: "asc" }, { sortOrder: "asc" }] }),
-    prisma.adProviderConfig.findMany({ orderBy: { type: "asc" } }),
-    prisma.adPlacement.aggregate({ _sum: { impressions: true, clicks: true } }),
-  ]);
+  await prisma.adProviderConfig.upsert({
+    where: { type: "ADSENSE" },
+    create: {
+      type: "ADSENSE",
+      name: "Google AdSense",
+      isEnabled: true,
+      config: { adsenseClientId: DEFAULT_ADSENSE_CLIENT_ID },
+    },
+    update: { isEnabled: true },
+  });
+
+  const [settings, placements, providers, totals, readiness, verification, headScripts] =
+    await Promise.all([
+      getAdSettings(),
+      prisma.adPlacement.findMany({ orderBy: [{ location: "asc" }, { sortOrder: "asc" }] }),
+      prisma.adProviderConfig.findMany({ orderBy: { type: "asc" } }),
+      prisma.adPlacement.aggregate({ _sum: { impressions: true, clicks: true } }),
+      getAdSenseReadinessReport(),
+      getSiteVerificationSettings(),
+      getHeadScriptsSettings(),
+    ]);
 
   return ok({
     settings,
@@ -33,6 +60,9 @@ export async function getAdminAdDashboard() {
     providers,
     totalImpressions: totals._sum.impressions ?? 0,
     totalClicks: totals._sum.clicks ?? 0,
+    readiness,
+    verification,
+    headScripts,
   });
 }
 
@@ -41,7 +71,33 @@ export async function saveAdminAdSettings(settings: AdProviderSettings) {
   if (error) return error;
   await saveAdSettings({ ...DEFAULT_AD_SETTINGS, ...settings });
   revalidatePath("/admin/ads");
+  revalidatePath("/", "layout");
   return ok(undefined);
+}
+
+export async function saveAdminSiteVerification(settings: SiteVerificationSettings) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+  await saveSiteVerificationSettings(settings);
+  revalidatePath("/admin/ads");
+  revalidatePath("/", "layout");
+  return ok(undefined);
+}
+
+export async function saveAdminHeadScripts(settings: HeadScriptsSettings) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+  await saveHeadScriptsSettings(settings);
+  revalidatePath("/admin/ads");
+  revalidatePath("/admin/branding");
+  revalidatePath("/", "layout");
+  return ok(undefined);
+}
+
+export async function getAdminAdSenseStatus() {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+  return ok(await getAdSenseReadinessReport());
 }
 
 export async function saveAdProvider(input: {

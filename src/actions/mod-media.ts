@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { fail, ok, requireActionUser, requireActionPermission } from "@/lib/action-utils";
 import { hasPermission } from "@/lib/permissions";
 import { uploadAsset } from "@/lib/asset-storage";
+import { registerMediaFile } from "@/lib/media-files";
 import { getMediaSettings, updateMediaSettings, type MediaSettings } from "@/lib/media-settings";
 import { modImageStoragePath } from "@/lib/mod-media";
 import { extractYouTubeId, youTubeThumbnailUrl } from "@/lib/youtube";
@@ -72,11 +73,24 @@ export async function uploadModMediaImages(modId: string, formData: FormData) {
         contentType: validation.mime,
       });
 
+      const publicUrl = result.url;
+      if (result.key) {
+        await registerMediaFile({
+          storagePath: result.key,
+          originalName: file.name,
+          mimeType: validation.mime,
+          fileSize: buffer.length,
+          entityType: "MOD_SCREENSHOT",
+          entityId: modId,
+          uploadedById: user.id,
+        }).catch(() => undefined);
+      }
+
       const media = await prisma.modMedia.create({
         data: {
           modId,
           mediaType: "IMAGE",
-          imageUrl: result.url,
+          imageUrl: publicUrl,
           orderIndex: orderIndex++,
           isFeatured: hasFeatured === 0 && uploaded.length === 0,
         },

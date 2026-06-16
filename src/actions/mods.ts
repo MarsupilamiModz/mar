@@ -17,6 +17,7 @@ import { hasPermission } from "@/lib/permissions";
 import { modCreateSchema } from "@/lib/validations";
 import { modFileKey, uploadToR2, copyObjectInR2, deleteFromR2, hashObjectFromR2 } from "@/lib/r2";
 import { getMalwareScannerSettings, getMalwareScannerSettingsRaw } from "@/lib/malware-settings";
+import { serializeModForEdit } from "@/lib/media-serialize";
 import { enqueueScan, getCreatorScanPriority } from "@/lib/security/scan-queue";
 import { logSecurityEvent } from "@/lib/security/audit";
 import { createHash } from "crypto";
@@ -766,7 +767,7 @@ export async function getModForEdit(modId: string) {
       },
     });
     if (!withMedia) return fail("Not found");
-    return ok(withMedia);
+    return ok(serializeModForEdit(withMedia));
   } catch (err) {
     console.error("[getModForEdit] media include failed", err);
     const fallback = await prisma.mod.findUnique({
@@ -784,7 +785,7 @@ export async function getModForEdit(modId: string) {
       },
     });
     if (!fallback) return fail("Not found");
-    return ok({ ...fallback, media: [] });
+    return ok(serializeModForEdit({ ...fallback, media: [] }));
   }
 }
 

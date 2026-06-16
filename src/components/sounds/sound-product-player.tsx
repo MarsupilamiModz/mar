@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { SafeImage } from "@/components/ui/safe-image";
 import { SoundWaveformPlayer } from "@/components/audio/sound-waveform-player";
-import { buildAssetPublicUrl } from "@/lib/assets";
+import { resolveAssetUrl } from "@/lib/assets";
 import { getPreviewLimitSeconds } from "@/lib/sound";
 import type { SoundPreviewType } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +56,7 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
     };
   }, [modId, sound.waveformPeaks]);
 
-  const coverUrl = sound.coverImageKey ? buildAssetPublicUrl(sound.coverImageKey) : null;
+  const coverUrl = sound.coverImageKey ? resolveAssetUrl(sound.coverImageKey) : null;
   const limit = getPreviewLimitSeconds(
     sound.previewType,
     sound.previewCustomSeconds,

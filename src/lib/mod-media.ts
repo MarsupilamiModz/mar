@@ -2,6 +2,7 @@ import type { ModMediaType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { extractYouTubeId, youTubeThumbnailUrl } from "@/lib/youtube";
 import { resolveAssetUrl } from "@/lib/assets";
+import { normalizeStoredMediaUrl } from "@/lib/media-files";
 import { storageKey } from "@/lib/storage";
 
 export type ModMediaItem = {
@@ -91,10 +92,11 @@ export async function ensureModMediaSynced(modId: string) {
     }[] = [];
 
     mod.screenshots.forEach((s, i) => {
+      const url = normalizeStoredMediaUrl(s.url) ?? s.url;
       items.push({
         modId,
         mediaType: "IMAGE",
-        imageUrl: s.url,
+        imageUrl: url,
         orderIndex: i,
         isFeatured: i === 0,
       });

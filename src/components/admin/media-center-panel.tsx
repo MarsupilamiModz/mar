@@ -5,6 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { bulkMediaAction, type MediaSection } from "@/actions/admin/media-center";
+import {
+  adminRepairAllMedia,
+  adminScanMissingMedia,
+} from "@/actions/admin/media-repair";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +50,7 @@ export function MediaCenterPanel({ locale, section, items, total, page, pages }:
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<string[]>([]);
   const [q, setQ] = useState(searchParams.get("q") ?? "");
+  const [repairResult, setRepairResult] = useState<string | null>(null);
 
   const toggle = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -82,6 +87,51 @@ export function MediaCenterPanel({ locale, section, items, total, page, pages }:
           </Button>
         ))}
       </div>
+
+      <Card className="glass p-4 space-y-3">
+        <h3 className="font-semibold text-sm">{t("mediaRepair")}</h3>
+        <p className="text-xs text-muted-foreground">{t("mediaRepairHint")}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() =>
+              startTransition(async () => {
+                const r = await adminScanMissingMedia();
+                if (r.success) {
+                  setRepairResult(t("mediaScanResult", { count: r.data.count }));
+                } else appToast.error(r.error);
+              })
+            }
+          >
+            {t("mediaScanMissing")}
+          </Button>
+          <Button
+            size="sm"
+            variant="neon"
+            disabled={pending}
+            onClick={() =>
+              startTransition(async () => {
+                const r = await adminRepairAllMedia();
+                if (r.success) {
+                  setRepairResult(
+                    t("mediaRepairResult", {
+                      repaired: r.data.totalRepaired,
+                      scanned: r.data.totalScanned,
+                    })
+                  );
+                  appToast.saved();
+                  router.refresh();
+                } else appToast.error(r.error);
+              })
+            }
+          >
+            {t("mediaRepairAll")}
+          </Button>
+        </div>
+        {repairResult && <p className="text-xs text-emerald-400">{repairResult}</p>}
+      </Card>
 
       <Card className="glass p-4">
         <form
@@ -151,10 +201,15 @@ export function MediaCenterPanel({ locale, section, items, total, page, pages }:
                 } else if (section === "collections") {
                   title = String(item.title);
                   meta = `@${(item.owner as { username: string })?.username ?? ""} · ${(item._count as { items: number })?.items ?? 0} items`;
-                } else if (section === "screenshots" || section === "videos") {
+                } else if (section === "screenshots") {
                   const mod = item.mod as { title: string; id: string };
                   title = mod?.title ?? id;
-                  meta = section;
+                  meta = item.imageUrl ? String(item.imageUrl).slice(0, 48) : "screenshot";
+                  href = mod ? `/${locale}/admin/mods/${mod.id}` : null;
+                } else if (section === "videos") {
+                  const mod = item.mod as { title: string; id: string };
+                  title = mod?.title ?? id;
+                  meta = "video";
                   href = mod ? `/${locale}/admin/mods/${mod.id}` : null;
                 } else if (section === "downloads") {
                   const mod = (item.version as { mod: { title: string; slug: string } })?.mod;

@@ -2,12 +2,16 @@ import { prisma } from "@/lib/db";
 import type { AdFormat, AdProviderType } from "@prisma/client";
 import { unstable_cache } from "next/cache";
 import { getSiteSetting, setSiteSetting } from "@/lib/site-settings";
+import { DEFAULT_ADSENSE_CLIENT_ID } from "@/lib/adsense-config";
 
 export type AdProviderSettings = {
   adsenseClientId?: string;
   adsenseEnabled?: boolean;
   adsenseAutoAds?: boolean;
+  /** Load AdSense script globally for site verification (independent of ad slots) */
+  adsenseGlobalScriptEnabled?: boolean;
   adsenseSlotIds?: Record<string, string>;
+  consentModeEnabled?: boolean;
   microsoftEnabled?: boolean;
   microsoftAccountId?: string;
   microsoftTrackingId?: string;
@@ -32,8 +36,11 @@ export type AdProviderSettings = {
 export const DEFAULT_AD_SETTINGS: AdProviderSettings = {
   globalAdsEnabled: false,
   popupAdsEnabled: false,
-  adsenseEnabled: false,
+  adsenseEnabled: true,
   adsenseAutoAds: false,
+  adsenseGlobalScriptEnabled: true,
+  adsenseClientId: DEFAULT_ADSENSE_CLIENT_ID,
+  consentModeEnabled: true,
   adsenseSlotIds: {},
   microsoftEnabled: false,
   adProviderPriority: ["ADSENSE", "MICROSOFT", "CUSTOM"],

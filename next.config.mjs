@@ -9,6 +9,9 @@ const nextConfig = {
       { protocol: "https", hostname: "**.supabase.co" },
       { protocol: "https", hostname: "**.r2.cloudflarestorage.com" },
       { protocol: "https", hostname: "**.r2.dev" },
+      { protocol: "https", hostname: "**.cloudflare.com" },
+      { protocol: "https", hostname: "**.cloudflarecdn.com" },
+      { protocol: "https", hostname: "**.workers.dev" },
       { protocol: "https", hostname: "**.xumari-modz.com" },
       { protocol: "https", hostname: "**.xumarimodz.com" },
       { protocol: "https", hostname: "**.marsupilami-modz.com" },
@@ -19,6 +22,8 @@ const nextConfig = {
     ],
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 86400,
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   experimental: {
     serverActions: { bodySizeLimit: "10mb" },

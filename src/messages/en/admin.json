@@ -50,6 +50,12 @@
     "mediaReject": "Reject",
     "mediaArchive": "Archive",
     "mediaDelete": "Delete",
+    "mediaRepair": "Repair media",
+    "mediaRepairHint": "Scan for broken URLs and rebuild public links from storage paths.",
+    "mediaScanMissing": "Scan missing files",
+    "mediaRepairAll": "Repair all media",
+    "mediaScanResult": "Found {count} items with missing or invalid URLs",
+    "mediaRepairResult": "Repaired {repaired} of {scanned} scanned items",
     "mediaSection": {
       "mods": "Mods",
       "sounds": "Sounds",

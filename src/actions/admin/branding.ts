@@ -28,6 +28,7 @@ import {
   type SeoSettings,
   type PageContentStore,
 } from "@/lib/branding-cms";
+import { getHeadScriptsSettings } from "@/lib/head-scripts";
 
 function revalidateBrandingPaths() {
   invalidateBrandingCache();
@@ -39,15 +40,16 @@ export async function getAdminBrandingCenter() {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
-  const [branding, header, footer, seo, pageContent] = await Promise.all([
+  const [branding, header, footer, seo, pageContent, headScripts] = await Promise.all([
     getBrandingAssetSettings(),
     getHeaderSettings(),
     getFooterSettings(),
     getSeoSettings(),
     getPageContentStore(),
+    getHeadScriptsSettings(),
   ]);
 
-  return ok({ branding, header, footer, seo, pageContent });
+  return ok({ branding, header, footer, seo, pageContent, headScripts });
 }
 
 export async function getAdminBranding() {

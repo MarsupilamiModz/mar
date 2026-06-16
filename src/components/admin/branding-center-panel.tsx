@@ -18,6 +18,8 @@ import {
   saveAdminPageContent,
   removeBrandingAsset,
 } from "@/actions/admin/branding";
+import { saveAdminHeadScripts } from "@/actions/admin/ads";
+import type { HeadScriptsSettings } from "@/lib/head-scripts";
 import { uploadViaApi } from "@/lib/upload-client";
 import { formatUploadErrorMessage } from "@/lib/upload-errors";
 import {
@@ -33,7 +35,7 @@ import {
 } from "@/lib/branding-cms";
 import { localeLabels, type Locale } from "@/i18n/config";
 
-type Tab = "identity" | "assets" | "header" | "footer" | "content" | "seo" | "preview";
+type Tab = "identity" | "assets" | "header" | "footer" | "content" | "seo" | "headScripts" | "preview";
 
 type Props = {
   initial: {
@@ -42,6 +44,7 @@ type Props = {
     footer: FooterSettings;
     seo: SeoSettings;
     pageContent: PageContentStore;
+    headScripts: HeadScriptsSettings;
   };
 };
 
@@ -52,6 +55,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "footer", label: "Footer" },
   { id: "content", label: "Content" },
   { id: "seo", label: "SEO" },
+  { id: "headScripts", label: "Head Scripts" },
   { id: "preview", label: "Preview" },
 ];
 
@@ -65,6 +69,7 @@ export function BrandingCenterPanel({ initial }: Props) {
   const [footer, setFooter] = useState(initial.footer);
   const [seo, setSeo] = useState(initial.seo);
   const [pageContent, setPageContent] = useState(initial.pageContent);
+  const [headScripts, setHeadScripts] = useState(initial.headScripts);
   const [contentPage, setContentPage] = useState<PageId>("homepage");
   const [contentLocale, setContentLocale] = useState<Locale>("en");
   const [seoLocale, setSeoLocale] = useState<Locale | "global">("global");
@@ -583,6 +588,88 @@ export function BrandingCenterPanel({ initial }: Props) {
             }
           >
             Save SEO
+          </Button>
+        </Card>
+      )}
+
+      {tab === "headScripts" && (
+        <Card className="glass p-6 space-y-4 max-w-2xl">
+          <h3 className="font-semibold">Head & body scripts</h3>
+          <p className="text-xs text-muted-foreground">
+            Meta tags render in &lt;head&gt;. Scripts use next/script (async, no hydration issues). AdSense loads globally from root layout — do not add a second AdSense loader here.
+          </p>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Custom meta tag</label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Input
+                placeholder="name (e.g. google-site-verification)"
+                value={headScripts.metaTags[0]?.name ?? ""}
+                onChange={(e) =>
+                  setHeadScripts((h) => ({
+                    ...h,
+                    metaTags: [
+                      {
+                        id: "custom-meta",
+                        name: e.target.value,
+                        content: h.metaTags[0]?.content ?? "",
+                      },
+                    ],
+                  }))
+                }
+              />
+              <Input
+                placeholder="content"
+                value={headScripts.metaTags[0]?.content ?? ""}
+                onChange={(e) =>
+                  setHeadScripts((h) => ({
+                    ...h,
+                    metaTags: [
+                      {
+                        id: "custom-meta",
+                        name: h.metaTags[0]?.name ?? "",
+                        content: e.target.value,
+                      },
+                    ],
+                  }))
+                }
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Body script snippet</label>
+            <Textarea
+              className="mt-1 font-mono text-xs"
+              rows={6}
+              placeholder="Analytics or tracking code (without script tags)"
+              value={headScripts.scriptSnippets[0]?.html ?? ""}
+              onChange={(e) =>
+                setHeadScripts((h) => ({
+                  ...h,
+                  scriptSnippets: [
+                    {
+                      id: "body-custom",
+                      label: "Custom body script",
+                      html: e.target.value,
+                      enabled: Boolean(e.target.value.trim()),
+                      placement: "body",
+                    },
+                  ],
+                }))
+              }
+            />
+          </div>
+          <Button
+            variant="neon"
+            disabled={pending}
+            onClick={() =>
+              startTransition(async () => {
+                const r = await saveAdminHeadScripts(headScripts);
+                if (r.success) appToast.saved();
+                else appToast.error(r.error);
+              })
+            }
+          >
+            Save head scripts
           </Button>
         </Card>
       )}
