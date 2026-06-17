@@ -199,3 +199,32 @@ export async function notifyTicketWatchers(params: {
     )
   );
 }
+
+export async function notifyStaffNewShopOrder(params: {
+  orderId: string;
+  title: string;
+  clientUsername: string;
+}) {
+  const staff = await prisma.user.findMany({
+    where: {
+      deletedAt: null,
+      isBanned: false,
+      role: { in: ["OWNER", "ADMIN", "DESIGNER"] },
+    },
+    select: { id: true },
+  });
+
+  await Promise.all(
+    staff.map((s) =>
+      notifyUser({
+        userId: s.id,
+        type: "ORDER_UPDATE",
+        category: "orders",
+        title: "New shop order",
+        body: `${params.clientUsername}: ${params.title}`,
+        link: `/en/admin/orders/${params.orderId}`,
+        metadata: { orderId: params.orderId, source: "shop" },
+      })
+    )
+  );
+}

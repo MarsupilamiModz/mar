@@ -130,7 +130,7 @@ export function PremiumPlansClient({ locale, plans, pageSettings, isLoggedIn, cu
                       </p>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Lifetime · one-time payment</p>
+                  <p className="text-xs text-muted-foreground mt-1">Billed monthly · cancel anytime</p>
                   {pricing.onSale && (
                     <span className="inline-block mt-1 text-xs rounded-full bg-amber-500/20 text-amber-400 px-2 py-0.5">
                       -{pricing.discountPercent}% limited offer

@@ -11,10 +11,9 @@ import {
   CreditCard,
   LifeBuoy,
   Package,
-  Coins,
-  Users,
   BookOpen,
   Trophy,
+  Users,
 } from "lucide-react";
 import { formatRoleLabel } from "@/lib/role-display";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
@@ -47,10 +46,7 @@ export default async function DashboardLayout({
     getTranslations("dashboard"),
   ]);
 
-  const navWithShop = [
-    ...navDefs.map((item) => ({ ...item, dashboard: true as const })),
-    { href: `/${locale}/shop`, icon: Coins, labelKey: "shop" as const, dashboard: false as const },
-  ];
+  const navWithShop = navDefs.map((item) => ({ ...item, dashboard: true as const }));
 
   return (
     <div className="mx-auto flex max-w-7xl gap-8 px-4 py-8 sm:px-6">

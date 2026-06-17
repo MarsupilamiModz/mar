@@ -1,33 +1,35 @@
-import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getCurrentUser } from "@/lib/auth";
-import { getWalletBalance } from "@/lib/credits";
-import { getShopProducts } from "@/lib/shop";
-import { ShopClient } from "@/components/shop/shop-client";
+import { getShopCatalog } from "@/actions/shop";
+import { ShopCatalog } from "@/components/shop/enterprise-shop";
 import type { Locale } from "@/i18n/config";
-import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Credits Shop",
-  description: "Buy credits, memberships, mods, and exclusive products.",
-};
+import { getTranslations, setRequestLocale } from "next-intl/server";
 
 export default async function ShopPage({ params: { locale } }: { params: { locale: Locale } }) {
   setRequestLocale(locale);
   const t = await getTranslations("shop");
-
-  const user = await getCurrentUser();
-  const [products, balance] = await Promise.all([
-    getShopProducts().catch(() => []),
-    user ? getWalletBalance(user.id) : Promise.resolve(0),
-  ]);
+  const { products, categories } = await getShopCatalog();
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-      <h1 className="text-3xl font-bold text-gradient">{t("title")}</h1>
-      <p className="mt-2 text-muted-foreground">{t("subtitle")}</p>
-      <div className="mt-10">
-        <ShopClient products={products} walletBalance={balance} locale={locale} />
+    <div className="container py-10 space-y-10">
+      <div className="text-center max-w-2xl mx-auto space-y-3">
+        <h1 className="text-4xl font-bold text-gradient">{t("title")}</h1>
+        <p className="text-muted-foreground">{t("subtitle")}</p>
       </div>
+
+      {categories.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {categories.map((c) => (
+            <span key={c.id} className="text-sm px-3 py-1 rounded-full glass border border-border/40">
+              {c.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {products.length === 0 ? (
+        <p className="text-center text-muted-foreground">{t("empty")}</p>
+      ) : (
+        <ShopCatalog products={products} locale={locale} />
+      )}
     </div>
   );
 }

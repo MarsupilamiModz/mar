@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionPermission, requireActionUser } from "@/lib/action-utils";
+import { fail, ok, requireActionPermission, requireActionUser, requireAnyActionPermission } from "@/lib/action-utils";
 import { customOrderSchema } from "@/lib/validations";
 import { hasPermission } from "@/lib/permissions";
 import { logToDiscordWebhook } from "@/lib/discord";
@@ -14,8 +14,9 @@ import { getPaymentSettings } from "@/lib/payments/settings";
 import { assertStripeConfigured, formatStripeError } from "@/lib/stripe-config";
 import { uploadAsset } from "@/lib/asset-storage";
 import { formatDisplayName } from "@/lib/display-name";
-import { centsToCredits, creditWallet } from "@/lib/credits";
-import type { OrderPaymentMethod } from "@prisma/client";
+import type { OrderPaymentMethod, OrderStatus } from "@prisma/client";
+import { transitionOrderStatus, onOrderMessageSent, logOrderActivity } from "@/lib/order-workflow";
+import { userHasPermission } from "@/lib/permission-store";
 
 export async function createCustomOrder(input: {
   title: string;
@@ -257,35 +258,8 @@ export async function markOrderPaidManual(
   return ok(undefined);
 }
 
-export async function payOrderWithCredits(orderId: string) {
-  const { user, error } = await requireActionUser();
-  if (error) return error;
-
-  const order = await prisma.customOrder.findUnique({ where: { id: orderId } });
-  if (!order || order.clientId !== user.id) return fail("Not found");
-  if (!order.finalAmountCents) return fail("No amount quoted");
-  if (order.paymentStatus === "PAID") return fail("Already paid");
-
-  const creditsNeeded = centsToCredits(order.finalAmountCents);
-  await creditWallet({
-    userId: user.id,
-    amount: -creditsNeeded,
-    type: "ORDER_PAYMENT",
-    description: `Custom order ${order.invoiceNumber}`,
-    referenceId: order.id,
-  });
-
-  await prisma.customOrder.update({
-    where: { id: orderId },
-    data: {
-      paymentStatus: "PAID",
-      paymentMethod: "CREDITS",
-      status: "COMPLETED",
-    },
-  });
-
-  revalidatePath(`/dashboard/orders/${orderId}`);
-  return ok(undefined);
+export async function payOrderWithCredits(_orderId: string) {
+  return fail("Credit payments removed. Pay with Stripe from your order page.");
 }
 
 export async function sendOrderMessage(orderId: string, content: string, isInternal = false) {
@@ -307,6 +281,15 @@ export async function sendOrderMessage(orderId: string, content: string, isInter
     },
   });
 
+  void onOrderMessageSent({
+    orderId,
+    senderId: user.id,
+    clientId: order.clientId,
+    assigneeId: order.assigneeId,
+    isInternal: isStaff ? isInternal : false,
+    content,
+  });
+
   revalidatePath(`/dashboard/orders/${orderId}`);
   revalidatePath(`/admin/orders/${orderId}`);
   return ok(undefined);
@@ -314,19 +297,145 @@ export async function sendOrderMessage(orderId: string, content: string, isInter
 
 export async function updateOrderStatus(
   orderId: string,
-  status: "PENDING" | "QUOTED" | "IN_PROGRESS" | "REVIEW" | "COMPLETED" | "CANCELED",
+  status: OrderStatus,
   assigneeId?: string
 ) {
-  const { error } = await requireActionPermission("orders.write");
+  const { user, error } = await requireAnyActionPermission("orders.write", "orders.manage", "custom_orders.manage");
+  if (error) return error;
+
+  await transitionOrderStatus({
+    orderId,
+    status,
+    actorId: user.id,
+    assigneeId,
+  });
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath(`/dashboard/orders/${orderId}`);
+  revalidatePath(`/designer/orders`);
+  return ok(undefined);
+}
+
+export async function assignOrder(orderId: string, assigneeId: string | null, team?: string) {
+  const { user, error } = await requireAnyActionPermission("orders.assign", "orders.write", "custom_orders.manage");
+  if (error) return error;
+
+  const order = await prisma.customOrder.update({
+    where: { id: orderId },
+    data: {
+      assigneeId,
+      assignedTeam: team ?? undefined,
+      ...(assigneeId ? { status: "ASSIGNED" } : {}),
+    },
+    select: { id: true, title: true, clientId: true, assigneeId: true },
+  });
+
+  await logOrderActivity(orderId, "order.assigned", user.id, { assigneeId, team });
+
+  if (assigneeId) {
+    const { notifyOrderUpdate } = await import("@/lib/notifications-service");
+    await notifyOrderUpdate({
+      userId: assigneeId,
+      title: "Order assigned to you",
+      body: order.title,
+      orderId: order.id,
+    });
+    await notifyOrderUpdate({
+      userId: order.clientId,
+      title: "Order assigned",
+      body: `Your order "${order.title}" has been assigned to our team.`,
+      orderId: order.id,
+    });
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  return ok(undefined);
+}
+
+export async function updateOrderInternalNotes(orderId: string, notes: string) {
+  const { user, error } = await requireAnyActionPermission("orders.write", "custom_orders.manage");
   if (error) return error;
 
   await prisma.customOrder.update({
     where: { id: orderId },
-    data: { status, ...(assigneeId !== undefined && { assigneeId }) },
+    data: { internalNotes: notes },
   });
-
+  await logOrderActivity(orderId, "notes.updated", user.id);
   revalidatePath(`/admin/orders/${orderId}`);
   return ok(undefined);
+}
+
+export async function uploadOrderDeliveryVersion(orderId: string, formData: FormData) {
+  const { user, error } = await requireAnyActionPermission("orders.write", "orders.complete", "custom_orders.manage");
+  if (error) return error;
+
+  const file = formData.get("file");
+  const notes = String(formData.get("notes") ?? "").trim() || undefined;
+  const isRevision = formData.get("isRevision") === "true";
+  if (!(file instanceof File)) return fail("No file");
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const safeName = file.name.replace(/[^\w.-]/g, "_");
+  const key = `orders/${orderId}/deliveries/${Date.now()}-${safeName}`;
+  const uploaded = await uploadAsset({
+    bucket: "tickets",
+    relativePath: key,
+    body: buffer,
+    contentType: file.type || "application/octet-stream",
+  });
+
+  const last = await prisma.orderDelivery.findFirst({
+    where: { orderId },
+    orderBy: { version: "desc" },
+    select: { version: true },
+  });
+  const version = (last?.version ?? 0) + 1;
+
+  await prisma.orderDelivery.create({
+    data: {
+      orderId,
+      version,
+      fileKey: uploaded.key,
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      fileSize: file.size,
+      notes,
+      uploadedById: user.id,
+      isRevision,
+    },
+  });
+
+  await prisma.customOrder.update({
+    where: { id: orderId },
+    data: {
+      deliveryFileKey: uploaded.key,
+      deliveryFileName: file.name,
+      status: "DELIVERED",
+      deliveredAt: new Date(),
+    },
+  });
+
+  await logOrderActivity(orderId, "delivery.uploaded", user.id, { version, fileName: file.name });
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath(`/dashboard/orders/${orderId}`);
+  return ok({ fileName: file.name, version });
+}
+
+export async function getAssignableStaff() {
+  const { error } = await requireAnyActionPermission("orders.assign", "orders.write");
+  if (error) return error;
+
+  const staff = await prisma.user.findMany({
+    where: {
+      deletedAt: null,
+      isBanned: false,
+      role: { in: ["OWNER", "ADMIN", "DESIGNER", "SUPPORT"] },
+    },
+    select: { id: true, username: true, displayName: true, role: true },
+    orderBy: { username: "asc" },
+  });
+  return ok(staff);
 }
 
 export async function getAdminOrders(status?: string) {
@@ -367,21 +476,44 @@ export async function getOrderDetail(orderId: string) {
     include: {
       client: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
       assignee: { select: { id: true, username: true, displayName: true } },
+      shopProduct: { select: { id: true, name: true, slug: true } },
       messages: {
         orderBy: { createdAt: "asc" },
-        include: { sender: { select: { username: true, displayName: true, avatarUrl: true, role: true } } },
+        include: {
+          sender: { select: { username: true, displayName: true, avatarUrl: true, role: true } },
+          attachments: true,
+        },
       },
       attachments: true,
+      deliveries: { orderBy: { version: "desc" }, include: { uploadedBy: { select: { username: true } } } },
+      activities: {
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        include: { actor: { select: { username: true } } },
+      },
     },
   });
 
   if (!order) return fail("Not found");
+
+  const canManage = await userHasPermission(
+    { id: user.id, role: user.role, permissionGroupId: user.permissionGroupId },
+    "orders.write"
+  ) || await userHasPermission(
+    { id: user.id, role: user.role, permissionGroupId: user.permissionGroupId },
+    "custom_orders.manage"
+  );
+
   const canView =
-    order.clientId === user.id || hasPermission(user.role, "orders.read");
+    order.clientId === user.id ||
+    order.assigneeId === user.id ||
+    hasPermission(user.role, "orders.read") ||
+    canManage;
+
   if (!canView) return fail("Forbidden");
 
   const messages =
-    hasPermission(user.role, "orders.read")
+    canManage || hasPermission(user.role, "orders.read")
       ? order.messages
       : order.messages.filter((m) => !m.isInternal);
 

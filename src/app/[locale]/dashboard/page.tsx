@@ -2,13 +2,13 @@ import { Suspense } from "react";
 import { requireAuth, hasPremiumAccess } from "@/lib/auth";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, Heart, Crown, Trophy, Coins } from "lucide-react";
+import { Download, Heart, Crown, Trophy } from "lucide-react";
 import { evaluateUserAchievements } from "@/lib/achievements";
 import { syncCreatorRanks } from "@/lib/leaderboards";
-import { getCreditHistory, formatCredits } from "@/lib/credits";
 import { formatDisplayName } from "@/lib/display-name";
-import { CreditHistoryPanel } from "@/components/dashboard/credit-history-panel";
 import { getDashboardStats } from "@/lib/dashboard-stats";
+import { getUserMembershipState } from "@/lib/user-membership";
+import Link from "next/link";
 
 async function DashboardStats({
   userId,
@@ -22,7 +22,7 @@ async function DashboardStats({
 
   return (
     <>
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="glass">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">{t("downloads")}</CardTitle>
@@ -50,15 +50,6 @@ async function DashboardStats({
             <p className="text-2xl font-bold">{isPremium ? t("active") : t("free")}</p>
           </CardContent>
         </Card>
-        <Card className="glass border-neon-purple/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">{t("credits")}</CardTitle>
-            <Coins className="h-4 w-4 text-neon-purple" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-gradient">{formatCredits(stats.creditBalance)}</p>
-          </CardContent>
-        </Card>
         <Card className="glass">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">{t("level")}</CardTitle>
@@ -84,8 +75,8 @@ async function DashboardStats({
 
 function StatsSkeleton() {
   return (
-    <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-      {Array.from({ length: 5 }).map((_, i) => (
+    <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
         <Card key={i} className="glass h-24 animate-pulse" />
       ))}
     </div>
@@ -103,10 +94,7 @@ export default async function DashboardPage({
   void Promise.all([evaluateUserAchievements(user.id), syncCreatorRanks()]).catch(() => undefined);
 
   const isPremium = hasPremiumAccess(user);
-  const [creditWallet, stats] = await Promise.all([
-    getCreditHistory(user.id, 8),
-    getDashboardStats(user.id),
-  ]);
+  const membership = await getUserMembershipState(user.id);
 
   return (
     <div>
@@ -117,13 +105,21 @@ export default async function DashboardPage({
         <DashboardStats userId={user.id} isPremium={isPremium} />
       </Suspense>
 
-      <div className="mt-8">
-        <CreditHistoryPanel
-          balance={creditWallet?.balance ?? stats.creditBalance}
-          transactions={creditWallet?.transactions ?? []}
-          locale="en"
-        />
-      </div>
+      {membership.membershipType !== "FREE" && (
+        <Card className="glass mt-8">
+          <CardContent className="py-4 text-sm flex flex-wrap items-center justify-between gap-2">
+            <span>
+              Plan: <strong>{membership.planSlug ?? membership.membershipType}</strong>
+              {membership.renewalDate && (
+                <> · Renews {new Date(membership.renewalDate).toLocaleDateString(locale)}</>
+              )}
+            </span>
+            <Link href={`/${locale}/dashboard/subscription`} className="text-neon-purple hover:underline text-sm">
+              Manage subscription
+            </Link>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

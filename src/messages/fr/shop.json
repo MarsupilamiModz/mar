@@ -1,14 +1,9 @@
 {
   "shop": {
-    "title": "Boutique Credits",
-    "subtitle": "Achetez des credits, des mods, des abonnements et des produits exclusifs.",
-    "balance": "Votre solde",
-    "buyWithCard": "Payer par carte",
-    "buyWithCredits": "Payer en Credits",
-    "featured": "En vedette",
-    "creditPacks": "Packs de credits",
-    "products": "Produits",
-    "owned": "Deja possede",
-    "insufficientCredits": "Credits insuffisants"
+    "title": "Boutique de services sur mesure",
+    "subtitle": "Commandez des HUD, graphismes, sons, scripts et plus encore.",
+    "empty": "Aucun service disponible pour le moment.",
+    "admin": { "title": "Gestion boutique", "subtitle": "Services, types, catégories et formulaires." },
+    "orders": { "adminTitle": "Centre de commandes", "adminSubtitle": "Gérer les commandes et le workflow." }
   }
 }

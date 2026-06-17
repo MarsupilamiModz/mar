@@ -239,11 +239,19 @@ enum PublisherLevel {
 
 enum OrderStatus {
   PENDING
+  PAID
   QUOTED
+  IN_REVIEW
+  ACCEPTED
+  ASSIGNED
   IN_PROGRESS
+  WAITING_FOR_CUSTOMER
+  REVISION_REQUESTED
   REVIEW
   COMPLETED
+  DELIVERED
   CANCELED
+  REFUNDED
 }
 
 enum TicketStatus {
@@ -407,14 +415,29 @@ enum LeaderboardPeriod {
   ALL_TIME
 }
 
-enum CreditTransactionType {
-  PURCHASE
-  EARNED
-  PAYOUT
-  REFUND
-  ORDER_PAYMENT
-  ADMIN_ADJUST
-  CONVERSION
+enum MembershipTier {
+  FREE
+  PREMIUM_LITE
+  PREMIUM
+  PREMIUM_MAX
+}
+
+enum UserMembershipStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+  INCOMPLETE
+  EXPIRED
+}
+
+enum SoundApprovalStatus {
+  PENDING_REVIEW
+  VIRUS_TOTAL_VERIFIED
+  MANUALLY_APPROVED
+  REVIEW_REQUIRED
+  REJECTED
+  CHANGES_REQUESTED
 }
 
 enum OrderPaymentStatus {
@@ -438,6 +461,10 @@ model User {
   username          String    @unique
   displayName       String?
   avatarUrl         String?
+  avatarOriginalUrl String?
+  avatar64Url       String?
+  avatar128Url      String?
+  avatar256Url      String?
   bio               String?
   locale            String    @default("en")
   discordId         String?   @unique
@@ -477,6 +504,8 @@ model User {
   customOrders      CustomOrder[]      @relation("OrderClient")
   assignedOrders    CustomOrder[]      @relation("OrderAssignee")
   orderMessages     OrderMessage[]
+  orderActivities   OrderActivity[]    @relation("OrderActivityActor")
+  orderDeliveries   OrderDelivery[]    @relation("OrderDeliveryUploader")
   notifications     Notification[]
   auditLogs         AuditLog[]         @relation("AuditActor")
   supportTickets    SupportTicket[]    @relation("TicketUser")
@@ -498,8 +527,9 @@ model User {
   creatorLicenses   LicenseKey[]       @relation("LicenseCreator")
   userAchievements  UserAchievement[]
   userProgress      UserProgress?
-  creditWallet      CreditWallet?
+  userMembership    UserMembership?
   shopPurchases     ShopPurchase[]
+  soundApprovals    SoundProfile[]         @relation("SoundApprover")
   modCollections    ModCollection[]
   collectionFollows ModCollectionFollow[]
   apiKeys           ApiKey[]
@@ -817,12 +847,20 @@ model SoundProfile {
   previewCustomSeconds Int?
   waveformPeaks        Json?
   coverImageKey        String?
+  previewScanStatus    FileScanStatus     @default(PENDING)
+  approvalStatus       SoundApprovalStatus @default(PENDING_REVIEW)
+  approvedAt           DateTime?
+  approvedById         String?
+  approvedBy           User?              @relation("SoundApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  rejectionReason      String?            @db.Text
+  reviewNotes          String?            @db.Text
   playCount            Int                @default(0)
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
   @@index([audioCategory])
   @@index([genre])
+  @@index([approvalStatus])
   @@map("sound_profiles")
 }
 
@@ -1186,6 +1224,10 @@ model CustomOrder {
   client            User                @relation("OrderClient", fields: [clientId], references: [id])
   assigneeId        String?
   assignee          User?               @relation("OrderAssignee", fields: [assigneeId], references: [id])
+  shopProductId     String?
+  shopProduct       ShopProduct?        @relation(fields: [shopProductId], references: [id], onDelete: SetNull)
+  shopPurchaseId    String?             @unique
+  shopPurchase      ShopPurchase?       @relation(fields: [shopPurchaseId], references: [id], onDelete: SetNull)
   title             String
   description       String              @db.Text
   orderType         String
@@ -1202,23 +1244,84 @@ model CustomOrder {
   customerEmail     String?
   deliveryFileKey   String?
   deliveryFileName  String?
+  assignedTeam      String?
+  internalNotes     String?             @db.Text
+  formResponses     Json?
+  priority          Int                 @default(0)
+  completedAt       DateTime?
+  deliveredAt       DateTime?
   status            OrderStatus         @default(PENDING)
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
   messages    OrderMessage[]
   attachments OrderAttachment[]
+  activities  OrderActivity[]
+  deliveries  OrderDelivery[]
+
+  @@index([status, updatedAt])
+  @@index([assigneeId, status])
+  @@index([clientId, createdAt])
+  @@index([shopProductId])
 }
 
 model OrderMessage {
+  id         String      @id @default(cuid())
+  orderId    String
+  order      CustomOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  senderId   String
+  sender     User        @relation(fields: [senderId], references: [id])
+  content    String      @db.Text
+  isInternal Boolean     @default(false)
+  replyToId  String?
+  readAt     DateTime?
+  createdAt  DateTime    @default(now())
+
+  attachments OrderMessageAttachment[]
+
+  @@index([orderId, createdAt])
+}
+
+model OrderMessageAttachment {
+  id        String       @id @default(cuid())
+  messageId String
+  message   OrderMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileKey   String
+  fileName  String
+  mimeType  String
+  fileSize  Int          @default(0)
+  createdAt DateTime     @default(now())
+}
+
+model OrderActivity {
   id        String      @id @default(cuid())
   orderId   String
   order     CustomOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  senderId  String
-  sender    User        @relation(fields: [senderId], references: [id])
-  content   String      @db.Text
-  isInternal Boolean    @default(false)
+  actorId   String?
+  actor     User?       @relation("OrderActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  details   Json?
   createdAt DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model OrderDelivery {
+  id           String      @id @default(cuid())
+  orderId      String
+  order        CustomOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  version      Int         @default(1)
+  fileKey      String
+  fileName     String
+  mimeType     String
+  fileSize     Int         @default(0)
+  notes        String?     @db.Text
+  uploadedById String
+  uploadedBy   User        @relation("OrderDeliveryUploader", fields: [uploadedById], references: [id])
+  isRevision   Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+
+  @@index([orderId, version])
 }
 
 model OrderAttachment {
@@ -1447,10 +1550,30 @@ model MembershipPlan {
   updatedAt     DateTime    @updatedAt
 
   subscriptions Subscription[]
-  purchases     MembershipPurchase[]
-  shopProducts  ShopProduct[]
+  purchases       MembershipPurchase[]
+  userMemberships UserMembership[]
+  shopProducts    ShopProduct[]
 
   @@index([isActive, sortOrder])
+}
+
+model UserMembership {
+  id                   String               @id @default(cuid())
+  userId               String               @unique
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membershipType       MembershipTier       @default(FREE)
+  status               UserMembershipStatus @default(ACTIVE)
+  planId               String?
+  plan                 MembershipPlan?      @relation(fields: [planId], references: [id], onDelete: SetNull)
+  stripeSubscriptionId String?              @unique
+  renewalDate          DateTime?
+  cancelDate           DateTime?
+  isLifetime           Boolean              @default(false)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([membershipType, status])
+  @@index([stripeSubscriptionId])
 }
 
 model MembershipPurchase {
@@ -1689,32 +1812,6 @@ model UserProgress {
   updatedAt DateTime @updatedAt
 }
 
-model CreditWallet {
-  id           String              @id @default(cuid())
-  userId       String              @unique
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  balance      Int                 @default(0)
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  transactions CreditTransaction[]
-
-  @@index([userId])
-}
-
-model CreditTransaction {
-  id          String                @id @default(cuid())
-  walletId    String
-  wallet      CreditWallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  amount      Int
-  type        CreditTransactionType
-  description String?
-  referenceId String?
-  createdAt   DateTime              @default(now())
-
-  @@index([walletId, createdAt])
-  @@index([referenceId])
-}
-
 enum ShopProductCategory {
   CREDITS
   MEMBERSHIP
@@ -1722,6 +1819,7 @@ enum ShopProductCategory {
   EXCLUSIVE
   BUNDLES
   ACCESS
+  CUSTOM_SERVICES
 }
 
 enum ShopProductType {
@@ -1732,15 +1830,101 @@ enum ShopProductType {
   BUNDLE
   SUBSCRIPTION
   ACCESS
+  CUSTOM
+}
+
+enum ShopPricingMode {
+  FIXED
+  VARIABLE
+  STARTING_FROM
+  QUOTE
+  SUBSCRIPTION
+  ONE_TIME
+}
+
+enum ShopProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+  DISABLED
+}
+
+enum ShopFormFieldType {
+  TEXT
+  TEXTAREA
+  DROPDOWN
+  CHECKBOX
+  RADIO
+  DATE
+  IMAGE_UPLOAD
+  FILE_UPLOAD
+}
+
+enum ShopMediaType {
+  COVER
+  BANNER
+  FEATURED
+  GALLERY
+  EXAMPLE
+  VIDEO
+}
+
+model ShopProductTypeDefinition {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?  @db.Text
+  iconKey     String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  isCustom    Boolean  @default(true)
+  translations Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products ShopProduct[]
+
+  @@index([isActive, sortOrder])
+}
+
+model ShopCategory {
+  id           String         @id @default(cuid())
+  slug         String         @unique
+  name         String
+  description  String?        @db.Text
+  parentId     String?
+  parent       ShopCategory?  @relation("ShopCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children     ShopCategory[] @relation("ShopCategoryTree")
+  sortOrder    Int            @default(0)
+  isActive     Boolean        @default(true)
+  translations Json?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  products          ShopProduct[] @relation("ProductCategory")
+  subcategoryProducts ShopProduct[] @relation("ProductSubcategory")
+
+  @@index([parentId, sortOrder])
+  @@index([isActive, sortOrder])
 }
 
 model ShopProduct {
   id               String              @id @default(cuid())
   slug             String              @unique
   name             String
+  shortDescription String?             @db.Text
   description      String?             @db.Text
-  category         ShopProductCategory @default(CREDITS)
-  productType      ShopProductType     @default(CREDIT_PACK)
+  category         ShopProductCategory @default(CUSTOM_SERVICES)
+  productType      ShopProductType     @default(CUSTOM)
+  customTypeId     String?
+  customType       ShopProductTypeDefinition? @relation(fields: [customTypeId], references: [id], onDelete: SetNull)
+  shopCategoryId   String?
+  shopCategory     ShopCategory?       @relation("ProductCategory", fields: [shopCategoryId], references: [id], onDelete: SetNull)
+  subcategoryId    String?
+  subcategory      ShopCategory?       @relation("ProductSubcategory", fields: [subcategoryId], references: [id], onDelete: SetNull)
+  tags             Json                @default("[]")
+  status           ShopProductStatus   @default(ACTIVE)
+  pricingMode      ShopPricingMode     @default(FIXED)
   creditPrice      Int                 @default(0)
   priceCents       Int                 @default(0)
   stripePriceId    String?
@@ -1750,35 +1934,81 @@ model ShopProduct {
   membershipPlanId String?
   membershipPlan   MembershipPlan?     @relation(fields: [membershipPlanId], references: [id], onDelete: SetNull)
   thumbnailUrl     String?
+  coverImageUrl    String?
+  bannerImageUrl   String?
+  featuredImageUrl String?
+  videoUrl         String?
   stock            Int?
   isFeatured       Boolean             @default(false)
   isActive         Boolean             @default(true)
+  isArchived       Boolean             @default(false)
+  visibility       String              @default("public")
   salePercent      Int                 @default(0)
   creatorShareBps  Int                 @default(0)
   partnerShareBps  Int                 @default(0)
+  customFields     Json                @default("{}")
   sortOrder        Int                 @default(0)
   translations     Json?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
-  purchases ShopPurchase[]
+  formFields ShopProductFormField[]
+  media      ShopProductMedia[]
+  purchases  ShopPurchase[]
+  orders     CustomOrder[]
 
   @@index([isActive, isFeatured, sortOrder])
+  @@index([status, isArchived])
   @@index([category])
+  @@index([shopCategoryId])
+  @@index([customTypeId])
+}
+
+model ShopProductFormField {
+  id          String            @id @default(cuid())
+  productId   String
+  product     ShopProduct       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  fieldType   ShopFormFieldType
+  label       String
+  placeholder String?
+  helpText    String?
+  required    Boolean           @default(false)
+  options     Json?
+  validation  Json?
+  sortOrder   Int               @default(0)
+
+  @@index([productId, sortOrder])
+}
+
+model ShopProductMedia {
+  id        String        @id @default(cuid())
+  productId String
+  product   ShopProduct   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  mediaType ShopMediaType @default(GALLERY)
+  url       String
+  alt       String?
+  sortOrder Int           @default(0)
+  createdAt DateTime      @default(now())
+
+  @@index([productId, mediaType, sortOrder])
 }
 
 model ShopPurchase {
-  id              String      @id @default(cuid())
+  id              String       @id @default(cuid())
   userId          String
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId       String
-  product         ShopProduct @relation(fields: [productId], references: [id])
-  creditsSpent    Int         @default(0)
-  priceCents      Int         @default(0)
+  product         ShopProduct  @relation(fields: [productId], references: [id])
+  creditsSpent    Int          @default(0)
+  priceCents      Int          @default(0)
   stripePaymentId String?
-  createdAt       DateTime    @default(now())
+  formResponses   Json?
+  customOrder     CustomOrder?
+  createdAt       DateTime     @default(now())
 
   @@index([userId, createdAt])
+  @@index([productId])
+  @@index([stripePaymentId])
 }
 
 model FileScanLog {

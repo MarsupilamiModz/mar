@@ -1,14 +1,9 @@
 {
   "shop": {
-    "title": "Credit Magazasi",
-    "subtitle": "Credit satin alin, modlar, uyelikler ve ozel urunlerin kilidini acin.",
-    "balance": "Bakiyeniz",
-    "buyWithCard": "Kartla satin al",
-    "buyWithCredits": "Credit ile satin al",
-    "featured": "One cikan",
-    "creditPacks": "Credit paketleri",
-    "products": "Urunler",
-    "owned": "Zaten sahipsiniz",
-    "insufficientCredits": "Yetersiz credit"
+    "title": "Özel hizmet mağazası",
+    "subtitle": "Özel HUD, grafik, ses, script ve daha fazlasını sipariş edin.",
+    "empty": "Henüz hizmet yok.",
+    "admin": { "title": "Mağaza yönetimi", "subtitle": "Hizmetler, türler, kategoriler ve formlar." },
+    "orders": { "adminTitle": "Sipariş merkezi", "adminSubtitle": "Siparişleri ve iş akışını yönetin." }
   }
 }

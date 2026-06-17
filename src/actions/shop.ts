@@ -2,139 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionUser } from "@/lib/action-utils";
-import { creditWallet } from "@/lib/credits";
-import { createCreditPackCheckout } from "@/lib/stripe";
-import { effectiveCreditPrice } from "@/lib/shop";
-import { grantMembershipPurchase } from "@/lib/membership";
+import { fail, ok, requireActionUser, type ActionResult } from "@/lib/action-utils";
+import { createModPurchaseCheckout, createModPurchaseCheckoutDynamic, createShopProductCheckout } from "@/lib/stripe";
+import { isValidStripePriceId } from "@/lib/stripe-config";
 import { getPaymentSettings } from "@/lib/payments/settings";
-import { assertStripeConfigured, formatStripeError } from "@/lib/stripe-config";
+import { ensureDefaultShopProductTypes, ALLOWED_ORDER_UPLOAD_MIMES, MAX_ORDER_UPLOAD_BYTES, MAX_ORDER_UPLOAD_FILES } from "@/lib/shop-enterprise";
+import { generateInvoiceNumber } from "@/lib/invoices";
+import { uploadAsset } from "@/lib/asset-storage";
+import { onNewShopOrder } from "@/lib/order-workflow";
+import { rateLimit } from "@/lib/rate-limit";
+import type { ShopFormFieldType } from "@prisma/client";
 
-export async function startCreditPackCheckout(
-  productId: string,
-  locale: string,
-  clientOrigin?: string
-) {
+export async function startModPurchaseCheckout(modId: string, locale: string, clientOrigin?: string) {
   const { user, error } = await requireActionUser();
   if (error) return error;
 
   const paymentSettings = await getPaymentSettings();
   if (!paymentSettings.stripeEnabled) {
-    return fail("Stripe payments are disabled. Contact support or use credits.");
+    return fail("Stripe payments are disabled");
   }
-
-  const product = await prisma.shopProduct.findUnique({ where: { id: productId } });
-  if (!product || !product.isActive || product.productType !== "CREDIT_PACK") {
-    return fail("Product not available");
-  }
-  if (!product.creditsAmount || product.creditsAmount <= 0) return fail("Invalid credit pack");
-
-  try {
-    assertStripeConfigured();
-    const session = await createCreditPackCheckout(
-      user.id,
-      user.email,
-      product.id,
-      product.slug,
-      product.creditsAmount,
-      product.priceCents,
-      locale,
-      product.stripePriceId,
-      { clientOrigin }
-    );
-
-    if (!session.url) {
-      return fail("Stripe did not return a checkout URL");
-    }
-
-    return ok({ url: session.url, sessionId: session.id });
-  } catch (err) {
-    return fail(`Checkout failed: ${formatStripeError(err)}`);
-  }
-}
-
-export async function purchaseShopProductWithCredits(productId: string) {
-  const { user, error } = await requireActionUser();
-  if (error) return error;
-
-  const product = await prisma.shopProduct.findUnique({
-    where: { id: productId },
-    include: { mod: true, membershipPlan: true },
-  });
-  if (!product || !product.isActive) return fail("Product not available");
-
-  const cost = effectiveCreditPrice(product);
-  if (cost <= 0) return fail("Product is not available for credits");
-
-  if (product.stock != null && product.stock <= 0) return fail("Out of stock");
-
-  try {
-    await creditWallet({
-      userId: user.id,
-      amount: -cost,
-      type: "ORDER_PAYMENT",
-      description: `Shop: ${product.name}`,
-      referenceId: product.id,
-    });
-  } catch {
-    return fail("Insufficient credits");
-  }
-
-  await prisma.shopPurchase.create({
-    data: {
-      userId: user.id,
-      productId: product.id,
-      creditsSpent: cost,
-      priceCents: product.priceCents,
-    },
-  });
-
-  if (product.stock != null) {
-    await prisma.shopProduct.update({
-      where: { id: product.id },
-      data: { stock: { decrement: 1 } },
-    });
-  }
-
-  if (product.modId && product.mod) {
-    await prisma.modPurchase.upsert({
-      where: { modId_userId: { modId: product.modId, userId: user.id } },
-      create: {
-        modId: product.modId,
-        userId: user.id,
-        amountCents: cost,
-      },
-      update: {},
-    });
-  }
-
-  if (product.membershipPlanId && product.membershipPlan) {
-    await grantMembershipPurchase({
-      userId: user.id,
-      planId: product.membershipPlanId,
-      amountCents: cost,
-    });
-  }
-
-  if (product.productType === "CREDIT_PACK" && product.creditsAmount) {
-    await creditWallet({
-      userId: user.id,
-      amount: product.creditsAmount,
-      type: "PURCHASE",
-      description: `Credit pack: ${product.name}`,
-      referenceId: product.id,
-    });
-  }
-
-  revalidatePath("/dashboard");
-  revalidatePath("/shop");
-  revalidatePath("/dashboard/library");
-  return ok({ productSlug: product.slug });
-}
-
-export async function purchaseModWithCredits(modId: string) {
-  const { user, error } = await requireActionUser();
-  if (error) return error;
 
   const mod = await prisma.mod.findUnique({ where: { id: modId } });
   if (!mod || mod.pricing !== "PAID" || !mod.priceCents || mod.priceCents <= 0) {
@@ -147,66 +33,263 @@ export async function purchaseModWithCredits(modId: string) {
   if (existing) return fail("Already owned");
 
   try {
-    await creditWallet({
-      userId: user.id,
-      amount: -mod.priceCents,
-      type: "ORDER_PAYMENT",
-      description: `Mod: ${mod.title}`,
-      referenceId: mod.id,
-    });
-  } catch {
-    return fail("Insufficient credits");
+    const session =
+      mod.stripePriceId && isValidStripePriceId(mod.stripePriceId)
+        ? await createModPurchaseCheckout(user.id, user.email, mod.id, mod.slug, mod.stripePriceId, locale, {
+            clientOrigin,
+          })
+        : await createModPurchaseCheckoutDynamic(
+            user.id,
+            user.email,
+            mod.id,
+            mod.slug,
+            mod.title,
+            mod.priceCents,
+            locale,
+            { clientOrigin }
+          );
+
+    if (!session.url) return fail("Checkout URL unavailable");
+    return ok({ url: session.url });
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Checkout failed");
   }
-
-  await prisma.modPurchase.create({
-    data: {
-      modId,
-      userId: user.id,
-      amountCents: mod.priceCents,
-    },
-  });
-
-  revalidatePath(`/mods/${mod.slug}`);
-  revalidatePath("/dashboard/library");
-  return ok(undefined);
 }
 
 export async function getUserLibrary(userId: string) {
-  const [modPurchases, shopPurchases] = await Promise.all([
-    prisma.modPurchase.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        mod: {
-          select: {
-            id: true,
-            slug: true,
-            title: true,
-            pricing: true,
-            downloadCount: true,
-            media: { where: { isFeatured: true }, take: 1 },
-            screenshots: { take: 1, orderBy: { sortOrder: "asc" } },
-            game: { select: { name: true, slug: true } },
-          },
+  const modPurchases = await prisma.modPurchase.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      mod: {
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          pricing: true,
+          downloadCount: true,
+          media: { where: { isFeatured: true }, take: 1 },
+          screenshots: { take: 1, orderBy: { sortOrder: "asc" } },
+          game: { select: { name: true, slug: true } },
         },
       },
-    }),
-    prisma.shopPurchase.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        product: {
-          select: {
-            id: true,
-            slug: true,
-            name: true,
-            productType: true,
-            thumbnailUrl: true,
-          },
-        },
+    },
+  });
+
+  const shopPurchases = await prisma.shopPurchase.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      product: {
+        select: { name: true, productType: true },
       },
-    }),
-  ]);
+    },
+  });
 
   return { modPurchases, shopPurchases };
+}
+
+export async function startCreditPackCheckout(
+  _productId: string,
+  _locale: string,
+  _clientOrigin?: string
+): Promise<ActionResult<{ url: string }>> {
+  return fail("Credit pack checkout is no longer available");
+}
+
+export async function purchaseShopProductWithCredits(_productId: string): Promise<ActionResult<void>> {
+  return fail("Credit purchases are no longer available");
+}
+
+export async function getShopCatalog(params?: { categorySlug?: string; featured?: boolean }) {
+  await ensureDefaultShopProductTypes();
+
+  const products = await prisma.shopProduct.findMany({
+    where: {
+      isActive: true,
+      isArchived: false,
+      status: "ACTIVE",
+      visibility: "public",
+      ...(params?.featured ? { isFeatured: true } : {}),
+      ...(params?.categorySlug
+        ? { shopCategory: { slug: params.categorySlug } }
+        : {}),
+    },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    include: {
+      customType: { select: { name: true, slug: true, iconKey: true } },
+      shopCategory: { select: { name: true, slug: true } },
+      media: { where: { mediaType: { in: ["COVER", "GALLERY"] } }, orderBy: { sortOrder: "asc" }, take: 4 },
+    },
+  });
+
+  const categories = await prisma.shopCategory.findMany({
+    where: { isActive: true, parentId: null },
+    orderBy: { sortOrder: "asc" },
+    include: { children: { where: { isActive: true }, orderBy: { sortOrder: "asc" } } },
+  });
+
+  return { products, categories };
+}
+
+export async function getShopProduct(slug: string) {
+  await ensureDefaultShopProductTypes();
+
+  const product = await prisma.shopProduct.findFirst({
+    where: {
+      slug,
+      isActive: true,
+      isArchived: false,
+      status: { in: ["ACTIVE", "DRAFT"] },
+      visibility: "public",
+    },
+    include: {
+      customType: true,
+      shopCategory: true,
+      subcategory: true,
+      formFields: { orderBy: { sortOrder: "asc" } },
+      media: { orderBy: [{ mediaType: "asc" }, { sortOrder: "asc" }] },
+    },
+  });
+
+  return product;
+}
+
+type FormResponse = Record<string, string | string[] | boolean>;
+
+function parseFormResponses(
+  formData: FormData,
+  fields: { id: string; fieldType: ShopFormFieldType; label: string; required: boolean }[]
+): { responses: FormResponse } | { error: string } {
+  const responses: FormResponse = {};
+
+  for (const field of fields) {
+    const key = `field_${field.id}`;
+    if (field.fieldType === "CHECKBOX") {
+      responses[field.label] = formData.get(key) === "on" || formData.get(key) === "true";
+      continue;
+    }
+    if (field.fieldType === "IMAGE_UPLOAD" || field.fieldType === "FILE_UPLOAD") {
+      const files = formData.getAll(key).filter((f): f is File => f instanceof File && f.size > 0);
+      if (field.required && files.length === 0) return { error: `${field.label} is required` };
+      continue;
+    }
+    const value = String(formData.get(key) ?? "").trim();
+    if (field.required && !value) return { error: `${field.label} is required` };
+    if (value) responses[field.label] = value;
+  }
+
+  return { responses };
+}
+
+export async function submitShopProductOrder(formData: FormData, locale = "en") {
+  const { user, error } = await requireActionUser();
+  if (error) return error;
+
+  const limit = rateLimit(`shop-order:${user.id}`, 5, 3600_000);
+  if (!limit.success) return fail("Rate limited");
+
+  const productSlug = String(formData.get("productSlug") ?? "").trim();
+  if (!productSlug) return fail("Product required");
+
+  const product = await getShopProduct(productSlug);
+  if (!product) return fail("Product not found");
+
+  const parsed = parseFormResponses(formData, product.formFields);
+  if ("error" in parsed) return fail(parsed.error);
+
+  const invoiceNumber = await generateInvoiceNumber();
+  const responses = parsed.responses;
+  const description =
+    Object.entries(responses)
+      .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : typeof v === "boolean" ? (v ? "yes" : "no") : String(v)}`)
+      .join("\n") || product.shortDescription || product.description || product.name;
+
+  const order = await prisma.customOrder.create({
+    data: {
+      clientId: user.id,
+      shopProductId: product.id,
+      title: product.name,
+      description,
+      orderType: product.customType?.name ?? product.productType,
+      budgetCents: product.pricingMode === "QUOTE" ? null : product.priceCents,
+      finalAmountCents: product.pricingMode === "QUOTE" ? null : product.priceCents,
+      invoiceNumber,
+      customerEmail: user.email,
+      discordUsername: String(formData.get("discord") ?? user.discordUsername ?? "").trim() || undefined,
+      formResponses: responses as object,
+      status: product.pricingMode === "QUOTE" ? "PENDING" : "PENDING",
+      messages: {
+        create: {
+          senderId: user.id,
+          content: description,
+        },
+      },
+    },
+  });
+
+  const files = formData
+    .getAll("order_files")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length > MAX_ORDER_UPLOAD_FILES) return fail(`Maximum ${MAX_ORDER_UPLOAD_FILES} files`);
+
+  for (const file of files) {
+    if (file.size > MAX_ORDER_UPLOAD_BYTES) return fail(`${file.name} exceeds upload limit`);
+    if (!ALLOWED_ORDER_UPLOAD_MIMES.includes(file.type) && !file.name.match(/\.(zip|pdf|png|jpe?g|webp)$/i)) {
+      return fail(`File type not allowed: ${file.name}`);
+    }
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const safeName = file.name.replace(/[^\w.-]/g, "_");
+    const uploaded = await uploadAsset({
+      bucket: "tickets",
+      relativePath: `orders/${order.id}/refs/${Date.now()}-${safeName}`,
+      body: buffer,
+      contentType: file.type || "application/octet-stream",
+    });
+    await prisma.orderAttachment.create({
+      data: {
+        orderId: order.id,
+        fileKey: uploaded.key,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+      },
+    });
+  }
+
+  await onNewShopOrder(order.id, locale);
+
+  if (product.pricingMode === "QUOTE" || !product.priceCents) {
+    revalidatePath("/dashboard/orders");
+    return ok({ orderId: order.id, checkoutUrl: null as string | null });
+  }
+
+  const paymentSettings = await getPaymentSettings();
+  if (!paymentSettings.stripeEnabled) {
+    revalidatePath("/dashboard/orders");
+    return ok({ orderId: order.id, checkoutUrl: null });
+  }
+
+  try {
+    const clientOrigin = String(formData.get("clientOrigin") ?? "").trim() || undefined;
+    const session = await createShopProductCheckout(
+      user.id,
+      user.email,
+      order.id,
+      product.id,
+      product.name,
+      product.priceCents,
+      invoiceNumber,
+      locale,
+      { clientOrigin, productSlug: product.slug }
+    );
+    revalidatePath("/dashboard/orders");
+    return ok({ orderId: order.id, checkoutUrl: session.url ?? null });
+  } catch (err) {
+    revalidatePath("/dashboard/orders");
+    return ok({
+      orderId: order.id,
+      checkoutUrl: null,
+      warning: err instanceof Error ? err.message : "Checkout unavailable",
+    });
+  }
 }

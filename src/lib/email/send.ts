@@ -244,6 +244,65 @@ export async function sendCustomOrderNotification(order: {
   });
 }
 
+export async function sendOrderStatusEmail(params: {
+  orderId: string;
+  title: string;
+  body: string;
+  template?: "status" | "assigned" | "completed" | "revision";
+}) {
+  const order = await prisma.customOrder.findUnique({
+    where: { id: params.orderId },
+    select: {
+      id: true,
+      title: true,
+      invoiceNumber: true,
+      customerEmail: true,
+      client: { select: { email: true, username: true, displayName: true } },
+    },
+  });
+  if (!order) return false;
+
+  const to = order.customerEmail ?? order.client.email;
+  const name = order.client.displayName ?? order.client.username;
+  const subjectPrefix =
+    params.template === "completed"
+      ? "Order completed"
+      : params.template === "assigned"
+        ? "Order assigned"
+        : params.template === "revision"
+          ? "Revision requested"
+          : "Order update";
+
+  return sendEmail({
+    to,
+    subject: `[${SITE.name}] ${subjectPrefix}: ${order.title}`,
+    html: `<p>Hi ${name},</p><p><strong>${params.title}</strong></p><p>${params.body}</p>`,
+    templateKey: "order",
+  });
+}
+
+export async function sendOrderMessageEmail(params: { orderId: string; preview: string }) {
+  const order = await prisma.customOrder.findUnique({
+    where: { id: params.orderId },
+    select: {
+      title: true,
+      customerEmail: true,
+      client: { select: { email: true, username: true, displayName: true } },
+    },
+  });
+  if (!order) return false;
+
+  const to = order.customerEmail ?? order.client.email;
+  const name = order.client.displayName ?? order.client.username;
+
+  return sendEmail({
+    to,
+    subject: `[${SITE.name}] New message on order: ${order.title}`,
+    html: `<p>Hi ${name},</p><p>You have a new message on your order <strong>${order.title}</strong>:</p><p>${params.preview}</p>`,
+    templateKey: "order",
+  });
+}
+
 export async function sendTicketNotification(params: {
   type: "created" | "reply" | "updated";
   ticketNumber: string;

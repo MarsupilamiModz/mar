@@ -48,6 +48,7 @@ export default async function AdminSecurityPage({ params: { locale } }: { params
         },
         recent: [],
         pendingApprovals: [],
+        pendingSounds: [],
         auditRecent: [],
       };
 

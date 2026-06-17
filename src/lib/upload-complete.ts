@@ -85,7 +85,16 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
     case "creator-avatar":
     case "partner-avatar": {
       const mediaFile = await registerMediaFromSession(session, "USER_AVATAR", userId, userId);
-      await prisma.user.update({ where: { id: userId }, data: { avatarUrl: mediaFile.publicUrl } });
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          avatarUrl: mediaFile.publicUrl,
+          avatar256Url: mediaFile.publicUrl,
+          avatar128Url: mediaFile.publicUrl,
+          avatar64Url: mediaFile.publicUrl,
+          avatarOriginalUrl: mediaFile.publicUrl,
+        },
+      });
       revalidatePath("/", "layout");
       break;
     }

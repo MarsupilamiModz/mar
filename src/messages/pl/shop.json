@@ -1,14 +1,9 @@
 {
   "shop": {
-    "title": "Sklep Creditow",
-    "subtitle": "Kup credity, odblokuj mody, czlonkostwa i produkty ekskluzywne.",
-    "balance": "Twoje saldo",
-    "buyWithCard": "Kup karta",
-    "buyWithCredits": "Kup za Credit",
-    "featured": "Polecane",
-    "creditPacks": "Pakiety creditow",
-    "products": "Produkty",
-    "owned": "Juz posiadasz",
-    "insufficientCredits": "Niewystarczajace credity"
+    "title": "Sklep usług na zamówienie",
+    "subtitle": "Zamów HUD, grafikę, dźwięki, skrypty i więcej.",
+    "empty": "Brak dostępnych usług.",
+    "admin": { "title": "Zarządzanie sklepem", "subtitle": "Usługi, typy, kategorie i formularze." },
+    "orders": { "adminTitle": "Centrum zamówień", "adminSubtitle": "Zarządzaj zamówieniami i workflow." }
   }
 }

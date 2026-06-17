@@ -136,7 +136,7 @@ export function mapModMedia(
   return media.map((m) => ({
     id: m.id,
     mediaType: m.mediaType,
-    imageUrl: m.imageUrl,
+    imageUrl: m.imageUrl ? normalizeStoredMediaUrl(m.imageUrl) ?? m.imageUrl : null,
     videoUrl: m.videoUrl,
     youtubeVideoId: m.youtubeVideoId,
     orderIndex: m.orderIndex,

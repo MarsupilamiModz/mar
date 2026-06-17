@@ -2,10 +2,10 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Coins } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatCreditsFromCents } from "@/lib/credits";
-import { purchaseModWithCredits } from "@/actions/shop";
+import { formatMoneyFromCents } from "@/lib/currency";
+import { startModPurchaseCheckout } from "@/actions/shop";
 import { useAppToast } from "@/hooks/use-app-toast";
 
 export function ModPurchaseButton({
@@ -36,20 +36,25 @@ export function ModPurchaseButton({
       disabled={pending}
       onClick={() =>
         startTransition(async () => {
-          const r = await purchaseModWithCredits(modId);
-          if (r.success) {
-            appToast.saved();
-            router.refresh();
-          } else if (r.error === "Unauthorized") {
+          const r = await startModPurchaseCheckout(
+            modId,
+            locale,
+            typeof window !== "undefined" ? window.location.origin : undefined
+          );
+          if (r.success && r.data.url) {
+            window.location.href = r.data.url;
+          } else if (!r.success && r.error === "Unauthorized") {
             window.location.href = `/${locale}/login`;
-          } else {
+          } else if (!r.success) {
             appToast.error(r.error);
+          } else {
+            router.refresh();
           }
         })
       }
     >
-      <Coins className="h-4 w-4 mr-1.5" />
-      Buy {formatCreditsFromCents(priceCents, locale)}
+      <CreditCard className="h-4 w-4 mr-1.5" />
+      Buy {formatMoneyFromCents(priceCents, locale)}
     </Button>
   );
 }

@@ -160,6 +160,15 @@ export async function getSoundStreamInfo(modId: string) {
     return fail("Sound preview not available");
   }
 
+  if (mod.status !== "PUBLISHED") {
+    return fail("Sound is not published");
+  }
+
+  const approvedStatuses = ["MANUALLY_APPROVED", "VIRUS_TOTAL_VERIFIED"];
+  if (!approvedStatuses.includes(mod.soundProfile.approvalStatus)) {
+    return fail("Sound pending security approval");
+  }
+
   const profile = mod.soundProfile;
   const limit = getPreviewLimitSeconds(
     profile.previewType,

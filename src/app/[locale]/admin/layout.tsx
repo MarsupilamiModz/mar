@@ -27,7 +27,7 @@ const linkDefs = [
   { href: "/audit", labelKey: "audit", permission: "audit.read" as const },
   { href: "/announcements", labelKey: "announcements", permission: "settings.write" as const },
   { href: "/memberships", labelKey: "memberships", permission: "settings.write" as const },
-  { href: "/shop", labelKey: "shop", permission: "settings.write" as const },
+  { href: "/shop", labelKey: "shop", permission: "shop.view" as const },
   { href: "/payments", labelKey: "payments", permission: "settings.write" as const },
   { href: "/achievements", labelKey: "achievements", permission: "settings.write" as const },
   { href: "/leaderboards", labelKey: "leaderboards", permission: "settings.write" as const },

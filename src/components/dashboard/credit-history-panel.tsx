@@ -1,6 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCredits } from "@/lib/credits";
-import type { CreditTransactionType } from "@prisma/client";
+
+type CreditTransactionType =
+  | "PURCHASE"
+  | "EARNED"
+  | "PAYOUT"
+  | "REFUND"
+  | "ORDER_PAYMENT"
+  | "ADMIN_ADJUST"
+  | "CONVERSION";
 
 const TYPE_LABELS: Partial<Record<CreditTransactionType, string>> = {
   PURCHASE: "Purchase",

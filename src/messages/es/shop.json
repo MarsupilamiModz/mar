@@ -1,14 +1,9 @@
 {
   "shop": {
-    "title": "Tienda de Credits",
-    "subtitle": "Compra credits, mods, membresias y productos exclusivos.",
-    "balance": "Tu saldo",
-    "buyWithCard": "Pagar con tarjeta",
-    "buyWithCredits": "Pagar con Credits",
-    "featured": "Destacado",
-    "creditPacks": "Paquetes de credits",
-    "products": "Productos",
-    "owned": "Ya lo tienes",
-    "insufficientCredits": "Credits insuficientes"
+    "title": "Tienda de servicios personalizados",
+    "subtitle": "Pide HUDs, gráficos, sonidos, scripts y más.",
+    "empty": "No hay servicios disponibles todavía.",
+    "admin": { "title": "Gestión de tienda", "subtitle": "Servicios, tipos, categorías y formularios." },
+    "orders": { "adminTitle": "Centro de pedidos", "adminSubtitle": "Gestionar pedidos y flujo de trabajo." }
   }
 }

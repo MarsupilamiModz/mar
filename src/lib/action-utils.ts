@@ -62,6 +62,19 @@ export async function requireActionPermission(permission: PermissionKey) {
   return { user, error: null };
 }
 
+export async function requireAnyActionPermission(...permissions: PermissionKey[]) {
+  const { user, error } = await requireActionUser();
+  if (error) return { user: null as never, error };
+  for (const permission of permissions) {
+    const allowed = await userHasPermission(
+      { id: user.id, role: user.role, permissionGroupId: user.permissionGroupId },
+      permission
+    );
+    if (allowed) return { user, error: null };
+  }
+  return { user: null as never, error: fail("Forbidden") };
+}
+
 export async function requireActionAdmin() {
   const { user, error } = await requireActionUser();
   if (error) return { user: null as never, error };

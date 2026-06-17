@@ -1,14 +1,31 @@
 {
   "shop": {
-    "title": "Credits Shop",
-    "subtitle": "Credits kaufen, Mods, Mitgliedschaften und exklusive Produkte freischalten.",
-    "balance": "Dein Guthaben",
-    "buyWithCard": "Mit Karte kaufen",
-    "buyWithCredits": "Mit Credits kaufen",
+    "title": "Custom Services Shop",
+    "subtitle": "Bestelle individuelle HUDs, Grafiken, Sounds, Scripts und mehr vom Xumari Modz Team.",
+    "empty": "Noch keine Services verfügbar.",
     "featured": "Empfohlen",
-    "creditPacks": "Credit-Pakete",
-    "products": "Produkte",
-    "owned": "Bereits gekauft",
-    "insufficientCredits": "Nicht genug Credits"
+    "products": "Services",
+    "orderNow": "Jetzt bestellen",
+    "requestQuote": "Angebot anfragen",
+    "startingAt": "Ab {price}",
+    "customQuote": "Individuelles Angebot",
+    "admin": {
+      "title": "Shop-Verwaltung",
+      "subtitle": "Custom Services, Produkttypen, Kategorien, Formulare und Preise verwalten."
+    },
+    "orders": {
+      "adminTitle": "Order Center",
+      "adminSubtitle": "Custom Orders, Zuweisungen, Lieferungen und Team-Workflow verwalten.",
+      "status": {
+        "PENDING": "Ausstehend",
+        "PAID": "Bezahlt",
+        "IN_REVIEW": "In Prüfung",
+        "ASSIGNED": "Zugewiesen",
+        "IN_PROGRESS": "In Bearbeitung",
+        "COMPLETED": "Abgeschlossen",
+        "DELIVERED": "Geliefert",
+        "CANCELED": "Storniert"
+      }
+    }
   }
 }

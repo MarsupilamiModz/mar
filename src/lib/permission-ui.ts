@@ -56,8 +56,31 @@ export const PERMISSION_UI_GROUPS: PermissionGroupDef[] = [
   },
   {
     id: "commerce",
-    label: "Billing & licenses",
-    keys: ["subscriptions.read", "licenses.write", "coupons.write"],
+    label: "Shop & billing",
+    keys: [
+      "shop.view",
+      "shop.create",
+      "shop.edit",
+      "shop.delete",
+      "subscriptions.read",
+      "licenses.write",
+      "coupons.write",
+    ],
+  },
+  {
+    id: "orders",
+    label: "Custom orders",
+    keys: [
+      "orders.read",
+      "orders.write",
+      "orders.view",
+      "orders.manage",
+      "orders.assign",
+      "orders.complete",
+      "custom_orders.view",
+      "custom_orders.manage",
+      "custom_orders.chat",
+    ],
   },
   {
     id: "platform",

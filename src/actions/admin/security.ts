@@ -74,6 +74,7 @@ export async function getSecurityDashboardStats() {
     failedScans,
     recent,
     pendingApprovals,
+    pendingSounds,
     quota,
     auditRecent,
   ] = await Promise.all([
@@ -113,6 +114,23 @@ export async function getSecurityDashboardStats() {
         fileScans: { orderBy: { scannedAt: "desc" }, take: 1 },
       },
     }),
+    prisma.mod.findMany({
+      where: {
+        productType: "SOUND",
+        status: { in: ["PENDING", "DRAFT"] },
+        soundProfile: {
+          approvalStatus: {
+            in: ["PENDING_REVIEW", "REVIEW_REQUIRED", "CHANGES_REQUESTED"],
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      include: {
+        author: { select: { id: true, username: true, displayName: true } },
+        soundProfile: true,
+      },
+    }),
     getVirusTotalQuota(),
     prisma.securityLog.findMany({
       orderBy: { createdAt: "desc" },
@@ -139,6 +157,7 @@ export async function getSecurityDashboardStats() {
     quota,
     recent,
     pendingApprovals,
+    pendingSounds,
     auditRecent,
   });
 }
@@ -478,4 +497,120 @@ export async function triggerScanWorker() {
   const { processScanQueue } = await import("@/lib/security/scan-worker");
   const result = await processScanQueue(5);
   return ok(result);
+}
+
+export async function approveSound(modId: string, notes?: string) {
+  const { user, error } = await requireActionPermission("settings.write");
+  if (error) return error;
+
+  const mod = await prisma.mod.findUnique({
+    where: { id: modId },
+    include: { soundProfile: true },
+  });
+  if (!mod || mod.productType !== "SOUND" || !mod.soundProfile) return fail("Sound not found");
+
+  await prisma.$transaction([
+    prisma.mod.update({
+      where: { id: modId },
+      data: { status: "PUBLISHED", publishedAt: mod.publishedAt ?? new Date() },
+    }),
+    prisma.soundProfile.update({
+      where: { modId },
+      data: {
+        approvalStatus: "MANUALLY_APPROVED",
+        approvedAt: new Date(),
+        approvedById: user!.id,
+        reviewNotes: notes ?? null,
+      },
+    }),
+  ]);
+
+  await logSecurityEvent({
+    action: "APPROVAL",
+    modId,
+    userId: user!.id,
+    metadata: { type: "sound", notes },
+  });
+
+  revalidatePath("/admin/security");
+  revalidatePath("/mods");
+  return ok(undefined);
+}
+
+export async function rejectSound(modId: string, reason?: string) {
+  const { user, error } = await requireActionPermission("settings.write");
+  if (error) return error;
+
+  const mod = await prisma.mod.findUnique({ where: { id: modId }, include: { soundProfile: true } });
+  if (!mod || mod.productType !== "SOUND") return fail("Sound not found");
+
+  await prisma.$transaction([
+    prisma.mod.update({ where: { id: modId }, data: { status: "REJECTED" } }),
+    prisma.soundProfile.update({
+      where: { modId },
+      data: {
+        approvalStatus: "REJECTED",
+        rejectionReason: reason ?? "Rejected by security review",
+        approvedById: user!.id,
+      },
+    }),
+  ]);
+
+  await logSecurityEvent({
+    action: "REJECTION",
+    modId,
+    userId: user!.id,
+    metadata: { type: "sound", reason },
+  });
+
+  revalidatePath("/admin/security");
+  return ok(undefined);
+}
+
+export async function requestSoundChanges(modId: string, notes: string) {
+  const { user, error } = await requireActionPermission("settings.write");
+  if (error) return error;
+
+  await prisma.soundProfile.update({
+    where: { modId },
+    data: {
+      approvalStatus: "CHANGES_REQUESTED",
+      reviewNotes: notes,
+      approvedById: user!.id,
+    },
+  });
+
+  await prisma.mod.update({ where: { id: modId }, data: { status: "PENDING" } });
+
+  revalidatePath("/admin/security");
+  return ok(undefined);
+}
+
+export async function requestSoundReview(modId: string) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+
+  await prisma.soundProfile.update({
+    where: { modId },
+    data: { approvalStatus: "REVIEW_REQUIRED", previewScanStatus: "MANUAL_REVIEW" },
+  });
+
+  revalidatePath("/admin/security");
+  return ok(undefined);
+}
+
+export async function rescanSoundPreview(modId: string) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+
+  const profile = await prisma.soundProfile.findUnique({ where: { modId } });
+  if (!profile?.previewFileKey) return fail("No preview file");
+
+  await prisma.soundProfile.update({
+    where: { modId },
+    data: { previewScanStatus: "PENDING", approvalStatus: "REVIEW_REQUIRED" },
+  });
+
+  revalidatePath("/admin/security");
+  return ok(undefined);
 }

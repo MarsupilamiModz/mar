@@ -11,7 +11,8 @@ import {
   updateUserRole,
   assignUserPermissionGroup,
 } from "@/actions/admin/users";
-import { assignMembershipToUser } from "@/actions/admin/memberships";
+import { MembershipManager } from "@/components/admin/membership-manager";
+import type { MembershipTier } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +57,8 @@ export function UserDetailPanel({
   auditLogs,
   membershipPlans = [],
   permissionGroups = [],
+  membershipState = null,
+  billingHistory = [],
 }: {
   locale: string;
   user: UserDetail;
@@ -65,8 +68,24 @@ export function UserDetailPanel({
     createdAt: Date;
     actor: { username: string } | null;
   }[];
-  membershipPlans?: { id: string; name: string; slug: string }[];
+  membershipPlans?: { id: string; name: string; slug: string; priceCents?: number }[];
   permissionGroups?: { id: string; name: string; slug: string }[];
+  membershipState?: {
+    membershipType: MembershipTier;
+    status: string;
+    planSlug: string | null;
+    renewalDate: Date | null;
+    cancelDate: Date | null;
+    isLifetime: boolean;
+    stripeSubscriptionId: string | null;
+  } | null;
+  billingHistory?: {
+    id: string;
+    amountCents: number;
+    createdAt: Date;
+    stripePaymentId: string | null;
+    plan: { name: string };
+  }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -187,10 +206,10 @@ export function UserDetailPanel({
         </Card>
 
         <Card className="glass">
-          <CardHeader><CardTitle>Membership</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Membership (legacy purchases)</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {user.membershipPurchases.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No lifetime membership purchases</p>
+              <p className="text-sm text-muted-foreground">No legacy purchases</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {user.membershipPurchases.map((p) => (
@@ -201,23 +220,18 @@ export function UserDetailPanel({
                 ))}
               </ul>
             )}
-            {membershipPlans.length > 0 && (
-              <div className="flex gap-2 pt-2 border-t border-border/30">
-                <select id="assign-plan" className="h-9 flex-1 rounded-md border border-input bg-background/50 px-2 text-sm">
-                  <option value="">Assign plan…</option>
-                  {membershipPlans.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-                <Button size="sm" variant="outline" disabled={pending} onClick={() => {
-                  const sel = document.getElementById("assign-plan") as HTMLSelectElement;
-                  if (!sel?.value) return;
-                  run(() => assignMembershipToUser(user.id, sel.value), "Membership assigned");
-                }}>Assign</Button>
-              </div>
-            )}
           </CardContent>
         </Card>
+
+        {membershipState && (
+          <MembershipManager
+            userId={user.id}
+            locale={locale}
+            state={membershipState}
+            plans={membershipPlans.map((p) => ({ ...p, priceCents: p.priceCents ?? 0 }))}
+            billingHistory={billingHistory}
+          />
+        )}
 
         <Card className="glass">
           <CardHeader><CardTitle>Legacy subscriptions</CardTitle></CardHeader>

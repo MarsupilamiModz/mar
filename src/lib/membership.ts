@@ -1,10 +1,19 @@
 import { prisma } from "@/lib/db";
 import { getSiteSetting } from "@/lib/site-settings";
-import { formatCreditsFromCents } from "@/lib/credits";
+import { formatMoneyFromCents, formatMoneyWithInterval } from "@/lib/currency";
+import {
+  getEffectiveMembershipPlan,
+  getUserMembershipState,
+  isMembershipActive,
+  planSlugToTier,
+  syncUserRoleFromMembership,
+  upsertUserMembership,
+} from "@/lib/user-membership";
 import type { UserRole } from "@prisma/client";
 
 export type MembershipPerks = {
   downloadLimit?: number | null;
+  downloadSpeedMbps?: number | null;
   adFree?: boolean;
   exclusiveMods?: boolean;
   creatorContent?: boolean;
@@ -14,8 +23,10 @@ export type MembershipPerks = {
   customBadge?: string | null;
   accentColor?: string | null;
   earlyAccess?: boolean;
+  earlyAccessDays?: number;
   marketplaceFeeBps?: number;
   prioritySupport?: boolean;
+  exclusiveFeatures?: boolean;
 };
 
 export type PlanTranslation = {
@@ -32,7 +43,7 @@ export type MembershipPlanData = {
   description: string | null;
   priceCents: number;
   currency: string;
-  billingType: "ONE_TIME";
+  billingType: "ONE_TIME" | "RECURRING";
   stripePriceId: string | null;
   interval: string | null;
   features: string[];
@@ -62,14 +73,20 @@ export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlanData, "id">[] = [
   {
     slug: "premium-lite",
     name: "Premium Lite",
-    description: "Lifetime access to premium downloads and ad-free browsing.",
-    priceCents: 799,
+    description: "Ad-free browsing with capped download speeds.",
+    priceCents: 199,
     currency: "EUR",
-    billingType: "ONE_TIME",
+    billingType: "RECURRING",
     stripePriceId: null,
-    interval: null,
-    features: ["Premium mod downloads", "Ad-free experience", "Premium Lite badge", "50 downloads/month"],
-    perks: { downloadLimit: 50, adFree: true, exclusiveMods: true, customBadge: "premium-lite", accentColor: "#60a5fa" },
+    interval: "month",
+    features: ["No ads", "Download limited to 3 MB/s", "Premium Lite badge"],
+    perks: {
+      downloadSpeedMbps: 3,
+      adFree: true,
+      earlyAccess: false,
+      customBadge: "premium-lite",
+      accentColor: "#60a5fa",
+    },
     badgeSlug: "premium-lite",
     sortOrder: 0,
     isActive: true,
@@ -84,25 +101,26 @@ export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlanData, "id">[] = [
   {
     slug: "premium",
     name: "Premium",
-    description: "Lifetime full premium access with exclusive content and creator perks.",
-    priceCents: 1499,
+    description: "Full-speed downloads and 7-day early access.",
+    priceCents: 499,
     currency: "EUR",
-    billingType: "ONE_TIME",
+    billingType: "RECURRING",
     stripePriceId: null,
-    interval: null,
+    interval: "month",
     features: [
-      "Unlimited premium downloads",
+      "No ads",
+      "Unlimited download speed",
+      "7 days early access",
       "Exclusive mods",
-      "Creator content access",
-      "Discord perks",
       "Priority support",
     ],
     perks: {
       downloadLimit: null,
+      downloadSpeedMbps: null,
       adFree: true,
       exclusiveMods: true,
-      creatorContent: true,
-      discordPerks: true,
+      earlyAccess: true,
+      earlyAccessDays: 7,
       prioritySupport: true,
       customBadge: "premium",
       accentColor: "#a855f7",
@@ -120,19 +138,21 @@ export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlanData, "id">[] = [
   },
   {
     slug: "premium-max",
-    name: "Premium Max",
-    description: "Lifetime ultimate tier with beta access, early releases, and maximum perks.",
-    priceCents: 2999,
+    name: "Premium MAX",
+    description: "Ultimate tier with exclusive features, badges, and Discord perks.",
+    priceCents: 999,
     currency: "EUR",
-    billingType: "ONE_TIME",
+    billingType: "RECURRING",
     stripePriceId: null,
-    interval: null,
+    interval: "month",
     features: [
-      "Everything in Premium",
+      "No ads",
+      "Unlimited download speed",
+      "7 days early access",
+      "Exclusive features",
+      "Exclusive badges",
+      "Exclusive Discord benefits",
       "Closed beta access",
-      "Early access releases",
-      "Extended storage",
-      "Lowest marketplace fees",
     ],
     perks: {
       downloadLimit: null,
@@ -141,10 +161,10 @@ export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlanData, "id">[] = [
       creatorContent: true,
       betaAccess: true,
       earlyAccess: true,
+      earlyAccessDays: 7,
       discordPerks: true,
-      storageLimitMb: 10240,
+      exclusiveFeatures: true,
       prioritySupport: true,
-      marketplaceFeeBps: 500,
       customBadge: "premium-max",
       accentColor: "#3b82f6",
     },
@@ -200,7 +220,7 @@ export function mapPlan(plan: {
 }): MembershipPlanData {
   return {
     ...plan,
-    billingType: "ONE_TIME",
+    billingType: plan.billingType === "RECURRING" ? "RECURRING" : "ONE_TIME",
     features: parsePlanFeatures(plan.features),
     perks: parsePlanPerks(plan.perks),
     translations: (plan.translations as Record<string, PlanTranslation>) ?? null,
@@ -267,9 +287,9 @@ export async function seedDefaultPlans() {
         description: plan.description,
         priceCents: plan.priceCents,
         currency: plan.currency,
-        billingType: "ONE_TIME",
+        billingType: plan.billingType,
         stripePriceId: plan.stripePriceId,
-        interval: null,
+        interval: plan.interval,
         features: plan.features,
         perks: plan.perks,
         badgeSlug: plan.badgeSlug,
@@ -278,45 +298,28 @@ export async function seedDefaultPlans() {
         isFeatured: plan.isFeatured,
       },
       update: {
-        billingType: "ONE_TIME",
-        interval: null,
+        billingType: plan.billingType,
+        interval: plan.interval,
         priceCents: plan.priceCents,
         description: plan.description,
+        features: plan.features,
+        perks: plan.perks,
       },
     });
   }
 }
 
-/** Highest active membership tier by plan sortOrder (supports upgrades). */
+/** Highest active membership tier for a user. */
 export async function getUserMembershipTier(userId: string): Promise<MembershipPlanData | null> {
-  const purchases = await prisma.membershipPurchase.findMany({
-    where: { userId, ...activePurchaseWhere },
-    include: { plan: true },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (purchases.length === 0) {
-    // Legacy: honor grandfathered Stripe subscriptions until migrated
-    const sub = await prisma.subscription.findFirst({
-      where: { userId, status: { in: ["ACTIVE", "TRIALING"] } },
-      include: { plan: true },
-      orderBy: { createdAt: "desc" },
-    });
-    if (sub?.plan) return mapPlan(sub.plan);
-    return null;
-  }
-
-  const best = purchases
-    .filter((p) => p.plan?.isActive)
-    .sort((a, b) => (b.plan?.sortOrder ?? 0) - (a.plan?.sortOrder ?? 0))[0];
-
-  return best?.plan ? mapPlan(best.plan) : null;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!user) return null;
+  return getEffectiveMembershipPlan(userId, user.role);
 }
 
 export async function userHasMembershipAccess(userId: string, role: UserRole): Promise<boolean> {
   if (["OWNER", "ADMIN", "MODERATOR", "PREMIUM"].includes(role)) return true;
-  const tier = await getUserMembershipTier(userId);
-  return tier !== null;
+  const state = await getUserMembershipState(userId);
+  return isMembershipActive(state);
 }
 
 export async function userHasAdFree(userId: string, role: string): Promise<boolean> {
@@ -349,8 +352,8 @@ export type PremiumPageSettings = {
 
 export const DEFAULT_PREMIUM_PAGE: PremiumPageSettings = {
   heroTitle: "Unlock the full XumariModz experience",
-  heroSubtitle: "One-time lifetime access — premium downloads, exclusive mods, and ad-free browsing.",
-  ctaText: "Buy lifetime access",
+  heroSubtitle: "Monthly subscriptions — ad-free browsing, faster downloads, and exclusive perks.",
+  ctaText: "Subscribe now",
   showComparison: true,
 };
 
@@ -359,7 +362,11 @@ export async function getPremiumPageSettings() {
 }
 
 export function formatPlanPrice(cents: number, _currency?: string, locale?: string) {
-  return formatCreditsFromCents(cents, locale ?? "en");
+  return formatMoneyWithInterval(cents, locale ?? "en", undefined, "month");
+}
+
+export function formatPlanPriceOnce(cents: number, locale?: string) {
+  return formatMoneyFromCents(cents, locale ?? "en");
 }
 
 export function localizedPlan(plan: MembershipPlanData, locale: string) {
@@ -399,10 +406,14 @@ export async function grantMembershipPurchase(params: {
     },
   });
 
-  const user = await prisma.user.findUnique({ where: { id: params.userId } });
-  if (user && !["OWNER", "ADMIN", "MODERATOR"].includes(user.role)) {
-    await prisma.user.update({ where: { id: params.userId }, data: { role: "PREMIUM" } });
-  }
+  await upsertUserMembership({
+    userId: params.userId,
+    membershipType: planSlugToTier(plan.slug),
+    status: "ACTIVE",
+    planId: plan.id,
+    isLifetime: plan.billingType === "ONE_TIME",
+  });
+  await syncUserRoleFromMembership(params.userId);
 
   const { evaluateUserAchievements } = await import("@/lib/achievements");
   void evaluateUserAchievements(params.userId);
@@ -410,7 +421,31 @@ export async function grantMembershipPurchase(params: {
   return purchase;
 }
 
-/** Map membership plan slugs to Discord role keys for post-purchase sync. */
+export async function grantMembershipSubscription(params: {
+  userId: string;
+  planId: string;
+  stripeSubscriptionId: string;
+  renewalDate: Date;
+  status?: "ACTIVE" | "TRIALING" | "PAST_DUE" | "CANCELED" | "INCOMPLETE";
+}) {
+  const plan = await prisma.membershipPlan.findUnique({ where: { id: params.planId } });
+  if (!plan) throw new Error("Plan not found");
+
+  await upsertUserMembership({
+    userId: params.userId,
+    membershipType: planSlugToTier(plan.slug),
+    status: params.status ?? "ACTIVE",
+    planId: plan.id,
+    stripeSubscriptionId: params.stripeSubscriptionId,
+    renewalDate: params.renewalDate,
+    isLifetime: false,
+  });
+  await syncUserRoleFromMembership(params.userId);
+
+  const { evaluateUserAchievements } = await import("@/lib/achievements");
+  void evaluateUserAchievements(params.userId);
+}
+
 export function getPlanDiscordRoles(planSlug: string): string[] {
   switch (planSlug) {
     case "premium-lite":

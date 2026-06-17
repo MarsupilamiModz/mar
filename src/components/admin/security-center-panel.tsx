@@ -19,6 +19,11 @@ import {
   bulkRejectVersions,
   exportSecurityReport,
   triggerScanWorker,
+  approveSound,
+  rejectSound,
+  requestSoundChanges,
+  requestSoundReview,
+  rescanSoundPreview,
 } from "@/actions/admin/security";
 import type { MalwareScannerSettings } from "@/lib/malware-settings";
 import { SecurityBadge } from "@/components/security/security-badge";
@@ -54,6 +59,22 @@ type AuditLog = {
   user?: { username: string; displayName: string | null } | null;
 };
 
+type PendingSound = {
+  id: string;
+  slug: string;
+  title: string;
+  createdAt: Date;
+  author: { username: string; displayName: string | null };
+  soundProfile: {
+    previewDurationSeconds: number | null;
+    durationSeconds: number | null;
+    previewScanStatus: string;
+    approvalStatus: string;
+    waveformPeaks: unknown;
+    previewFileKey: string | null;
+  } | null;
+};
+
 type Props = {
   settings: MalwareScannerSettings & { hasKey: boolean };
   stats: {
@@ -77,6 +98,7 @@ type Props = {
     };
     recent: ScanLog[];
     pendingApprovals: PendingApproval[];
+    pendingSounds: PendingSound[];
     auditRecent: AuditLog[];
   };
 };
@@ -84,7 +106,7 @@ type Props = {
 export function SecurityCenterPanel({ settings, stats }: Props) {
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<string[]>([]);
-  const [tab, setTab] = useState<"approvals" | "history" | "audit" | "settings">("approvals");
+  const [tab, setTab] = useState<"approvals" | "sounds" | "history" | "audit" | "settings">("approvals");
   const [form, setForm] = useState({
     virusTotalApiKey: settings.virusTotalApiKey,
     scanThreshold: settings.scanThreshold,
@@ -171,6 +193,51 @@ export function SecurityCenterPanel({ settings, stats }: Props) {
     });
   }
 
+  function soundReview(
+    modId: string,
+    action: "approve" | "reject" | "changes" | "review" | "rescan"
+  ) {
+    startTransition(async () => {
+      let r;
+      switch (action) {
+        case "approve":
+          r = await approveSound(modId);
+          break;
+        case "reject":
+          r = await rejectSound(modId, "Rejected in Security Center");
+          break;
+        case "changes":
+          r = await requestSoundChanges(modId, "Changes requested by security review");
+          break;
+        case "review":
+          r = await requestSoundReview(modId);
+          break;
+        case "rescan":
+          r = await rescanSoundPreview(modId);
+          break;
+      }
+      if (r?.success) toast({ title: "Sound review updated" });
+      else if (r) toast({ title: r.error, variant: "destructive" });
+    });
+  }
+
+  function soundStatusLabel(status: string) {
+    switch (status) {
+      case "VIRUS_TOTAL_VERIFIED":
+        return "✓ VirusTotal Verified";
+      case "MANUALLY_APPROVED":
+        return "✓ Manually Approved";
+      case "REVIEW_REQUIRED":
+        return "⚠ Review Required";
+      case "REJECTED":
+        return "✕ Rejected";
+      case "CHANGES_REQUESTED":
+        return "⚠ Changes Requested";
+      default:
+        return "⏳ Pending Review";
+    }
+  }
+
   function toggleSelect(id: string) {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   }
@@ -229,6 +296,7 @@ export function SecurityCenterPanel({ settings, stats }: Props) {
         {(
           [
             ["approvals", "File approvals"],
+            ["sounds", `Sound reviews (${stats.pendingSounds?.length ?? 0})`],
             ["history", "Scan history"],
             ["audit", "Audit logs"],
             ["settings", "Settings"],
@@ -291,6 +359,77 @@ export function SecurityCenterPanel({ settings, stats }: Props) {
               )}
             </CardContent>
           </Card>
+      )}
+
+      {tab === "sounds" && (
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle>Pending sound reviews</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(stats.pendingSounds ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">No sounds awaiting review.</p>
+            ) : (
+              stats.pendingSounds.map((sound) => {
+                const profile = sound.soundProfile;
+                const duration =
+                  profile?.previewDurationSeconds ?? profile?.durationSeconds ?? null;
+                const peaks = (profile?.waveformPeaks as number[] | null) ?? [];
+                return (
+                  <div
+                    key={sound.id}
+                    className="flex flex-wrap items-start justify-between gap-3 border-b border-border/30 pb-4 last:border-0"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm">{sound.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        by {sound.author.displayName ?? sound.author.username} ·{" "}
+                        {new Date(sound.createdAt).toLocaleDateString()}
+                        {duration != null && ` · ${duration}s`}
+                      </p>
+                      {peaks.length > 0 && (
+                        <div className="mt-2 flex h-8 items-end gap-px max-w-xs">
+                          {peaks.slice(0, 48).map((p, i) => (
+                            <div
+                              key={i}
+                              className="flex-1 bg-neon-purple/60 rounded-sm min-w-[2px]"
+                              style={{ height: `${Math.max(4, p * 100)}%` }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-xs mt-1">
+                        {soundStatusLabel(profile?.approvalStatus ?? "PENDING_REVIEW")}
+                        {profile?.previewScanStatus && (
+                          <span className="text-muted-foreground ml-2">
+                            Scan: {profile.previewScanStatus}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      <Button size="sm" variant="outline" disabled={pending} onClick={() => soundReview(sound.id, "approve")}>
+                        Approve
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={pending} onClick={() => soundReview(sound.id, "reject")}>
+                        Reject
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={pending} onClick={() => soundReview(sound.id, "changes")}>
+                        Request Changes
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={pending} onClick={() => soundReview(sound.id, "review")}>
+                        Manual Review
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={pending} onClick={() => soundReview(sound.id, "rescan")}>
+                        Re-Scan
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {tab === "history" && (

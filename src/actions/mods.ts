@@ -87,8 +87,8 @@ export async function createMod(input: z.infer<typeof modCreateSchema> & { autho
       pricing: parsed.data.pricing as ModPricing,
       priceCents: parsed.data.priceCents,
       supportedVersions: parsed.data.supportedVersions ?? [],
-      status: isStaff ? "PUBLISHED" : "PENDING",
-      publishedAt: isStaff ? new Date() : null,
+      status: isStaff && parsed.data.productType !== "SOUND" ? "PUBLISHED" : "PENDING",
+      publishedAt: isStaff && parsed.data.productType !== "SOUND" ? new Date() : null,
       tags: parsed.data.tags
         ? { create: parsed.data.tags.map((name) => ({ name })) }
         : undefined,

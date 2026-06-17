@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { checkoutPath, resolveCheckoutOrigin } from "@/lib/app-url";
 import { assertStripeConfigured, formatStripeError, isValidStripePriceId, logStripeServer } from "@/lib/stripe-config";
 import { getEffectivePlanPrice, type MembershipPlanData } from "@/lib/membership";
+import { convertFromEurCents, detectCurrency, stripeCurrencyCode, type SupportedCurrency } from "@/lib/currency";
 
 let stripeClient: Stripe | null = null;
 
@@ -52,19 +53,22 @@ function resolveOrigin(options?: CheckoutOriginOptions) {
   return resolveCheckoutOrigin(options?.clientOrigin);
 }
 
-/** One-time lifetime membership checkout (payment mode). */
-export async function createMembershipCheckout(
+/** Recurring monthly membership checkout (subscription mode). */
+export async function createMembershipSubscriptionCheckout(
   userId: string,
   email: string,
-  plan: Pick<MembershipPlanData, "id" | "slug" | "name" | "priceCents" | "currency" | "stripePriceId" | "originalPriceCents" | "saleDiscountPercent" | "saleEndsAt">,
+  plan: Pick<MembershipPlanData, "id" | "slug" | "name" | "priceCents" | "currency" | "stripePriceId" | "interval" | "originalPriceCents" | "saleDiscountPercent" | "saleEndsAt">,
   locale: string = "en",
   refCode?: string,
-  options?: CheckoutOriginOptions
+  options?: CheckoutOriginOptions & { currency?: SupportedCurrency }
 ) {
   const stripe = getStripe();
   const customerId = await getOrCreateStripeCustomer(userId, email);
   const origin = resolveOrigin(options);
   const pricing = getEffectivePlanPrice(plan as MembershipPlanData);
+  const displayCurrency = options?.currency ?? detectCurrency(locale);
+  const unitAmount = convertFromEurCents(pricing.priceCents, displayCurrency);
+  const currency = stripeCurrencyCode(displayCurrency);
 
   let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
 
@@ -76,13 +80,14 @@ export async function createMembershipCheckout(
     lineItems = [
       {
         price_data: {
-          currency: (plan.currency || "eur").toLowerCase(),
-          unit_amount: pricing.priceCents,
+          currency,
+          unit_amount: unitAmount,
+          recurring: { interval: (plan.interval as "month" | "year") ?? "month" },
           product_data: {
-            name: `${plan.name} — Lifetime`,
+            name: `${plan.name} — Monthly`,
             description: pricing.onSale
               ? `Limited offer (${pricing.discountPercent}% off)`
-              : "One-time lifetime membership",
+              : "Monthly subscription membership",
           },
         },
         quantity: 1,
@@ -90,97 +95,125 @@ export async function createMembershipCheckout(
     ];
   }
 
-  logStripeServer("membership_checkout_create", {
+  logStripeServer("membership_subscription_checkout", {
     userId,
     planId: plan.id,
     planSlug: plan.slug,
-    amountCents: pricing.priceCents,
+    amountCents: unitAmount,
+    currency,
     onSale: pricing.onSale,
     origin,
   });
 
   return stripe.checkout.sessions.create({
     customer: customerId,
-    mode: "payment",
+    mode: "subscription",
     line_items: lineItems,
     success_url: `${checkoutPath(origin, locale, "/dashboard/subscription")}?success=1&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${checkoutPath(origin, locale, "/premium")}?canceled=1`,
-    invoice_creation: { enabled: true },
     metadata: {
       userId,
       planId: plan.id,
       planSlug: plan.slug,
-      type: "membership_purchase",
+      type: "membership_subscription",
       refCode: refCode ?? "",
-      amountCents: String(pricing.priceCents),
     },
-    payment_intent_data: {
+    subscription_data: {
       metadata: {
         userId,
         planId: plan.id,
         planSlug: plan.slug,
-        type: "membership_purchase",
+        type: "membership_subscription",
       },
     },
   });
 }
 
-/** Credit pack checkout (real money → credits). Uses Stripe Price ID when configured. */
-export async function createCreditPackCheckout(
+/** Alias for subscription checkout (legacy import name). */
+export async function createMembershipCheckout(
   userId: string,
   email: string,
-  productId: string,
-  productSlug: string,
-  creditsAmount: number,
-  amountCents: number,
+  plan: Pick<MembershipPlanData, "id" | "slug" | "name" | "priceCents" | "currency" | "stripePriceId" | "interval" | "originalPriceCents" | "saleDiscountPercent" | "saleEndsAt">,
   locale: string = "en",
-  stripePriceId?: string | null,
+  refCode?: string,
+  options?: CheckoutOriginOptions
+) {
+  return createMembershipSubscriptionCheckout(userId, email, plan, locale, refCode, options);
+}
+
+/** Mod purchase checkout with dynamic pricing when no Stripe Price ID. */
+export async function createModPurchaseCheckoutDynamic(
+  userId: string,
+  email: string,
+  modId: string,
+  modSlug: string,
+  title: string,
+  priceCents: number,
+  locale: string = "en",
   options?: CheckoutOriginOptions
 ) {
   const stripe = getStripe();
   const customerId = await getOrCreateStripeCustomer(userId, email);
   const origin = resolveOrigin(options);
-
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
-    isValidStripePriceId(stripePriceId)
-      ? [{ price: stripePriceId, quantity: 1 }]
-      : [
-          {
-            price_data: {
-              currency: "eur",
-              product_data: {
-                name: `${creditsAmount.toLocaleString()} Credits`,
-                description: "XumariModz credit pack",
-              },
-              unit_amount: amountCents,
-            },
-            quantity: 1,
-          },
-        ];
-
-  if (isValidStripePriceId(stripePriceId)) {
-    const validation = await validateStripePriceId(stripePriceId);
-    if (!validation.ok) throw new Error(validation.error);
-  }
+  const currency = stripeCurrencyCode(detectCurrency(locale));
+  const unitAmount = convertFromEurCents(priceCents, detectCurrency(locale));
 
   return stripe.checkout.sessions.create({
     customer: customerId,
     mode: "payment",
-    line_items: lineItems,
-    success_url: `${checkoutPath(origin, locale, "/dashboard")}?credits=1&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: checkoutPath(origin, locale, "/shop"),
+    line_items: [
+      {
+        price_data: {
+          currency,
+          unit_amount: unitAmount,
+          product_data: { name: title, description: "Mod purchase" },
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: `${checkoutPath(origin, locale, `/mods/${modSlug}`)}?purchased=1&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: checkoutPath(origin, locale, `/mods/${modSlug}`),
     invoice_creation: { enabled: true },
-    payment_method_types: ["card"],
-    metadata: {
-      userId,
-      productId,
-      productSlug,
-      creditsAmount: String(creditsAmount),
-      type: "credit_purchase",
-    },
-    payment_intent_data: {
-      metadata: { userId, productId, type: "credit_purchase" },
-    },
+    metadata: { userId, modId, modSlug, type: "mod_purchase" },
+  });
+}
+
+/** @deprecated Credit packs removed — use premium subscriptions. */
+export async function createCreditPackCheckout(
+  userId: string,
+  email: string,
+  _productId: string,
+  _productSlug: string,
+  _creditsAmount: number,
+  _amountCents: number,
+  _locale: string = "en",
+  _stripePriceId?: string | null,
+  _options?: CheckoutOriginOptions
+) {
+  throw new Error("Credit packs are no longer available. Subscribe at /premium instead.");
+}
+
+export async function cancelStripeSubscription(stripeSubscriptionId: string) {
+  const stripe = getStripe();
+  return stripe.subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: true });
+}
+
+export async function resumeStripeSubscription(stripeSubscriptionId: string) {
+  const stripe = getStripe();
+  return stripe.subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: false });
+}
+
+export async function changeStripeSubscriptionPlan(
+  stripeSubscriptionId: string,
+  newPriceId: string
+) {
+  const stripe = getStripe();
+  const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  const itemId = sub.items.data[0]?.id;
+  if (!itemId) throw new Error("Subscription has no items");
+  return stripe.subscriptions.update(stripeSubscriptionId, {
+    items: [{ id: itemId, price: newPriceId }],
+    proration_behavior: "create_prorations",
   });
 }
 
@@ -252,6 +285,54 @@ export async function createOrderPaymentCheckout(
     },
     payment_intent_data: {
       metadata: { userId, orderId, invoiceNumber, type: "custom_order_payment" },
+    },
+  });
+}
+
+/** Shop custom product order checkout. */
+export async function createShopProductCheckout(
+  userId: string,
+  email: string,
+  orderId: string,
+  productId: string,
+  productName: string,
+  amountCents: number,
+  invoiceNumber: string,
+  locale: string = "en",
+  options?: CheckoutOriginOptions & { productSlug?: string }
+) {
+  const stripe = getStripe();
+  const customerId = await getOrCreateStripeCustomer(userId, email);
+  const origin = resolveOrigin(options);
+
+  return stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: "payment",
+    line_items: [
+      {
+        price_data: {
+          currency: "eur",
+          product_data: {
+            name: productName,
+            description: `Custom service order ${invoiceNumber}`,
+          },
+          unit_amount: amountCents,
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: `${checkoutPath(origin, locale, `/dashboard/orders/${orderId}`)}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: checkoutPath(origin, locale, `/shop/${options?.productSlug ?? ""}`),
+    invoice_creation: { enabled: true },
+    metadata: {
+      userId,
+      orderId,
+      productId,
+      invoiceNumber,
+      type: "shop_product_order",
+    },
+    payment_intent_data: {
+      metadata: { userId, orderId, productId, invoiceNumber, type: "shop_product_order" },
     },
   });
 }
