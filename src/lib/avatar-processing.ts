@@ -1,3 +1,5 @@
+import "server-only";
+
 import { buildAssetPublicUrl } from "@/lib/assets";
 import { uploadToR2 } from "@/lib/r2";
 import { storageKey } from "@/lib/storage";
@@ -20,8 +22,9 @@ type SharpInstance = {
 
 async function loadSharp(): Promise<((input: Buffer) => SharpInstance) | null> {
   try {
-    // @ts-expect-error sharp is an optional runtime dependency
-    const mod = await import("sharp");
+    const mod = await import(
+      /* webpackIgnore: true */ "sharp" as string
+    ) as { default: (input: Buffer) => SharpInstance };
     return mod.default;
   } catch {
     return null;
@@ -70,28 +73,4 @@ export async function generateAvatarVariants(
     avatar128: urls.avatar128 ?? urls.original,
     avatar64: urls.avatar64 ?? urls.original,
   };
-}
-
-export function pickAvatarUrl(
-  user: {
-    avatar64Url?: string | null;
-    avatar128Url?: string | null;
-    avatar256Url?: string | null;
-    avatarUrl?: string | null;
-    avatarOriginalUrl?: string | null;
-  },
-  size: 64 | 128 | 256 | "original" = 128
-): string | null {
-  switch (size) {
-    case 64:
-      return user.avatar64Url ?? user.avatar128Url ?? user.avatarUrl ?? user.avatarOriginalUrl ?? null;
-    case 128:
-      return user.avatar128Url ?? user.avatar256Url ?? user.avatarUrl ?? user.avatarOriginalUrl ?? null;
-    case 256:
-      return user.avatar256Url ?? user.avatarUrl ?? user.avatarOriginalUrl ?? null;
-    case "original":
-      return user.avatarOriginalUrl ?? user.avatarUrl ?? null;
-    default:
-      return user.avatarUrl ?? null;
-  }
 }

@@ -1,5 +1,4 @@
 import { getAppUrl } from "@/lib/app-url";
-import { pickAvatarUrl } from "@/lib/avatar-processing";
 
 /** Resolve stored asset keys or partial paths into browser-loadable URLs. */
 export function resolveAssetUrl(urlOrKey: string | null | undefined): string | null {
@@ -92,6 +91,28 @@ export const DEFAULT_AVATAR_DATA_URI =
   encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="32" fill="#1e1b4b"/><circle cx="32" cy="26" r="12" fill="#6366f1"/><path d="M12 56c4-12 12-18 20-18s16 6 20 18" fill="#6366f1"/></svg>`
   );
+
+function pickAvatarUrl(
+  user: {
+    avatar64Url?: string | null;
+    avatar128Url?: string | null;
+    avatar256Url?: string | null;
+    avatarUrl?: string | null;
+    avatarOriginalUrl?: string | null;
+  },
+  size: 64 | 128 | 256 = 128
+): string | null {
+  switch (size) {
+    case 64:
+      return user.avatar64Url ?? user.avatar128Url ?? user.avatarUrl ?? user.avatarOriginalUrl ?? null;
+    case 128:
+      return user.avatar128Url ?? user.avatar256Url ?? user.avatarUrl ?? user.avatarOriginalUrl ?? null;
+    case 256:
+      return user.avatar256Url ?? user.avatarUrl ?? user.avatarOriginalUrl ?? null;
+    default:
+      return user.avatarUrl ?? null;
+  }
+}
 
 export function resolveAvatarUrl(
   urlOrKey: string | null | undefined,

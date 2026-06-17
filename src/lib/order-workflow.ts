@@ -34,7 +34,6 @@ export async function notifyOrderStakeholders(params: {
   emailTemplate?: "status" | "assigned" | "completed" | "revision";
 }) {
   const loc = params.locale ?? "en";
-  const link = `/${loc}/dashboard/orders/${params.orderId}`;
 
   await notifyOrderUpdate({
     userId: params.clientId,

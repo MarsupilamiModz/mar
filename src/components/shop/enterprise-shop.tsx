@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SafeImage } from "@/components/ui/safe-image";
-import { formatShopPrice, FORM_FIELD_LABELS } from "@/lib/shop-enterprise";
+import { formatShopPrice } from "@/lib/shop-enterprise";
 import type { ShopFormFieldType, ShopPricingMode } from "@prisma/client";
 
 type Product = {
