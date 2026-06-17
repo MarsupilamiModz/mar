@@ -3,7 +3,9 @@ import { getNotifications } from "@/actions/notifications";
 import { NotificationsList } from "@/components/dashboard/notifications-list";
 import type { Locale } from "@/i18n/config";
 
-export default async function NotificationsPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function NotificationsPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   await requireAuth(`/${locale}/login`);
   const result = await getNotifications();
   const notifications = result.success ? result.data : [];

@@ -6,7 +6,9 @@ import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import type { Locale } from "@/i18n/config";
 
-export default async function CreatorSettingsPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function CreatorSettingsPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const user = await requireAuth(`/${locale}/login`);

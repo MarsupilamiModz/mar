@@ -5,8 +5,10 @@ import { getModDependencies } from "@/lib/mod-dependencies";
 
 export async function GET(
   req: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
+  const { slug } = await params;
+
   const auth = await validateApiKey(req.headers.get("authorization"));
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -16,7 +18,7 @@ export async function GET(
   }
 
   const mod = await prisma.mod.findUnique({
-    where: { slug: params.slug, status: "PUBLISHED", visibility: "PUBLIC" },
+    where: { slug, status: "PUBLISHED", visibility: "PUBLIC" },
     select: {
       id: true,
       slug: true,

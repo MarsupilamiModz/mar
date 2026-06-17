@@ -15,12 +15,14 @@ import {
 import type { Locale } from "@/i18n/config";
 
 export default async function AdminModsPage({
-  params: { locale },
+  params,
   searchParams,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
   searchParams: { page?: string; type?: string };
 }) {
+  const { locale } = await params;
+
   const t = await getTranslations("admin");
   const result = await getAdminMods({
     page: Number(searchParams.page) || 1,

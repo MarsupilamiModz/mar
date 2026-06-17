@@ -7,10 +7,12 @@ import Link from "next/link";
 import type { Locale } from "@/i18n/config";
 
 export default async function PublicExclusivePage({
-  params: { locale, programId },
+  params,
 }: {
-  params: { locale: Locale; programId: string };
+  params: Promise<{ locale: Locale; programId: string }>;
 }) {
+  const { locale, programId } = await params;
+
   const result = await getPublicExclusiveProgram(programId);
   if (!result.success) notFound();
 

@@ -15,10 +15,10 @@ export const metadata: Metadata = {
 };
 
 export default async function LeaderboardsPage({
-  params: { locale },
+  params,
   searchParams,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
   searchParams: {
     metric?: string;
     period?: string;
@@ -26,6 +26,8 @@ export default async function LeaderboardsPage({
     q?: string;
   };
 }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
 
   void syncCreatorRanks();

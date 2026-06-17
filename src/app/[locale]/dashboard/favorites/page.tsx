@@ -6,7 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n/config";
 
-export default async function FavoritesPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function FavoritesPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   await requireAuth(`/${locale}/login`);
   const result = await getUserFavorites();
   const favorites = result.success ? result.data : [];

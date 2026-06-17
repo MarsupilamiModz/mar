@@ -5,10 +5,12 @@ import { ModAdminPanel } from "@/components/admin/mod-admin-panel";
 import type { Locale } from "@/i18n/config";
 
 export default async function DesignerAssetPage({
-  params: { locale, id },
+  params,
 }: {
-  params: { locale: Locale; id: string };
+  params: Promise<{ locale: Locale; id: string }>;
 }) {
+  const { locale, id } = await params;
+
   const [result, games] = await Promise.all([getModForEdit(id), getGamesAndCategories()]);
   if (!result.success) notFound();
 

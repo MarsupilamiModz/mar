@@ -3,7 +3,9 @@ import { getAdminPaymentSettings, listRecentStripeCheckouts } from "@/actions/ad
 import { PaymentsAdminPanel } from "@/components/admin/payments-admin-panel";
 import type { Locale } from "@/i18n/config";
 
-export default async function AdminPaymentsPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminPaymentsPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   await requireStaff();
   const [settingsResult, txResult] = await Promise.all([
     getAdminPaymentSettings(),

@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { TICKET_STATUS_LABELS, TICKET_CATEGORY_LABELS } from "@/lib/ticket-labels";
 import type { Locale } from "@/i18n/config";
 
-export default async function SupportPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function SupportPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   await requireAuth(`/${locale}/login`);
   const result = await getTicketsForUser();
   const tickets = result.success ? result.data.tickets : [];

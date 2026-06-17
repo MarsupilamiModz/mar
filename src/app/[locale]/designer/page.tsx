@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n/config";
 
-export default async function DesignerOverviewPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function DesignerOverviewPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   const t = await getTranslations("designer");
   const result = await getDesignerDashboard();
   const data = result.success

@@ -4,7 +4,9 @@ import { MembershipsAdminPanel } from "@/components/admin/memberships-admin-pane
 import { AdminSafeBoundary } from "@/components/admin/admin-safe-boundary";
 import type { Locale } from "@/i18n/config";
 
-export default async function AdminMembershipsPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminMembershipsPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   await requireAdmin();
   const [plansResult, pageResult] = await Promise.all([
     getAdminMembershipPlans(),

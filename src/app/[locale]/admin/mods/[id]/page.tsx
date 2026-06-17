@@ -8,10 +8,12 @@ import { logPlatformError } from "@/lib/platform-log";
 import type { Locale } from "@/i18n/config";
 
 export default async function AdminEditModPage({
-  params: { locale, id },
+  params,
 }: {
-  params: { locale: Locale; id: string };
+  params: Promise<{ locale: Locale; id: string }>;
 }) {
+  const { locale, id } = await params;
+
   await requireAdmin();
 
   try {

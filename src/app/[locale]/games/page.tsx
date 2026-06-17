@@ -14,7 +14,9 @@ export const metadata: Metadata = {
   description: `Browse all supported games on ${SITE.name} and discover premium mods.`,
 };
 
-export default async function GamesPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function GamesPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("games");
   const games = await getAllGames().catch(() => []);

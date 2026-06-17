@@ -8,10 +8,12 @@ import type { Locale } from "@/i18n/config";
 export const dynamic = "force-dynamic";
 
 export default async function EditCollectionPage({
-  params: { locale, id },
+  params,
 }: {
-  params: { locale: Locale; id: string };
+  params: Promise<{ locale: Locale; id: string }>;
 }) {
+  const { locale, id } = await params;
+
   setRequestLocale(locale);
   const user = await requireAuth(`/${locale}/login`);
 

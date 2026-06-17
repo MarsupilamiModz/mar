@@ -9,10 +9,12 @@ import { CategoryTreeEditor } from "@/components/admin/category-tree-editor";
 import type { Locale } from "@/i18n/config";
 
 export default async function EditGamePage({
-  params: { locale, id },
+  params,
 }: {
-  params: { locale: Locale; id: string };
+  params: Promise<{ locale: Locale; id: string }>;
 }) {
+  const { locale, id } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("admin");
   const tc = await getTranslations("common");

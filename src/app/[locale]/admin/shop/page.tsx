@@ -10,7 +10,9 @@ import { AdminSafeBoundary } from "@/components/admin/admin-safe-boundary";
 import type { Locale } from "@/i18n/config";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-export default async function AdminShopPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminShopPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   await requirePagePermission("shop.view");
   const t = await getTranslations("shop");

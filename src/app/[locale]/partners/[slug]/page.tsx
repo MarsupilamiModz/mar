@@ -18,10 +18,12 @@ import type { Locale } from "@/i18n/config";
 export const revalidate = REVALIDATE.catalog;
 
 export default async function PartnerProfilePage({
-  params: { locale, slug },
+  params,
 }: {
-  params: { locale: Locale; slug: string };
+  params: Promise<{ locale: Locale; slug: string }>;
 }) {
+  const { locale, slug } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
 

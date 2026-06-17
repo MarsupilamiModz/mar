@@ -9,10 +9,12 @@ import type { Locale } from "@/i18n/config";
 export const dynamic = "force-dynamic";
 
 export default async function BecomePartnerPage({
-  params: { locale },
+  params,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const user = await requireAuth(`/${locale}/become-partner`);
   const [existing, fields] = await Promise.all([

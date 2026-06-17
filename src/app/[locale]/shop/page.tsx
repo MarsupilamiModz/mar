@@ -3,7 +3,9 @@ import { ShopCatalog } from "@/components/shop/enterprise-shop";
 import type { Locale } from "@/i18n/config";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-export default async function ShopPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function ShopPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("shop");
   const { products, categories } = await getShopCatalog();

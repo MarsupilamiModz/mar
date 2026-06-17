@@ -21,10 +21,11 @@ export function generateStaticParams() {
 }
 
 export async function generateMetadata({
-  params: { locale },
+  params,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
+  const { locale } = await params;
   const seo = await getCmsSeo(locale);
   return {
     title: seo.metaTitle,
@@ -45,11 +46,12 @@ export async function generateMetadata({
 
 export default async function LocaleLayout({
   children,
-  params: { locale },
+  params,
 }: {
   children: React.ReactNode;
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }) {
+  const { locale } = await params;
   if (!isValidLocale(locale)) {
     redirect(`/${defaultLocale}`);
   }

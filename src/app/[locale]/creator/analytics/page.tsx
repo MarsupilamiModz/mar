@@ -13,7 +13,9 @@ import { Card } from "@/components/ui/card";
 import { formatCents } from "@/lib/affiliate";
 import type { Locale } from "@/i18n/config";
 
-export default async function CreatorAnalyticsPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function CreatorAnalyticsPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const user = await requireAuth();

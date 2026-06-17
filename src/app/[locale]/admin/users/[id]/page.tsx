@@ -9,10 +9,12 @@ import { UserDetailPanel } from "@/components/admin/user-detail-panel";
 import type { Locale } from "@/i18n/config";
 
 export default async function AdminUserDetailPage({
-  params: { locale, id },
+  params,
 }: {
-  params: { locale: Locale; id: string };
+  params: Promise<{ locale: Locale; id: string }>;
 }) {
+  const { locale, id } = await params;
+
   const [result, plansResult, groupsResult, membershipResult] = await Promise.all([
     getUserDetail(id),
     getAdminMembershipPlans(),

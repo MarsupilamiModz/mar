@@ -3,12 +3,14 @@ import { UsersTable } from "@/components/admin/users-table";
 import type { Locale } from "@/i18n/config";
 
 export default async function AdminUsersPage({
-  params: { locale },
+  params,
   searchParams,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
   searchParams: { page?: string; q?: string; role?: string; banned?: string };
 }) {
+  const { locale } = await params;
+
   const page = Number(searchParams.page) || 1;
   const result = await getUsers({
     page,

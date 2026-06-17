@@ -13,8 +13,10 @@ import { logSecurityEvent } from "@/lib/security/audit";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   const user = await getCurrentUser();
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
   const ipHash = createHash("sha256").update(ip).digest("hex").slice(0, 16);
@@ -23,11 +25,11 @@ export async function POST(
   const versionId = searchParams.get("versionId");
   const skipDeps = searchParams.get("skipDeps") === "1";
 
-  const limit = rateLimit(`dl:${params.id}:${ipHash}`, 10, 60_000);
+  const limit = rateLimit(`dl:${id}:${ipHash}`, 10, 60_000);
   if (!limit.success) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
   const mod = await prisma.mod.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       versions: versionId
         ? { where: { id: versionId, isArchived: false }, take: 1 }

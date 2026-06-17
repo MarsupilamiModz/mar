@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { formatDisplayName } from "@/lib/display-name";
 import type { Locale } from "@/i18n/config";
 
-export default async function AdminPartnersPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminPartnersPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const result = await listPartners();

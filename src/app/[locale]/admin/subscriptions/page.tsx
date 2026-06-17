@@ -5,7 +5,9 @@ import Link from "next/link";
 import { formatCents } from "@/lib/affiliate";
 import type { Locale } from "@/i18n/config";
 
-export default async function AdminMembershipPurchasesPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminMembershipPurchasesPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   const result = await getAdminMembershipPurchases();
   const { purchases, totalRevenueCents, total } = result.success
     ? result.data

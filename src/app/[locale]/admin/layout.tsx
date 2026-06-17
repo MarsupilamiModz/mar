@@ -52,11 +52,13 @@ async function filterLinks(user: { id: string; role: Parameters<typeof userHasPe
 
 export default async function AdminLayout({
   children,
-  params: { locale },
+  params,
 }: {
   children: React.ReactNode;
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const user = await requireStaff();
   const [links, t] = await Promise.all([filterLinks(user), getTranslations("admin")]);

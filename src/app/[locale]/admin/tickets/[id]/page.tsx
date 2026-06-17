@@ -10,10 +10,12 @@ import { formatDisplayName } from "@/lib/display-name";
 import type { Locale } from "@/i18n/config";
 
 export default async function AdminTicketDetailPage({
-  params: { locale, id },
+  params,
 }: {
-  params: { locale: Locale; id: string };
+  params: Promise<{ locale: Locale; id: string }>;
 }) {
+  const { locale, id } = await params;
+
   await requireStaff();
   const result = await getTicketDetail(id);
   if (!result.success) notFound();

@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { formatCents } from "@/lib/affiliate";
 import type { Locale } from "@/i18n/config";
 
-export default async function CreatorPayoutsPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function CreatorPayoutsPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const user = await requireAuth();

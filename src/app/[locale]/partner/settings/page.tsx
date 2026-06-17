@@ -3,7 +3,9 @@ import { prisma } from "@/lib/db";
 import { StudioProfileUpload } from "@/components/studio/studio-profile-upload";
 import type { Locale } from "@/i18n/config";
 
-export default async function PartnerSettingsPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function PartnerSettingsPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   const user = await requireAuth(`/${locale}/login`);
   const profile = await prisma.partnerProfile.findUnique({ where: { userId: user.id } });
   if (!profile) {

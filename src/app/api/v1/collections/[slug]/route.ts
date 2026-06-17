@@ -4,8 +4,10 @@ import { getCollectionBySlug } from "@/lib/collections-data";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
+  const { slug } = await params;
+
   const auth = await validateApiKey(_req.headers.get("authorization"));
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -14,7 +16,7 @@ export async function GET(
     return NextResponse.json({ error: "Insufficient scope" }, { status: 403 });
   }
 
-  const collection = await getCollectionBySlug(params.slug);
+  const collection = await getCollectionBySlug(slug);
   if (!collection || collection.visibility === "PRIVATE") {
     return NextResponse.json({ error: "Collection not found" }, { status: 404 });
   }

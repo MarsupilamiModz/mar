@@ -15,10 +15,11 @@ import type { Locale } from "@/i18n/config";
 export const revalidate = REVALIDATE.catalog;
 
 export async function generateMetadata({
-  params: { slug },
+  params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
+  const { slug } = await params;
   const data = await getGamePageData(slug);
   if (!data) return { title: "Game Not Found" };
 
@@ -35,12 +36,14 @@ export async function generateMetadata({
 }
 
 export default async function GameDetailPage({
-  params: { locale, slug },
+  params,
   searchParams,
 }: {
-  params: { locale: Locale; slug: string };
+  params: Promise<{ locale: Locale; slug: string }>;
   searchParams: { q?: string; pricing?: string; category?: string };
 }) {
+  const { locale, slug } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("mods");
   const tg = await getTranslations("games");

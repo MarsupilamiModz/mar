@@ -3,7 +3,9 @@ import { listCommissionRules, listPayouts } from "@/actions/admin/commissions";
 import { CommissionsAdminPanel } from "@/components/admin/commissions-admin-panel";
 import type { Locale } from "@/i18n/config";
 
-export default async function AdminCommissionsPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminCommissionsPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   await getTranslations("ecosystem");
 

@@ -5,7 +5,9 @@ import { StatGrid, ConversionChart, RevenueChart } from "@/components/analytics/
 import { formatCents } from "@/lib/affiliate";
 import type { Locale } from "@/i18n/config";
 
-export default async function PartnerAnalyticsPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function PartnerAnalyticsPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const user = await requireAuth();

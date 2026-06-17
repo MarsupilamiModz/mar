@@ -5,10 +5,12 @@ import type { Locale } from "@/i18n/config";
 import { setRequestLocale } from "next-intl/server";
 
 export default async function ShopProductPage({
-  params: { locale, slug },
+  params,
 }: {
-  params: { locale: Locale; slug: string };
+  params: Promise<{ locale: Locale; slug: string }>;
 }) {
+  const { locale, slug } = await params;
+
   setRequestLocale(locale);
   const product = await getShopProduct(slug);
   if (!product) notFound();

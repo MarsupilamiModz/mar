@@ -9,7 +9,9 @@ import { getCreatorAnalytics, getUserCommissionSummary } from "@/lib/analytics/e
 import { formatCents } from "@/lib/affiliate";
 import type { Locale } from "@/i18n/config";
 
-export default async function CreatorPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function CreatorPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const tc = await getTranslations("creator");

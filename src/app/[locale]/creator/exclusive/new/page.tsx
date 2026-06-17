@@ -5,7 +5,9 @@ import { ExclusiveProgramForm } from "@/components/exclusive/exclusive-program-f
 import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n/config";
 
-export default async function CreatorExclusiveNewPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function CreatorExclusiveNewPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   await requireAuth(`/${locale}/login`);
   const result = await getCreatorModsForExclusive();
   const mods = result.success ? result.data : [];

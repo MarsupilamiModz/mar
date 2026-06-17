@@ -8,10 +8,12 @@ import type { Locale } from "@/i18n/config";
 export const dynamic = "force-dynamic";
 
 export default async function AdminCollectionsPage({
-  params: { locale },
+  params,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   await requirePagePermission("settings.write");
   const user = await getCurrentUser();

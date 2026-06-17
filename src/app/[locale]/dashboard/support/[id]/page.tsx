@@ -7,10 +7,12 @@ import { TicketThread } from "@/components/tickets/ticket-thread";
 import type { Locale } from "@/i18n/config";
 
 export default async function TicketDetailPage({
-  params: { locale, id },
+  params,
 }: {
-  params: { locale: Locale; id: string };
+  params: Promise<{ locale: Locale; id: string }>;
 }) {
+  const { locale, id } = await params;
+
   await requireAuth(`/${locale}/login`);
   const result = await getTicketDetail(id);
   if (!result.success) notFound();

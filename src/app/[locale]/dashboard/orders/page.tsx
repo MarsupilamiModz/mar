@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n/config";
 
-export default async function OrdersPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function OrdersPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   await requireAuth(`/${locale}/login`);
   const result = await getUserOrders();
   const orders = result.success ? result.data : [];

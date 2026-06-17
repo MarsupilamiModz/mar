@@ -14,7 +14,9 @@ export const metadata: Metadata = {
   description: `Verified affiliate partners on ${SITE.name}.`,
 };
 
-export default async function PartnersPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function PartnersPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const user = await getCurrentUser();

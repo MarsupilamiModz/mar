@@ -7,7 +7,9 @@ import { formatCreditsFromCents } from "@/lib/credits";
 import { mapModMedia } from "@/lib/mod-media";
 import type { Locale } from "@/i18n/config";
 
-export default async function LibraryPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function LibraryPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   const user = await requireAuth(`/${locale}/login`);
   const { modPurchases, shopPurchases } = await getUserLibrary(user.id);
 

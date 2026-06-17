@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { MembershipActions } from "@/components/membership/membership-actions";
 import type { Locale } from "@/i18n/config";
 
-export default async function MembershipPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function MembershipPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   const user = await requireAuth(`/${locale}/login`);
 
   const [purchases, tier] = await Promise.all([

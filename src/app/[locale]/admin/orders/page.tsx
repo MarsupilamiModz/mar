@@ -5,7 +5,9 @@ import { requirePagePermission } from "@/lib/auth";
 import type { Locale } from "@/i18n/config";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-export default async function AdminOrdersPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminOrdersPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   await requirePagePermission("orders.read");
   const t = await getTranslations("shop");

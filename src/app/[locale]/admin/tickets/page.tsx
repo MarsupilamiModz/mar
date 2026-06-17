@@ -4,12 +4,14 @@ import { TicketDashboardWidgets } from "@/components/admin/ticket-dashboard-widg
 import type { Locale } from "@/i18n/config";
 
 export default async function AdminTicketsPage({
-  params: { locale },
+  params,
   searchParams,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
   searchParams: { page?: string };
 }) {
+  const { locale } = await params;
+
   const [result, statsResult] = await Promise.all([
     getTicketsAdmin({ page: Number(searchParams.page) || 1 }),
     getTicketDashboardStats(),

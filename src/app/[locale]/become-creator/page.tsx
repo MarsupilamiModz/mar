@@ -7,10 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/i18n/config";
 
 export default async function BecomeCreatorPage({
-  params: { locale },
+  params,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const user = await requireAuth(`/${locale}/login`);
   const existing = await getMyCreatorApplication(user.id);

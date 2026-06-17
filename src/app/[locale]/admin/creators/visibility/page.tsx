@@ -4,7 +4,9 @@ import { listVisibleCreators } from "@/actions/admin/creators";
 import { CreatorVisibilityManager } from "@/components/admin/creator-visibility-manager";
 import type { Locale } from "@/i18n/config";
 
-export default async function CreatorVisibilityPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function CreatorVisibilityPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const result = await listVisibleCreators();

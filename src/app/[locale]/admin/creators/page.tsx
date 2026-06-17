@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { CreatorLevelBadge } from "@/components/creator/creator-level-badge";
 import type { Locale } from "@/i18n/config";
 
-export default async function AdminCreatorsPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminCreatorsPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const result = await listCreators();

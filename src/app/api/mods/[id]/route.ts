@@ -5,13 +5,15 @@ import { hasPermission } from "@/lib/permissions";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const mod = await prisma.mod.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { id: true, slug: true, title: true, authorId: true },
   });
 

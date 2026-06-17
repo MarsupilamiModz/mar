@@ -4,7 +4,9 @@ import { getGamesAndCategories, getCreatorsForSelect } from "@/lib/data";
 import { AdminSoundUploadPanel } from "@/components/admin/admin-sound-upload-panel";
 import type { Locale } from "@/i18n/config";
 
-export default async function AdminNewSoundPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminNewSoundPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   await requireAdmin();
   const t = await getTranslations("admin");
   const [games, authors] = await Promise.all([getGamesAndCategories(), getCreatorsForSelect()]);

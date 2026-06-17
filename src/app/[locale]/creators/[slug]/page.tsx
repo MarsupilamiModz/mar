@@ -21,10 +21,11 @@ import { formatDisplayName } from "@/lib/display-name";
 export const revalidate = REVALIDATE.catalog;
 
 export async function generateMetadata({
-  params: { slug },
+  params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
+  const { slug } = await params;
   const profile = await prisma.creatorProfile.findUnique({
     where: { slug },
     include: { user: { select: { displayName: true, username: true } } },
@@ -37,10 +38,12 @@ export async function generateMetadata({
 }
 
 export default async function CreatorProfilePage({
-  params: { locale, slug },
+  params,
 }: {
-  params: { locale: Locale; slug: string };
+  params: Promise<{ locale: Locale; slug: string }>;
 }) {
+  const { locale, slug } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
 

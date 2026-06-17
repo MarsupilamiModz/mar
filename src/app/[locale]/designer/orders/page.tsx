@@ -5,7 +5,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/i18n/config";
 
-export default async function DesignerOrdersPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function DesignerOrdersPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   const t = await getTranslations("designer");
   const result = await getDesignerDashboard();
   const orders = result.success ? result.data.orders : [];

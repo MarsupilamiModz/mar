@@ -5,7 +5,9 @@ import { getAdminEmailTemplates } from "@/actions/admin/email";
 import { EmailTemplatesPanel } from "@/components/admin/email-templates-panel";
 import type { Locale } from "@/i18n/config";
 
-export default async function AdminEmailTemplatesPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminEmailTemplatesPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   await requirePagePermission("settings.write");
   const result = await getAdminEmailTemplates();
   const templates = result.success ? result.data : [];

@@ -9,7 +9,9 @@ import type { Locale } from "@/i18n/config";
 
 export const revalidate = REVALIDATE.catalog;
 
-export async function generateMetadata({ params: { locale } }: { params: { locale: Locale } }) {
+export async function generateMetadata({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   const t = await getTranslations({ locale, namespace: "mods" });
   return { title: t("title") };
 }
@@ -63,10 +65,10 @@ async function CatalogContent({
 }
 
 export default async function ModsPage({
-  params: { locale },
+  params,
   searchParams,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
   searchParams: {
     q?: string;
     game?: string;
@@ -77,6 +79,8 @@ export default async function ModsPage({
     genre?: string;
   };
 }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("mods");
 

@@ -6,7 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/i18n/config";
 
-export default async function CreatorExclusivePage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function CreatorExclusivePage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   await requireAuth(`/${locale}/login`);
   const result = await getCreatorExclusivePrograms();
   const programs = result.success ? result.data : [];

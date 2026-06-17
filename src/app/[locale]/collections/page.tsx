@@ -8,10 +8,12 @@ import type { Locale } from "@/i18n/config";
 export const dynamic = "force-dynamic";
 
 export default async function CollectionsPage({
-  params: { locale },
+  params,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const { items } = await listPublicCollections(1, 24);
 

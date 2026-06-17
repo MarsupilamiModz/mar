@@ -4,10 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/i18n/config";
 
 export default async function DevelopersPage({
-  params: { locale },
+  params,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
 
   const endpoints = [

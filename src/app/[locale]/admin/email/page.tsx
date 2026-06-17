@@ -26,7 +26,9 @@ const EMPTY_SETTINGS = {
   configured: false,
 };
 
-export default async function AdminEmailPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminEmailPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   await requirePagePermission("settings.write");
 
   const settingsResult = await getAdminEmailSettings();

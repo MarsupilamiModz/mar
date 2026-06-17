@@ -18,9 +18,11 @@ const r2 =
 
 export async function GET(
   _req: Request,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const key = params.path.map(decodeURIComponent).join("/");
+  const { path } = await params;
+
+  const key = path.map(decodeURIComponent).join("/");
   if (!key || key.includes("..")) {
     return NextResponse.json({ error: "Invalid path" }, { status: 400 });
   }

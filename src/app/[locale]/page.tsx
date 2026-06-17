@@ -16,7 +16,9 @@ import type { Locale } from "@/i18n/config";
 
 export const revalidate = REVALIDATE.homepage;
 
-export default async function HomePage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function HomePage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("landing");
   const tm = await getTranslations("mods");

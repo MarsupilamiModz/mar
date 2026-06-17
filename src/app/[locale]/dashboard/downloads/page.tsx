@@ -4,7 +4,9 @@ import { prisma } from "@/lib/db";
 import { Card } from "@/components/ui/card";
 import type { Locale } from "@/i18n/config";
 
-export default async function DownloadsPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function DownloadsPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   const user = await requireAuth(`/${locale}/login`);
 
   const downloads = await prisma.download.findMany({

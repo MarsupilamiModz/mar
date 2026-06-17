@@ -35,11 +35,13 @@ const navDefs = [
 
 export default async function DashboardLayout({
   children,
-  params: { locale },
+  params,
 }: {
   children: React.ReactNode;
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const [user, t] = await Promise.all([
     requireAuth(`/${locale}/login`),

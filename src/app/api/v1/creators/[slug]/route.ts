@@ -4,8 +4,10 @@ import { prisma } from "@/lib/db";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
+  const { slug } = await params;
+
   const auth = await validateApiKey(_req.headers.get("authorization"));
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -15,7 +17,7 @@ export async function GET(
   }
 
   const creator = await prisma.creatorProfile.findFirst({
-    where: { OR: [{ slug: params.slug }, { user: { username: params.slug } }] },
+    where: { OR: [{ slug }, { user: { username: slug } }] },
     select: {
       slug: true,
       description: true,

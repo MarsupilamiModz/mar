@@ -10,11 +10,13 @@ import type { Locale } from "@/i18n/config";
 
 export default async function CreatorLayout({
   children,
-  params: { locale },
+  params,
 }: {
   children: React.ReactNode;
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const user = await requireAuth(`/${locale}/login`);

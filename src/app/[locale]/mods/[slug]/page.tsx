@@ -36,10 +36,11 @@ import type { Locale } from "@/i18n/config";
 import { serializeModVersions } from "@/lib/file-size";
 
 export async function generateMetadata({
-  params: { slug },
+  params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
+  const { slug } = await params;
   const mod = await getModBySlug(slug);
   if (!mod) return { title: "Mod not found" };
   const media = mapModMedia(mod.media ?? []);
@@ -56,10 +57,12 @@ export async function generateMetadata({
 }
 
 export default async function ModDetailPage({
-  params: { locale, slug },
+  params,
 }: {
-  params: { locale: Locale; slug: string };
+  params: Promise<{ locale: Locale; slug: string }>;
 }) {
+  const { locale, slug } = await params;
+
   setRequestLocale(locale);
   const t = await getTranslations("mods");
   const mod = await getModBySlug(slug);

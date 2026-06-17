@@ -6,7 +6,9 @@ import { formatRoleLabel } from "@/lib/role-display";
 import { TICKET_STATUS_LABELS } from "@/lib/ticket-labels";
 import type { Locale } from "@/i18n/config";
 
-export default async function AdminOverviewPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminOverviewPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   const result = await getAdminAnalytics();
   const data = result.success
     ? result.data

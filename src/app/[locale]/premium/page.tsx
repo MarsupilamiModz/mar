@@ -3,7 +3,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { PremiumPlansClient } from "@/components/membership/premium-plans-client";
 import type { Locale } from "@/i18n/config";
 
-export default async function PremiumPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function PremiumPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   const [plans, pageSettings, user] = await Promise.all([
     getActiveMembershipPlans(),
     getPremiumPageSettings(),

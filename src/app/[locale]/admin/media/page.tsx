@@ -4,12 +4,14 @@ import { MediaCenterPanel } from "@/components/admin/media-center-panel";
 import type { Locale } from "@/i18n/config";
 
 export default async function AdminMediaCenterPage({
-  params: { locale },
+  params,
   searchParams,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
   searchParams: { section?: string; page?: string; q?: string };
 }) {
+  const { locale } = await params;
+
   await requireAdmin();
   const section = (searchParams.section as MediaSection) || "mods";
   const result = await getAdminMediaCenter({

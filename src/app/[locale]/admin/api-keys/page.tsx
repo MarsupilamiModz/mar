@@ -4,7 +4,9 @@ import { ApiKeysPanel } from "@/components/admin/api-keys-panel";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/config";
 
-export default async function AdminApiKeysPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function AdminApiKeysPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   await requirePagePermission("settings.write");
   const t = await getTranslations("admin.apiKeys");

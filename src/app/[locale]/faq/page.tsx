@@ -22,7 +22,9 @@ const faqs = [
   },
 ];
 
-export default function FaqPage({ params: { locale } }: { params: { locale: Locale } }) {
+export default async function FaqPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+
   setRequestLocale(locale);
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">

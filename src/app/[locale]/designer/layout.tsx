@@ -17,11 +17,13 @@ const nav = [
 
 export default async function DesignerLayout({
   children,
-  params: { locale },
+  params,
 }: {
   children: React.ReactNode;
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }) {
+  const { locale } = await params;
+
   const user = await requireDesigner();
   const t = await getTranslations("designer");
 
