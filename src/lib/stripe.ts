@@ -337,6 +337,37 @@ export async function createShopProductCheckout(
   });
 }
 
+export async function createBillingPortalSession(
+  userId: string,
+  email: string,
+  locale: string,
+  returnPath = "/dashboard/subscription"
+) {
+  const stripe = getStripe();
+  const customerId = await getOrCreateStripeCustomer(userId, email);
+  const origin = resolveCheckoutOrigin();
+  const session = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: checkoutPath(origin, locale, returnPath),
+  });
+  return session.url;
+}
+
+export async function listCustomerInvoices(customerId: string, limit = 12) {
+  const stripe = getStripe();
+  const invoices = await stripe.invoices.list({ customer: customerId, limit });
+  return invoices.data.map((inv) => ({
+    id: inv.id,
+    number: inv.number,
+    status: inv.status,
+    amountDue: inv.amount_due,
+    currency: inv.currency,
+    created: new Date(inv.created * 1000),
+    hostedInvoiceUrl: inv.hosted_invoice_url ?? null,
+    invoicePdf: inv.invoice_pdf ?? null,
+  }));
+}
+
 export async function getStripeReceiptUrl(paymentIntentId: string): Promise<string | null> {
   try {
     const stripe = getStripe();

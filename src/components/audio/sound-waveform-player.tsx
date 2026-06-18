@@ -34,7 +34,14 @@ export function SoundWaveformPlayer({
   useGlobalPlayer = true,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const wsRef = useRef<{ destroy: () => void; playPause: () => void; seekTo: (p: number) => void } | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const wsRef = useRef<{
+    destroy: () => void;
+    playPause: () => void;
+    seekTo: (p: number) => void;
+    getCurrentTime: () => number;
+    setTime?: (t: number) => void;
+  } | null>(null);
   const global = useOptionalAudioPlayer();
   const [localPlaying, setLocalPlaying] = useState(false);
   const [localTime, setLocalTime] = useState(0);
@@ -45,13 +52,48 @@ export function SoundWaveformPlayer({
   const isPlaying = isGlobalActive ? global!.isPlaying : localPlaying;
   const progress = isGlobalActive ? global!.progress : localTime;
   const duration = isGlobalActive
-    ? global!.duration || durationSeconds || 0
+    ? global!.duration || localDuration || durationSeconds || 0
     : localDuration || durationSeconds || 0;
+
+  useEffect(() => {
+    setLocalDuration(durationSeconds ?? 0);
+  }, [durationSeconds]);
+
+  useEffect(() => {
+    if (isGlobalActive || !streamUrl) return;
+    const audio = new Audio();
+    audio.preload = "metadata";
+    audio.src = streamUrl;
+    audioRef.current = audio;
+
+    const onMeta = () => {
+      if (audio.duration && Number.isFinite(audio.duration)) {
+        setLocalDuration(Math.floor(audio.duration));
+      }
+    };
+    const onTime = () => setLocalTime(audio.currentTime);
+    const onEnded = () => {
+      setLocalPlaying(false);
+      setLocalTime(0);
+    };
+
+    audio.addEventListener("loadedmetadata", onMeta);
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("ended", onEnded);
+
+    return () => {
+      audio.pause();
+      audio.removeEventListener("loadedmetadata", onMeta);
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("ended", onEnded);
+      audioRef.current = null;
+    };
+  }, [streamUrl, isGlobalActive]);
 
   useEffect(() => {
     let cancelled = false;
     const el = containerRef.current;
-    if (!el || !waveformPeaks?.length) return;
+    if (!el || !streamUrl) return;
 
     void import("wavesurfer.js").then(({ default: WaveSurfer }) => {
       if (cancelled || !containerRef.current) return;
@@ -67,15 +109,39 @@ export function SoundWaveformPlayer({
         waveColor: "rgba(168, 85, 247, 0.35)",
         progressColor: "rgba(168, 85, 247, 0.95)",
         cursorColor: "#a855f7",
-        peaks: [waveformPeaks],
-        duration: durationSeconds ?? undefined,
+        ...(waveformPeaks?.length ? { peaks: [waveformPeaks], duration: durationSeconds ?? undefined } : {}),
+        url: streamUrl,
       });
       wsRef.current = ws;
+
+      ws.on("ready", () => {
+        const d = ws.getDuration();
+        if (d && Number.isFinite(d)) setLocalDuration(Math.floor(d));
+      });
+
+      ws.on("audioprocess", () => {
+        if (!isGlobalActive) setLocalTime(ws.getCurrentTime());
+      });
 
       ws.on("interaction", () => {
         const t = ws.getCurrentTime();
         if (useGlobalPlayer && global?.current?.id === modId) {
           global.seek(duration > 0 ? t / duration : 0);
+        } else {
+          const a = audioRef.current;
+          if (a) a.currentTime = t;
+          setLocalTime(t);
+        }
+      });
+
+      ws.on("play", () => {
+        if (!useGlobalPlayer || !global?.current?.id || global.current.id !== modId) {
+          setLocalPlaying(true);
+        }
+      });
+      ws.on("pause", () => {
+        if (!useGlobalPlayer || !global?.current?.id || global.current.id !== modId) {
+          setLocalPlaying(false);
         }
       });
     });
@@ -85,7 +151,7 @@ export function SoundWaveformPlayer({
       wsRef.current?.destroy();
       wsRef.current = null;
     };
-  }, [waveformPeaks, durationSeconds, modId, global, useGlobalPlayer, duration]);
+  }, [waveformPeaks, durationSeconds, streamUrl, modId, global, useGlobalPlayer, isGlobalActive, duration]);
 
   function togglePlay() {
     const track: AudioTrack = {
@@ -95,7 +161,7 @@ export function SoundWaveformPlayer({
       artist,
       coverUrl,
       streamUrl,
-      durationSeconds,
+      durationSeconds: duration || durationSeconds,
       previewLimitSeconds,
       waveformPeaks,
     };
@@ -109,13 +175,28 @@ export function SoundWaveformPlayer({
       return;
     }
 
-    setLocalPlaying((p) => !p);
+    const a = audioRef.current;
+    if (a) {
+      if (localPlaying) {
+        a.pause();
+        wsRef.current?.playPause();
+        setLocalPlaying(false);
+      } else {
+        void a.play().then(() => {
+          setLocalPlaying(true);
+          wsRef.current?.playPause();
+        });
+      }
+      return;
+    }
+
     wsRef.current?.playPause();
+    setLocalPlaying((p) => !p);
   }
 
   useEffect(() => {
     if (!useGlobalPlayer || !global?.current?.id || global.current.id !== modId) return;
-    const ws = wsRef.current as { setTime?: (t: number) => void } | null;
+    const ws = wsRef.current;
     if (ws?.setTime && duration > 0) {
       ws.setTime(progress);
     }
@@ -159,6 +240,7 @@ export function SoundWaveformPlayer({
           onChange={(e) => {
             const v = Number(e.target.value);
             setVolume(v);
+            if (audioRef.current) audioRef.current.volume = v;
             global?.setVolume(v);
           }}
           className="flex-1 accent-neon-purple"

@@ -673,16 +673,108 @@ export async function uploadModVideo(modId: string, formData: FormData) {
   return upload(modId, formData);
 }
 
-export async function deleteMod(modId: string) {
+export async function deleteMod(modId: string, permanent = true) {
   const { user, error } = await requireActionPermission("mods.write");
   if (error) return error;
 
-  await prisma.mod.delete({ where: { id: modId } });
+  if (permanent) {
+    await prisma.mod.delete({ where: { id: modId } });
+    await createAuditLog({
+      actorId: user.id,
+      action: "mod.delete",
+      entityType: "Mod",
+      entityId: modId,
+      metadata: { permanent: true },
+    });
+  } else {
+    await prisma.mod.update({
+      where: { id: modId },
+      data: { status: "ARCHIVED" },
+    });
+    await createAuditLog({
+      actorId: user.id,
+      action: "mod.soft_delete",
+      entityType: "Mod",
+      entityId: modId,
+    });
+  }
+
+  invalidateModCaches();
+  revalidatePath("/admin/mods");
+  revalidatePath("/mods");
+  return ok(undefined);
+}
+
+export async function restoreMod(modId: string) {
+  const { user, error } = await requireActionPermission("mods.write");
+  if (error) return error;
+
+  const mod = await prisma.mod.findUnique({ where: { id: modId }, select: { publishedAt: true } });
+  if (!mod) return fail("Not found");
+
+  await prisma.mod.update({
+    where: { id: modId },
+    data: {
+      status: mod.publishedAt ? "PUBLISHED" : "DRAFT",
+    },
+  });
+
   await createAuditLog({
     actorId: user.id,
-    action: "mod.delete",
+    action: "mod.restore",
     entityType: "Mod",
     entityId: modId,
+  });
+
+  invalidateModCaches();
+  revalidatePath("/admin/mods");
+  revalidatePath("/mods");
+  return ok(undefined);
+}
+
+export async function bulkModAdminAction(input: {
+  ids: string[];
+  action: "approve" | "reject" | "archive" | "restore" | "delete";
+}) {
+  const { user, error } = await requireActionPermission("mods.write");
+  if (error) return error;
+  if (!input.ids.length) return fail("No items selected");
+
+  const { ids, action } = input;
+
+  if (action === "delete") {
+    await prisma.mod.deleteMany({ where: { id: { in: ids } } });
+  } else if (action === "archive") {
+    await prisma.mod.updateMany({ where: { id: { in: ids } }, data: { status: "ARCHIVED" } });
+  } else if (action === "restore") {
+    const mods = await prisma.mod.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, publishedAt: true },
+    });
+    await prisma.$transaction(
+      mods.map((m) =>
+        prisma.mod.update({
+          where: { id: m.id },
+          data: { status: m.publishedAt ? "PUBLISHED" : "DRAFT" },
+        })
+      )
+    );
+  } else {
+    const status = action === "approve" ? "PUBLISHED" : "REJECTED";
+    await prisma.mod.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        status,
+        ...(action === "approve" ? { publishedAt: new Date() } : {}),
+      },
+    });
+  }
+
+  await createAuditLog({
+    actorId: user.id,
+    action: `mod.bulk_${action}`,
+    entityType: "Mod",
+    metadata: { ids, count: ids.length },
   });
 
   invalidateModCaches();

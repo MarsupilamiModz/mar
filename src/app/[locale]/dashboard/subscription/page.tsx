@@ -1,61 +1,68 @@
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
-import { getUserMembershipTier, formatPlanPrice } from "@/lib/membership";
+import { getPremiumBillingData } from "@/lib/billing";
+import { getUserMembershipTier } from "@/lib/membership";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MembershipActions } from "@/components/membership/membership-actions";
+import { PremiumManagementCenter } from "@/components/membership/premium-management-center";
 import type { Locale } from "@/i18n/config";
 
-export default async function MembershipPage({ params }: { params: Promise<{ locale: Locale }> }) {
+export default async function PremiumSubscriptionPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>;
+}) {
   const { locale } = await params;
-
   const user = await requireAuth(`/${locale}/login`);
 
-  const [purchases, tier] = await Promise.all([
-    prisma.membershipPurchase.findMany({
-      where: { userId: user.id },
-      include: { plan: { select: { name: true, slug: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
+  const [billing, tier] = await Promise.all([
+    getPremiumBillingData(user.id, user.email),
     getUserMembershipTier(user.id),
   ]);
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Membership</h1>
-      <p className="text-sm text-muted-foreground">Lifetime access — no recurring billing.</p>
+      <div>
+        <h1 className="text-2xl font-bold">Premium</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Manage your membership, billing, and invoices
+        </p>
+      </div>
 
       <Card className="glass">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            Current membership
+            Current plan
             {tier ? <Badge variant="premium">{tier.name}</Badge> : <Badge variant="outline">Free</Badge>}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {!tier ? (
-            <p className="text-sm text-muted-foreground">You don&apos;t have a lifetime membership yet.</p>
-          ) : (
-            <div className="text-sm space-y-1">
-              <p className="font-medium">{tier.name}</p>
-              <p className="text-muted-foreground">
-                {formatPlanPrice(tier.priceCents, tier.currency, locale)} · lifetime access
-              </p>
-              <ul className="mt-2 space-y-1">
-                {tier.features.map((f) => (
-                  <li key={f} className="text-xs text-muted-foreground">• {f}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <MembershipActions locale={locale} purchases={purchases} />
+        <CardContent>
+          <PremiumManagementCenter
+            locale={locale}
+            membership={billing.membership}
+            subscription={
+              billing.subscription
+                ? {
+                    status: billing.subscription.status,
+                    currentPeriodEnd: billing.subscription.currentPeriodEnd,
+                    cancelAtPeriodEnd: billing.subscription.cancelAtPeriodEnd,
+                    interval: billing.subscription.interval,
+                  }
+                : null
+            }
+            currentPlan={billing.currentPlan}
+            purchases={billing.purchases}
+            invoices={billing.invoices}
+            hasStripeSubscription={billing.hasStripeSubscription}
+          />
         </CardContent>
       </Card>
 
       <Card className="glass">
-        <CardHeader><CardTitle>Your benefits</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Your benefits</CardTitle>
+        </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
           <p>• Premium mod downloads and exclusive content</p>
           <p>• Ad-free browsing across the marketplace</p>
@@ -65,7 +72,7 @@ export default async function MembershipPage({ params }: { params: Promise<{ loc
       </Card>
 
       <Button variant="outline" asChild>
-        <Link href={`/${locale}/premium`}>Compare lifetime plans</Link>
+        <Link href={`/${locale}/premium`}>Compare plans</Link>
       </Button>
     </div>
   );

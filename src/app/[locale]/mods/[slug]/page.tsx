@@ -31,6 +31,7 @@ import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import { ModPurchaseButton } from "@/components/mods/mod-purchase-button";
 import { ModSecurityPanel } from "@/components/security/mod-security-panel";
 import { SoundProductPlayer } from "@/components/sounds/sound-product-player";
+import { resolveSoundScanStatus } from "@/lib/sound-security";
 import { formatCreditsFromCents } from "@/lib/credits";
 import type { Locale } from "@/i18n/config";
 import { serializeModVersions } from "@/lib/file-size";
@@ -113,11 +114,18 @@ export default async function ModDetailPage({
   const creatorSlug = mod.author.creatorProfile?.slug ?? mod.author.username;
   const creatorBadges = badgeMap.get(authorId) ?? [];
   const primaryVersion = mod.versions.find((v) => v.isPrimary && !v.isArchived) ?? mod.versions[0];
-  const securityStatus = primaryVersion?.scanStatus ?? "PENDING";
-  const securityScannedAt = primaryVersion?.scannedAt;
-  const isTrustedFile = !!(primaryVersion as { trustedFile?: { id: string } | null })?.trustedFile;
   const isSound = mod.productType === "SOUND";
   const soundProfile = mod.soundProfile;
+  const securityStatus = isSound && soundProfile
+    ? resolveSoundScanStatus({
+        approvalStatus: soundProfile.approvalStatus,
+        previewScanStatus: soundProfile.previewScanStatus,
+      })
+    : primaryVersion?.scanStatus ?? "PENDING";
+  const securityScannedAt = isSound && soundProfile?.approvedAt
+    ? soundProfile.approvedAt
+    : primaryVersion?.scannedAt;
+  const isTrustedFile = !!(primaryVersion as { trustedFile?: { id: string } | null })?.trustedFile;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
@@ -140,6 +148,8 @@ export default async function ModDetailPage({
                 coverImageKey: soundProfile.coverImageKey,
                 waveformPeaks: (soundProfile.waveformPeaks as number[] | null) ?? null,
                 playCount: soundProfile.playCount,
+                previewFileSize: soundProfile.previewFileSize,
+                createdAt: soundProfile.createdAt,
               }}
             />
           ) : (

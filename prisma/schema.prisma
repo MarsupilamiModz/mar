@@ -541,6 +541,7 @@ model User {
   trustedFiles      TrustedFile[]          @relation("TrustedFileApprover")
   trustedCreators   TrustedCreator[]       @relation("TrustedCreatorApprover")
   securityLogs      SecurityLog[]
+  teamProfile       TeamMember?
 
   @@index([email])
   @@index([username])
@@ -2340,4 +2341,56 @@ model MediaFile {
   @@index([entityType, entityId])
   @@index([uploadedById])
   @@map("media_files")
+}
+
+enum TeamVisibility {
+  PUBLIC
+  INTERNAL
+  HIDDEN
+}
+
+model TeamDepartment {
+  id           String       @id @default(cuid())
+  slug         String       @unique
+  name         String
+  description  String?      @db.Text
+  sortOrder    Int          @default(0)
+  isActive     Boolean      @default(true)
+  translations Json?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  members TeamMember[]
+
+  @@index([isActive, sortOrder])
+}
+
+model TeamMember {
+  id           String          @id @default(cuid())
+  name         String
+  position     String
+  description  String?         @db.Text
+  email        String?
+  avatarUrl    String?
+  bannerUrl    String?
+  discordUrl   String?
+  youtubeUrl   String?
+  twitchUrl    String?
+  tiktokUrl    String?
+  instagramUrl String?
+  xUrl         String?
+  websiteUrl   String?
+  customLinks  Json?
+  departmentId String?
+  department   TeamDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  visibility   TeamVisibility  @default(PUBLIC)
+  sortOrder    Int             @default(0)
+  isActive     Boolean         @default(true)
+  userId       String?         @unique
+  user         User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([visibility, isActive, sortOrder])
+  @@index([departmentId, sortOrder])
 }

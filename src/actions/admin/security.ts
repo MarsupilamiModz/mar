@@ -518,6 +518,7 @@ export async function approveSound(modId: string, notes?: string) {
       where: { modId },
       data: {
         approvalStatus: "MANUALLY_APPROVED",
+        previewScanStatus: "APPROVED",
         approvedAt: new Date(),
         approvedById: user!.id,
         reviewNotes: notes ?? null,
@@ -534,6 +535,7 @@ export async function approveSound(modId: string, notes?: string) {
 
   revalidatePath("/admin/security");
   revalidatePath("/mods");
+  revalidatePath(`/mods/${mod.slug}`);
   return ok(undefined);
 }
 
@@ -550,6 +552,7 @@ export async function rejectSound(modId: string, reason?: string) {
       where: { modId },
       data: {
         approvalStatus: "REJECTED",
+        previewScanStatus: "REJECTED",
         rejectionReason: reason ?? "Rejected by security review",
         approvedById: user!.id,
       },
@@ -564,6 +567,8 @@ export async function rejectSound(modId: string, reason?: string) {
   });
 
   revalidatePath("/admin/security");
+  revalidatePath("/mods");
+  revalidatePath(`/mods/${mod.slug}`);
   return ok(undefined);
 }
 

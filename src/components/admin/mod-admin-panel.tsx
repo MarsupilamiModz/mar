@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import {
   createMod,
   updateMod,
+  deleteMod,
+  restoreMod,
 } from "@/actions/mods";
 import { CreatorModVersionUpload } from "@/components/creator/creator-mod-version-upload";
 import { SoundPreviewUpload } from "@/components/creator/sound-preview-upload";
@@ -246,6 +248,71 @@ export function ModAdminPanel({
             media={mapModMedia(mod.media ?? [])}
             settings={mediaSettings ?? { minScreenshots: 0, maxScreenshots: 15, allowedTypes: ["image/jpeg", "image/png", "image/webp"], maxFileSizeMb: 5, imageQuality: 0.85 }}
           />
+        )}
+
+        {isAdmin && (
+          <Card className="glass p-6 border-destructive/20 space-y-4">
+            <h3 className="font-semibold text-destructive">Danger zone</h3>
+            <p className="text-sm text-muted-foreground">
+              Soft delete archives the mod. Permanent delete removes all data.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {mod.status === "ARCHIVED" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => {
+                    if (!window.confirm("Restore this mod?")) return;
+                    startTransition(async () => {
+                      const r = await restoreMod(mod.id);
+                      if (r.success) {
+                        appToast.updated("Mod restored");
+                        router.refresh();
+                      } else appToast.error(r.error);
+                    });
+                  }}
+                >
+                  Restore mod
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => {
+                    if (!window.confirm("Soft delete (archive) this mod?")) return;
+                    startTransition(async () => {
+                      const r = await deleteMod(mod.id, false);
+                      if (r.success) {
+                        appToast.updated("Mod archived");
+                        router.refresh();
+                      } else appToast.error(r.error);
+                    });
+                  }}
+                >
+                  Soft delete
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={pending}
+                onClick={() => {
+                  if (!window.confirm("Permanently delete this mod? This cannot be undone.")) return;
+                  startTransition(async () => {
+                    const r = await deleteMod(mod.id, true);
+                    if (r.success) {
+                      appToast.deleted("Mod deleted");
+                      router.push(`/${locale}${redirectBase}`);
+                    } else appToast.error(r.error);
+                  });
+                }}
+              >
+                Permanent delete
+              </Button>
+            </div>
+          </Card>
         )}
       </div>
     );

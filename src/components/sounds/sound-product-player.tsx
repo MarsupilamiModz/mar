@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { SafeImage } from "@/components/ui/safe-image";
 import { SoundWaveformPlayer } from "@/components/audio/sound-waveform-player";
 import { resolveAssetUrl } from "@/lib/assets";
-import { getPreviewLimitSeconds } from "@/lib/sound";
+import { getPreviewLimitSeconds, formatDuration } from "@/lib/sound";
+import { estimateBitrateKbps, formatFileSize } from "@/lib/sound-security";
 import type { SoundPreviewType } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { useTranslations } from "next-intl";
@@ -24,6 +25,8 @@ type Props = {
     coverImageKey: string | null;
     waveformPeaks: number[] | null;
     playCount: number;
+    previewFileSize?: bigint | number | null;
+    createdAt?: Date | string | null;
   };
 };
 
@@ -33,6 +36,7 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
     streamUrl: string;
     previewLimitSeconds: number | null;
     waveformPeaks: number[] | null;
+    durationSeconds: number | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,6 +50,7 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
           streamUrl: data.streamUrl,
           previewLimitSeconds: data.previewLimitSeconds,
           waveformPeaks: data.waveformPeaks ?? sound.waveformPeaks,
+          durationSeconds: data.durationSeconds ?? sound.previewDurationSeconds ?? sound.durationSeconds,
         });
       })
       .finally(() => {
@@ -62,6 +67,9 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
     sound.previewCustomSeconds,
     sound.previewDurationSeconds ?? sound.durationSeconds
   );
+  const displayDuration =
+    stream?.durationSeconds ?? sound.previewDurationSeconds ?? sound.durationSeconds;
+  const bitrate = estimateBitrateKbps(sound.previewFileSize ?? null, displayDuration ?? null);
 
   return (
     <div className="glass rounded-xl border border-border/50 overflow-hidden">
@@ -90,13 +98,33 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
               artist={sound.artist}
               coverUrl={coverUrl}
               streamUrl={stream.streamUrl}
-              durationSeconds={sound.previewDurationSeconds ?? sound.durationSeconds}
+              durationSeconds={stream.durationSeconds ?? sound.previewDurationSeconds ?? sound.durationSeconds}
               previewLimitSeconds={stream.previewLimitSeconds ?? limit}
               waveformPeaks={stream.waveformPeaks}
             />
           ) : (
             <p className="text-sm text-muted-foreground">{ts("previewUnavailable")}</p>
           )}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-xs text-muted-foreground border-t border-border/30">
+            <div>
+              <p className="uppercase tracking-wider opacity-70">Duration</p>
+              <p className="text-foreground">{formatDuration(displayDuration)}</p>
+            </div>
+            <div>
+              <p className="uppercase tracking-wider opacity-70">Size</p>
+              <p className="text-foreground">{formatFileSize(sound.previewFileSize ?? null)}</p>
+            </div>
+            <div>
+              <p className="uppercase tracking-wider opacity-70">Bitrate</p>
+              <p className="text-foreground">{bitrate ? `${bitrate} kbps` : "—"}</p>
+            </div>
+            <div>
+              <p className="uppercase tracking-wider opacity-70">Uploaded</p>
+              <p className="text-foreground">
+                {sound.createdAt ? new Date(sound.createdAt).toLocaleDateString() : "—"}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
