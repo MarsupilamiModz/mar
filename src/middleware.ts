@@ -71,8 +71,20 @@ export async function middleware(request: NextRequest) {
   const isAuthEntry = authEntryPaths.some((p) => pathWithoutLocale === p || pathWithoutLocale.startsWith(`${p}/`));
 
   if (isAuthEntry && authenticated) {
-    const dashboard = new URL(`/${locale}/dashboard`, request.url);
-    return NextResponse.redirect(dashboard);
+    const authError = request.nextUrl.searchParams.get("error");
+    const recoverableErrors = new Set([
+      "db_sync",
+      "auth_exchange",
+      "auth_callback",
+      "auth_missing_code",
+      "discord",
+      "discord_token",
+      "discord_user",
+    ]);
+    if (!authError || !recoverableErrors.has(authError)) {
+      const dashboard = new URL(`/${locale}/dashboard`, request.url);
+      return NextResponse.redirect(dashboard);
+    }
   }
 
   if (isProtected && !authenticated) {

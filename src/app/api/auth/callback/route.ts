@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import type { NextRequest } from "next/server";
+import { createRouteHandlerClient, redirectWithCookies } from "@/lib/supabase/route-handler";
 import { ensurePrismaUser } from "@/lib/user-sync";
 import { logPlatformError } from "@/lib/platform-log";
 import { getAppUrl } from "@/lib/app-url";
@@ -8,6 +9,7 @@ import { hasPremiumAccess } from "@/lib/auth";
 import { logAuthEvent } from "@/lib/auth-log";
 import { warmDbConnection, withDbRetry } from "@/lib/db";
 import { getCachedUserBySupabaseId } from "@/lib/auth-cache";
+import { persistAuthAudit } from "@/lib/auth-audit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,10 +17,11 @@ export const runtime = "nodejs";
 function safeNextPath(next: string | null, locale: string): string {
   const fallback = `/${locale}/dashboard`;
   if (!next || !next.startsWith("/") || next.startsWith("//")) return fallback;
+  if (next.includes("/login") || next.includes("/register")) return fallback;
   return next;
 }
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next");
@@ -28,17 +31,23 @@ export async function GET(req: Request) {
 
   if (!code) {
     logAuthEvent("callback_missing_code", { locale }, "warn");
+    void persistAuthAudit("auth.callback_missing_code", { locale });
     return NextResponse.redirect(`${origin}/${locale}/login?error=auth_missing_code`);
   }
 
+  const { supabase, getResponse } = createRouteHandlerClient(req);
+
   try {
     await warmDbConnection();
-    const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error || !data.user) {
       logAuthEvent("callback_exchange_failed", { message: error?.message }, "error");
-      return NextResponse.redirect(`${origin}/${locale}/login?error=auth_exchange`);
+      void persistAuthAudit("auth.callback_exchange_failed", { message: error?.message });
+      return redirectWithCookies(
+        `${origin}/${locale}/login?error=auth_exchange`,
+        getResponse()
+      );
     }
 
     logAuthEvent("callback_exchange_ok", { userId: data.user.id });
@@ -52,6 +61,7 @@ export async function GET(req: Request) {
     } catch (syncErr) {
       void logPlatformError("auth:callback-sync", syncErr);
       logAuthEvent("callback_sync_failed", { userId: data.user.id }, "error");
+      void persistAuthAudit("auth.callback_sync_failed", { userId: data.user.id });
 
       dbUser = await withDbRetry(
         () => getCachedUserBySupabaseId(data.user.id),
@@ -59,10 +69,18 @@ export async function GET(req: Request) {
       );
 
       if (!dbUser) {
-        return NextResponse.redirect(`${origin}/${locale}/login?error=db_sync`);
+        return redirectWithCookies(
+          `${origin}/${locale}/login?error=db_sync`,
+          getResponse()
+        );
       }
       logAuthEvent("callback_sync_recovered", { userId: data.user.id }, "warn");
     }
+
+    void persistAuthAudit("auth.login", {
+      userId: dbUser!.id,
+      provider: data.user.app_metadata?.provider ?? "oauth",
+    });
 
     if (dbUser?.discordId) {
       const roles: string[] = [];
@@ -72,10 +90,16 @@ export async function GET(req: Request) {
       void syncDiscordRoles(dbUser.discordId, roles);
     }
 
-    return NextResponse.redirect(`${origin}${destination}`);
+    return redirectWithCookies(`${origin}${destination}`, getResponse());
   } catch (err) {
     void logPlatformError("auth:callback", err);
     logAuthEvent("callback_fatal", { message: err instanceof Error ? err.message : String(err) }, "error");
-    return NextResponse.redirect(`${origin}/${locale}/login?error=auth_callback`);
+    void persistAuthAudit("auth.callback_fatal", {
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return redirectWithCookies(
+      `${origin}/${locale}/login?error=auth_callback`,
+      getResponse()
+    );
   }
 }

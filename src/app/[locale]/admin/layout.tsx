@@ -43,17 +43,22 @@ const linkDefs = [
   { href: "/localization", labelKey: "localization", permission: "settings.write" as const },
   { href: "/settings/media", labelKey: "mediaSettings", permission: "settings.write" as const },
   { href: "/system", labelKey: "systemHealth", permission: "settings.write" as const },
+  { href: "/owner", labelKey: "ownerControl", permission: "analytics.read" as const, ownerOnly: true },
   { href: "/diagnostics", labelKey: "diagnostics", permission: "users.read" as const },
   { href: "/security", labelKey: "securityCenter", permission: "settings.write" as const },
   { href: "/api-keys", labelKey: "apiKeysNav", permission: "settings.write" as const },
 ] as const;
 
 async function filterLinks(user: { id: string; role: Parameters<typeof userHasPermission>[0]["role"]; permissionGroupId?: string | null }) {
-  if (user.role === "OWNER" || user.role === "ADMIN") {
-    return [...linkDefs];
+  let links = user.role === "OWNER" || user.role === "ADMIN" ? [...linkDefs] : await (async () => {
+    const effective = await getEffectivePermissions(user);
+    return linkDefs.filter((link) => permissionSetIncludes(effective, link.permission as PermissionKey));
+  })();
+
+  if (user.role !== "OWNER") {
+    links = links.filter((l) => !("ownerOnly" in l && l.ownerOnly));
   }
-  const effective = await getEffectivePermissions(user);
-  return linkDefs.filter((link) => permissionSetIncludes(effective, link.permission as PermissionKey));
+  return links;
 }
 
 export default async function AdminLayout({

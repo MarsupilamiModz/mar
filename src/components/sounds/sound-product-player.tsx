@@ -40,19 +40,30 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
     durationSeconds: number | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setStreamError(null);
     void fetch(`/api/sounds/${modId}/stream`, { method: "POST" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled || data.error) return;
+      .then(async (r) => {
+        const data = await r.json();
+        if (cancelled) return;
+        if (!r.ok || data.error) {
+          setStreamError(data.error ?? "Preview unavailable");
+          setStream(null);
+          return;
+        }
         setStream({
           streamUrl: data.playbackUrl ?? data.streamUrl,
           previewLimitSeconds: data.previewLimitSeconds,
           waveformPeaks: data.waveformPeaks ?? sound.waveformPeaks,
           durationSeconds: data.durationSeconds ?? sound.previewDurationSeconds ?? sound.durationSeconds,
         });
+      })
+      .catch(() => {
+        if (!cancelled) setStreamError("Failed to load audio preview");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -90,7 +101,7 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
           </div>
           {sound.artist && <p className="text-sm text-muted-foreground">{sound.artist}</p>}
           {loading ? (
-            <p className="text-sm text-muted-foreground">{ts("loadingPreview")}</p>
+            <p className="text-sm text-muted-foreground animate-pulse">{ts("loadingPreview")}</p>
           ) : stream ? (
             <SoundWaveformPlayer
               modId={modId}
@@ -104,7 +115,9 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
               waveformPeaks={stream.waveformPeaks}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">{ts("previewUnavailable")}</p>
+            <p className="text-sm text-destructive/90">
+              {streamError ?? ts("previewUnavailable")}
+            </p>
           )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-xs text-muted-foreground border-t border-border/30">
             <div>

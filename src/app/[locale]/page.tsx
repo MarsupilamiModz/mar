@@ -13,6 +13,7 @@ import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import { getCachedPublicBranding } from "@/lib/branding-data";
 import { resolvePageContent } from "@/lib/branding-cms";
 import type { Locale } from "@/i18n/config";
+import { MembershipCampaignBanner } from "@/components/membership/membership-campaign-banner";
 
 export const revalidate = REVALIDATE.homepage;
 
@@ -44,6 +45,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
 
   return (
     <div>
+      <MembershipCampaignBanner locale={locale} />
       {announcements.length > 0 && (
         <div className="border-b border-neon-purple/20 bg-neon-purple/5">
           <div className="mx-auto max-w-7xl px-4 py-2.5 sm:px-6">

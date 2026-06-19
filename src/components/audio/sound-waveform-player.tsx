@@ -47,6 +47,8 @@ export function SoundWaveformPlayer({
   const [localTime, setLocalTime] = useState(0);
   const [localDuration, setLocalDuration] = useState(durationSeconds ?? 0);
   const [volume, setVolume] = useState(0.85);
+  const [waveReady, setWaveReady] = useState(false);
+  const [waveError, setWaveError] = useState(false);
 
   const isGlobalActive = useGlobalPlayer && global?.current?.id === modId;
   const isPlaying = isGlobalActive ? global!.isPlaying : localPlaying;
@@ -115,8 +117,15 @@ export function SoundWaveformPlayer({
       wsRef.current = ws;
 
       ws.on("ready", () => {
+        setWaveReady(true);
+        setWaveError(false);
         const d = ws.getDuration();
         if (d && Number.isFinite(d)) setLocalDuration(Math.floor(d));
+      });
+
+      ws.on("error", () => {
+        setWaveError(true);
+        setWaveReady(false);
       });
 
       ws.on("audioprocess", () => {
@@ -227,7 +236,18 @@ export function SoundWaveformPlayer({
         </span>
       </div>
 
-      <div ref={containerRef} className="w-full min-h-[72px] rounded-md overflow-hidden" />
+      <div ref={containerRef} className="w-full min-h-[72px] rounded-md overflow-hidden relative">
+        {!waveReady && !waveError && (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground animate-pulse">
+            Loading waveform…
+          </div>
+        )}
+        {waveError && (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-destructive/90">
+            Audio failed to load
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center gap-2 text-muted-foreground">
         <Volume2 className="h-4 w-4" />

@@ -13,12 +13,14 @@ export async function GET(req: Request) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 600,
+    path: "/",
   });
   res.cookies.set("discord_oauth_locale", locale, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 600,
+    path: "/",
   });
   return res;
 }

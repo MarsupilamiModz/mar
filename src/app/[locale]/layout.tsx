@@ -16,6 +16,7 @@ import { AdProviderScripts } from "@/components/ads/ad-provider-scripts";
 import { AdPopupSlot } from "@/components/ads/ad-popup-slot";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import { getCmsSeo } from "@/lib/page-content";
+import { PlatformVisitTracker } from "@/components/analytics/platform-visit-tracker";
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -70,6 +71,7 @@ export default async function LocaleLayout({
     <IntlProvider locale={locale} messages={messages}>
       <LocaleHtmlLang locale={locale} />
       <ScrollRestoration />
+      <PlatformVisitTracker />
       <AdProviderScripts />
       <AdPopupSlot />
       <AuthSync />

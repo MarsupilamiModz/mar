@@ -23,14 +23,17 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   const authError = searchParams.get("error");
+  const discordLinked = searchParams.get("discord") === "linked";
   const authErrorMessage =
-    authError === "db_sync"
-      ? "Account sync failed. Please try again or contact support."
-      : authError === "auth_exchange"
-        ? "Discord sign-in failed. Please try again."
-        : authError
-          ? "Sign-in failed. Please try again."
-          : "";
+    discordLinked
+      ? "Discord account linked. Sign in with email or Discord to continue."
+      : authError === "db_sync"
+        ? "Account sync failed. Please try again or contact support."
+        : authError === "auth_exchange"
+          ? "Discord sign-in failed. Please try again."
+          : authError
+            ? "Sign-in failed. Please try again."
+            : "";
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();

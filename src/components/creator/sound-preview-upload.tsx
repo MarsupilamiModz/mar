@@ -17,7 +17,7 @@ type Props = {
   hasCover?: boolean;
 };
 
-function readAudioDuration(file: File): Promise<number> {
+function readAudioDuration(file: File): Promise<number | null> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const audio = new Audio();
@@ -25,11 +25,12 @@ function readAudioDuration(file: File): Promise<number> {
     audio.src = url;
     audio.onloadedmetadata = () => {
       URL.revokeObjectURL(url);
-      resolve(Math.floor(audio.duration || 0));
+      const d = audio.duration;
+      resolve(Number.isFinite(d) && d > 0 ? Math.floor(d) : null);
     };
     audio.onerror = () => {
       URL.revokeObjectURL(url);
-      resolve(0);
+      resolve(null);
     };
   });
 }
@@ -67,7 +68,7 @@ export function SoundPreviewUpload({ modId, hasPreview, hasCover }: Props) {
 
       startTransition(async () => {
         const r = await attachSoundPreviewFromSession(modId, result.sessionId, {
-          durationSeconds,
+          ...(durationSeconds != null ? { durationSeconds } : {}),
           waveformPeaks,
         });
         if (r.success) {

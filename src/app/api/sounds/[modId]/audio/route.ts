@@ -7,13 +7,14 @@ export async function GET(
   { params }: { params: Promise<{ modId: string }> }
 ) {
   const { modId } = await params;
+  const range = _req.headers.get("range");
   const result = await getSoundStreamInfo(modId);
   if (!result.success) {
     return NextResponse.json({ error: result.error }, { status: 404 });
   }
 
   const upstream = await fetch(result.data.streamUrl, {
-    headers: { Range: _req.headers.get("range") ?? "" },
+    headers: range ? { Range: range } : undefined,
   });
 
   if (!upstream.ok && upstream.status !== 206) {

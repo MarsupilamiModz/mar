@@ -1534,6 +1534,17 @@ model BlogPost {
   updatedAt   DateTime  @updatedAt
 }
 
+model PlatformDailyMetric {
+  id             String   @id @default(cuid())
+  day            DateTime @db.Date
+  pageViews      Int      @default(0)
+  uniqueVisitors Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([day])
+}
+
 model SiteSetting {
   id    String @id @default(cuid())
   key   String @unique
@@ -1607,8 +1618,31 @@ model MembershipPlan {
   purchases       MembershipPurchase[]
   userMemberships UserMembership[]
   shopProducts    ShopProduct[]
+  campaigns       MembershipCampaign[]
 
   @@index([isActive, sortOrder])
+}
+
+model MembershipCampaign {
+  id          String          @id @default(cuid())
+  slug        String          @unique
+  title       String
+  description String?         @db.Text
+  badgeLabel  String?
+  priceCents  Int
+  currency    String          @default("EUR")
+  planId      String?
+  plan        MembershipPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  totalSlots  Int
+  soldSlots   Int             @default(0)
+  isVisible   Boolean         @default(true)
+  isActive    Boolean         @default(true)
+  bannerText  String?
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([isActive, isVisible])
 }
 
 model UserMembership {

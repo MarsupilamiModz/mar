@@ -1,11 +1,12 @@
 import { SITE } from "@/lib/site";
+import { getAppUrl } from "@/lib/app-url";
 
 const DISCORD_API = "https://discord.com/api/v10";
 
 export function getDiscordOAuthUrl(state: string) {
   const params = new URLSearchParams({
     client_id: process.env.DISCORD_CLIENT_ID!,
-    redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/discord/callback`,
+    redirect_uri: `${getAppUrl()}/api/auth/discord/callback`,
     response_type: "code",
     scope: "identify email guilds.join",
     state,

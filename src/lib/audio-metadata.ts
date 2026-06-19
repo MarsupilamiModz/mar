@@ -3,6 +3,7 @@ export type AudioMetadata = {
   bitrateKbps: number | null;
   mimeType: string;
   sampleRate?: number | null;
+  codec?: string | null;
 };
 
 export function mimeFromAudioFileName(fileName: string): string {
@@ -18,33 +19,35 @@ export function mimeFromAudioFileName(fileName: string): string {
 export function parseAudioMetadata(
   buffer: Buffer,
   fileName: string,
-  contentType?: string | null
+  contentType?: string | null,
+  fileSizeBytes?: number | null
 ): AudioMetadata {
   const mimeType = contentType || mimeFromAudioFileName(fileName);
   const lower = fileName.toLowerCase();
+  const totalBytes = fileSizeBytes ?? buffer.length;
 
   if (lower.endsWith(".wav") || mimeType.includes("wav")) {
-    return parseWav(buffer, mimeType);
+    return parseWav(buffer, mimeType, totalBytes);
   }
   if (lower.endsWith(".flac") || mimeType.includes("flac")) {
-    return parseFlac(buffer, mimeType);
+    return parseFlac(buffer, mimeType, totalBytes);
   }
   if (lower.endsWith(".mp3") || mimeType.includes("mpeg")) {
-    return parseMp3(buffer, mimeType);
+    return parseMp3(buffer, mimeType, totalBytes);
   }
   if (lower.endsWith(".ogg") || mimeType.includes("ogg")) {
-    return parseOgg(buffer, mimeType);
+    return parseOgg(buffer, mimeType, totalBytes);
   }
   if (lower.endsWith(".m4a") || mimeType.includes("mp4") || mimeType.includes("aac")) {
-    return parseMp4(buffer, mimeType);
+    return parseMp4(buffer, mimeType, totalBytes);
   }
 
-  return { durationSeconds: null, bitrateKbps: null, mimeType };
+  return { durationSeconds: null, bitrateKbps: null, mimeType, codec: null };
 }
 
-function parseWav(buffer: Buffer, mimeType: string): AudioMetadata {
+function parseWav(buffer: Buffer, mimeType: string, totalBytes: number): AudioMetadata {
   if (buffer.length < 44 || buffer.toString("ascii", 0, 4) !== "RIFF") {
-    return { durationSeconds: null, bitrateKbps: null, mimeType };
+    return { durationSeconds: null, bitrateKbps: null, mimeType, codec: "pcm" };
   }
   const sampleRate = buffer.readUInt32LE(24);
   const byteRate = buffer.readUInt32LE(28);
@@ -55,16 +58,16 @@ function parseWav(buffer: Buffer, mimeType: string): AudioMetadata {
     if (chunkId === "data") {
       const durationSeconds = byteRate > 0 ? Math.round(chunkSize / byteRate) : null;
       const bitrateKbps = durationSeconds && durationSeconds > 0
-        ? Math.round((buffer.length * 8) / durationSeconds / 1000)
+        ? Math.round((totalBytes * 8) / durationSeconds / 1000)
         : null;
-      return { durationSeconds, bitrateKbps, mimeType, sampleRate };
+      return { durationSeconds, bitrateKbps, mimeType, sampleRate, codec: "pcm" };
     }
     offset += 8 + chunkSize;
   }
-  return { durationSeconds: null, bitrateKbps: null, mimeType, sampleRate };
+  return { durationSeconds: null, bitrateKbps: null, mimeType, sampleRate, codec: "pcm" };
 }
 
-function parseFlac(buffer: Buffer, mimeType: string): AudioMetadata {
+function parseFlac(buffer: Buffer, mimeType: string, totalBytes: number): AudioMetadata {
   if (buffer.length < 42 || buffer.toString("ascii", 0, 4) !== "fLaC") {
     return { durationSeconds: null, bitrateKbps: null, mimeType };
   }
@@ -95,9 +98,9 @@ function parseFlac(buffer: Buffer, mimeType: string): AudioMetadata {
           : null;
       const bitrateKbps =
         durationSeconds && durationSeconds > 0
-          ? Math.round((buffer.length * 8) / durationSeconds / 1000)
+          ? Math.round((totalBytes * 8) / durationSeconds / 1000)
           : null;
-      return { durationSeconds, bitrateKbps, mimeType, sampleRate };
+      return { durationSeconds, bitrateKbps, mimeType, sampleRate, codec: "flac" };
     }
     offset += blockSize;
     if (isLast) break;
@@ -105,7 +108,7 @@ function parseFlac(buffer: Buffer, mimeType: string): AudioMetadata {
   return { durationSeconds: null, bitrateKbps: null, mimeType };
 }
 
-function parseMp3(buffer: Buffer, mimeType: string): AudioMetadata {
+function parseMp3(buffer: Buffer, mimeType: string, totalBytes: number): AudioMetadata {
   let start = 0;
   if (buffer.length >= 10 && buffer.toString("ascii", 0, 3) === "ID3") {
     const tagSize =
@@ -135,15 +138,15 @@ function parseMp3(buffer: Buffer, mimeType: string): AudioMetadata {
       const sampleRate = sampleRates[sampleRateIndex] ?? null;
       const durationSeconds =
         bitrateKbps && bitrateKbps > 0
-          ? Math.round((buffer.length * 8) / (bitrateKbps * 1000))
+          ? Math.round((totalBytes * 8) / (bitrateKbps * 1000))
           : null;
-      return { durationSeconds, bitrateKbps, mimeType, sampleRate };
+      return { durationSeconds, bitrateKbps, mimeType, sampleRate, codec: "mp3" };
     }
   }
   return { durationSeconds: null, bitrateKbps: null, mimeType };
 }
 
-function parseOgg(buffer: Buffer, mimeType: string): AudioMetadata {
+function parseOgg(buffer: Buffer, mimeType: string, totalBytes: number): AudioMetadata {
   if (buffer.length < 64 || buffer.toString("ascii", 0, 4) !== "OggS") {
     return { durationSeconds: null, bitrateKbps: null, mimeType };
   }
@@ -177,32 +180,39 @@ function parseOgg(buffer: Buffer, mimeType: string): AudioMetadata {
     sampleRate && totalSamples > 0 ? Math.round(totalSamples / sampleRate) : null;
   const bitrateKbps =
     durationSeconds && durationSeconds > 0
-      ? Math.round((buffer.length * 8) / durationSeconds / 1000)
+      ? Math.round((totalBytes * 8) / durationSeconds / 1000)
       : null;
-  return { durationSeconds, bitrateKbps, mimeType, sampleRate };
+  return { durationSeconds, bitrateKbps, mimeType, sampleRate, codec: "vorbis" };
 }
 
-function parseMp4(buffer: Buffer, mimeType: string): AudioMetadata {
+function parseMp4(buffer: Buffer, mimeType: string, totalBytes: number): AudioMetadata {
   let offset = 0;
   while (offset + 8 <= buffer.length) {
     const size = buffer.readUInt32BE(offset);
     const type = buffer.toString("ascii", offset + 4, offset + 8);
     if (size < 8) break;
-    if (type === "mvhd" && offset + 28 <= buffer.length) {
+    if (type === "mvhd" && offset + 36 <= buffer.length) {
       const version = buffer[offset + 8];
-      if (version === 0) {
-        const timeScale = buffer.readUInt32BE(offset + 20);
-        const duration = buffer.readUInt32BE(offset + 24);
-        const durationSeconds =
-          timeScale > 0 ? Math.round(duration / timeScale) : null;
-        const bitrateKbps =
-          durationSeconds && durationSeconds > 0
-            ? Math.round((buffer.length * 8) / durationSeconds / 1000)
-            : null;
-        return { durationSeconds, bitrateKbps, mimeType };
+      let timeScale = 0;
+      let duration = 0;
+      if (version === 0 && offset + 28 <= buffer.length) {
+        timeScale = buffer.readUInt32BE(offset + 20);
+        duration = buffer.readUInt32BE(offset + 24);
+      } else if (version === 1 && offset + 36 <= buffer.length) {
+        timeScale = buffer.readUInt32BE(offset + 28);
+        const durationHi = buffer.readUInt32BE(offset + 32);
+        const durationLo = buffer.readUInt32BE(offset + 36);
+        duration = durationHi * 4294967296 + durationLo;
       }
+      const durationSeconds =
+        timeScale > 0 && duration > 0 ? Math.round(duration / timeScale) : null;
+      const bitrateKbps =
+        durationSeconds && durationSeconds > 0
+          ? Math.round((totalBytes * 8) / durationSeconds / 1000)
+          : null;
+      return { durationSeconds, bitrateKbps, mimeType, codec: "aac" };
     }
     offset += size;
   }
-  return { durationSeconds: null, bitrateKbps: null, mimeType };
+  return { durationSeconds: null, bitrateKbps: null, mimeType, codec: "aac" };
 }

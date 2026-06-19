@@ -6,6 +6,9 @@ import { syncDiscordRoles } from "@/lib/discord";
 import { hasPremiumAccess } from "@/lib/auth";
 import { logAuthEvent } from "@/lib/auth-log";
 import { logPlatformError } from "@/lib/platform-log";
+import { getAppUrl } from "@/lib/app-url";
+import { ensurePrismaUser } from "@/lib/user-sync";
+import { persistAuthAudit } from "@/lib/auth-audit";
 
 const DISCORD_TOKEN = "https://discord.com/api/oauth2/token";
 const DISCORD_USER = "https://discord.com/api/users/@me";
@@ -13,11 +16,16 @@ const DISCORD_USER = "https://discord.com/api/users/@me";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+function clearDiscordOAuthCookies(response: NextResponse) {
+  response.cookies.set("discord_oauth_state", "", { maxAge: 0, path: "/" });
+  response.cookies.set("discord_oauth_locale", "", { maxAge: 0, path: "/" });
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  const appUrl = getAppUrl();
 
   try {
     const cookieStore = await cookies();
@@ -26,7 +34,10 @@ export async function GET(req: Request) {
 
     if (!code || !state || state !== savedState) {
       logAuthEvent("discord_link_invalid_state", {}, "warn");
-      return NextResponse.redirect(`${appUrl}/${locale}/login?error=discord`);
+      void persistAuthAudit("auth.discord_invalid_state");
+      const res = NextResponse.redirect(`${appUrl}/${locale}/login?error=discord`);
+      clearDiscordOAuthCookies(res);
+      return res;
     }
 
     const tokenRes = await fetch(DISCORD_TOKEN, {
@@ -42,7 +53,10 @@ export async function GET(req: Request) {
     });
 
     if (!tokenRes.ok) {
-      return NextResponse.redirect(`${appUrl}/${locale}/login?error=discord_token`);
+      void persistAuthAudit("auth.discord_token_failed");
+      const res = NextResponse.redirect(`${appUrl}/${locale}/login?error=discord_token`);
+      clearDiscordOAuthCookies(res);
+      return res;
     }
 
     const tokens = await tokenRes.json();
@@ -51,7 +65,10 @@ export async function GET(req: Request) {
     });
 
     if (!userRes.ok) {
-      return NextResponse.redirect(`${appUrl}/${locale}/login?error=discord_user`);
+      void persistAuthAudit("auth.discord_user_failed");
+      const res = NextResponse.redirect(`${appUrl}/${locale}/login?error=discord_user`);
+      clearDiscordOAuthCookies(res);
+      return res;
     }
 
     const discordUser = await userRes.json();
@@ -63,30 +80,47 @@ export async function GET(req: Request) {
     } = await supabase.auth.getUser();
 
     if (sessionUser) {
-      const dbUser = await withDbRetry(
+      let dbUser = await withDbRetry(
         () => prisma.user.findUnique({ where: { supabaseId: sessionUser.id } }),
         { label: "discord:link-find" }
       );
-      if (dbUser) {
-        await withDbRetry(
-          () =>
-            prisma.user.update({
-              where: { id: dbUser.id },
-              data: {
-                discordId: discordUser.id,
-                discordUsername: discordUser.username,
-              },
-            }),
-          { label: "discord:link-update" }
+      if (!dbUser) {
+        dbUser = await withDbRetry(
+          () => ensurePrismaUser(sessionUser),
+          { label: "discord:link-sync" }
         );
-        const roles: string[] = [];
-        if (hasPremiumAccess({ role: dbUser.role, subscriptions: [] })) roles.push("premium");
-        if (dbUser.role === "CREATOR") roles.push("creator");
-        if (["MODERATOR", "ADMIN", "OWNER"].includes(dbUser.role)) roles.push("moderator");
-        void syncDiscordRoles(discordUser.id, roles);
       }
+
+      if (!dbUser) {
+        logAuthEvent("discord_link_no_prisma_user", { supabaseId: sessionUser.id }, "error");
+        void persistAuthAudit("auth.discord_link_no_user", { supabaseId: sessionUser.id });
+        const res = NextResponse.redirect(`${appUrl}/${locale}/dashboard/settings?discord=failed`);
+        clearDiscordOAuthCookies(res);
+        return res;
+      }
+
+      await withDbRetry(
+        () =>
+          prisma.user.update({
+            where: { id: dbUser!.id },
+            data: {
+              discordId: discordUser.id,
+              discordUsername: discordUser.username,
+            },
+          }),
+        { label: "discord:link-update" }
+      );
+      const roles: string[] = [];
+      if (hasPremiumAccess({ role: dbUser.role, subscriptions: [] })) roles.push("premium");
+      if (dbUser.role === "CREATOR") roles.push("creator");
+      if (["MODERATOR", "ADMIN", "OWNER"].includes(dbUser.role)) roles.push("moderator");
+      void syncDiscordRoles(discordUser.id, roles);
+
       logAuthEvent("discord_linked", { supabaseId: sessionUser.id });
-      return NextResponse.redirect(`${appUrl}/${locale}/dashboard/settings?discord=linked`);
+      void persistAuthAudit("auth.discord_linked", { userId: dbUser.id });
+      const res = NextResponse.redirect(`${appUrl}/${locale}/dashboard/settings?discord=linked`);
+      clearDiscordOAuthCookies(res);
+      return res;
     }
 
     let dbUser = await withDbRetry(
@@ -114,13 +148,20 @@ export async function GET(req: Request) {
       );
     }
 
-    return NextResponse.redirect(
-      `${appUrl}/${locale}/login?discord=linked&hint=${discordUser.email ?? ""}`
+    const res = NextResponse.redirect(
+      `${appUrl}/${locale}/login?discord=linked&hint=${encodeURIComponent(discordUser.email ?? "")}`
     );
+    clearDiscordOAuthCookies(res);
+    return res;
   } catch (err) {
     void logPlatformError("auth:discord-callback", err);
     logAuthEvent("discord_callback_error", { message: err instanceof Error ? err.message : String(err) }, "error");
+    void persistAuthAudit("auth.discord_callback_error", {
+      message: err instanceof Error ? err.message : String(err),
+    });
     const locale = (await cookies()).get("discord_oauth_locale")?.value ?? "en";
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/${locale}/login?error=discord`);
+    const res = NextResponse.redirect(`${getAppUrl()}/${locale}/login?error=discord`);
+    clearDiscordOAuthCookies(res);
+    return res;
   }
 }

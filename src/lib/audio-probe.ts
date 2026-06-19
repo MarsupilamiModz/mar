@@ -33,7 +33,7 @@ export async function probeAudioFromStorage(
   try {
     const buffer = await getObjectBufferFromR2(fileKey);
     const slice = buffer.subarray(0, Math.min(buffer.length, MAX_PROBE_BYTES));
-    const meta = parseAudioMetadata(slice, fileName, contentType);
+    const meta = parseAudioMetadata(slice, fileName, contentType, fileSizeBytes);
     if (!meta.durationSeconds && fileSizeBytes && meta.bitrateKbps) {
       meta.durationSeconds = Math.round((fileSizeBytes * 8) / (meta.bitrateKbps * 1000));
     }
@@ -58,8 +58,9 @@ export async function ensureSoundProfileMetadata(modId: string) {
   if (!profile?.previewFileKey) return null;
 
   const extras = readSoundProfileExtras(profile);
-  const hasDuration = (profile.previewDurationSeconds ?? profile.durationSeconds ?? 0) > 0;
-  if (hasDuration && extras.previewMimeType && extras.previewBitrateKbps) {
+  const storedDuration = profile.previewDurationSeconds ?? profile.durationSeconds ?? 0;
+  const hasValidDuration = storedDuration > 0;
+  if (hasValidDuration && extras.previewMimeType && extras.previewBitrateKbps) {
     return profile;
   }
 
@@ -72,8 +73,8 @@ export async function ensureSoundProfileMetadata(modId: string) {
   );
 
   const durationSeconds =
-    meta.durationSeconds ??
-    profile.previewDurationSeconds ??
+    (meta.durationSeconds && meta.durationSeconds > 0 ? meta.durationSeconds : null) ??
+    (storedDuration > 0 ? storedDuration : null) ??
     profile.durationSeconds ??
     null;
 

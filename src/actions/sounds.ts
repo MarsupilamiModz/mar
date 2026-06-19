@@ -15,6 +15,15 @@ import { mimeFromFileName } from "@/lib/sound-storage";
 import { pickPrismaModelFields } from "@/lib/prisma-schema";
 import { z } from "zod";
 
+function resolveDurationSeconds(
+  clientDuration?: number,
+  serverDuration?: number | null
+): number | undefined {
+  if (clientDuration != null && clientDuration > 0) return clientDuration;
+  if (serverDuration != null && serverDuration > 0) return serverDuration;
+  return undefined;
+}
+
 const soundProfileSchema = z.object({
   artist: z.string().max(120).optional(),
   audioCategory: z.enum([
@@ -114,10 +123,10 @@ export async function attachSoundPreviewFromSession(
     fileSize
   );
 
-  const durationSeconds =
-    meta?.durationSeconds ??
-    audioMeta.durationSeconds ??
-    undefined;
+  const durationSeconds = resolveDurationSeconds(
+    meta?.durationSeconds,
+    audioMeta.durationSeconds
+  );
 
   await registerMediaFromSession(session, "SOUND_PREVIEW", user.id, modId);
 

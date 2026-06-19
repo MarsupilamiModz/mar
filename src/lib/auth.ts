@@ -101,6 +101,13 @@ export async function requireStaff() {
   return user;
 }
 
+export async function requireOwner() {
+  const locale = await resolveAuthLocale();
+  const user = await requireAuth();
+  if (user.role !== "OWNER") redirect(`/${locale}/dashboard`);
+  return user;
+}
+
 export async function requireAdmin() {
   const locale = await resolveAuthLocale();
   const user = await requireAuth();

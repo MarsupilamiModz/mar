@@ -89,6 +89,13 @@ export async function requireActionStaff() {
   return { user, error: null };
 }
 
+export async function requireActionOwner() {
+  const { user, error } = await requireActionUser();
+  if (error) return { user: null as never, error };
+  if (user.role !== "OWNER") return { user: null as never, error: fail("Owner access only") };
+  return { user, error: null };
+}
+
 export function canManageRole(actorRole: UserRole, targetRole: UserRole) {
   if (actorRole === "OWNER") return true;
   if (actorRole === "ADMIN" && targetRole !== "OWNER") return true;
