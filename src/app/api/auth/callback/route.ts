@@ -10,6 +10,8 @@ import { logAuthEvent } from "@/lib/auth-log";
 import { warmDbConnection, withDbRetry } from "@/lib/db";
 import { findAppUserBySupabaseId } from "@/lib/user-sync";
 import { persistAuthAudit } from "@/lib/auth-audit";
+import { logSecurityEvent } from "@/lib/user-security";
+import { createHash } from "crypto";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -80,6 +82,15 @@ export async function GET(req: NextRequest) {
     void persistAuthAudit("auth.login", {
       userId: dbUser!.id,
       provider: data.user.app_metadata?.provider ?? "oauth",
+    });
+
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    void logSecurityEvent({
+      userId: dbUser!.id,
+      eventType: "LOGIN_SUCCESS",
+      ipHash: createHash("sha256").update(ip).digest("hex").slice(0, 16),
+      userAgent: req.headers.get("user-agent") ?? undefined,
+      metadata: { provider: data.user.app_metadata?.provider ?? "oauth" },
     });
 
     if (dbUser?.discordId) {

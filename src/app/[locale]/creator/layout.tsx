@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, redirectIfMfaRequired } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -20,6 +20,7 @@ export default async function CreatorLayout({
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const user = await requireAuth(`/${locale}/login`);
+  await redirectIfMfaRequired(user);
   const profile = await prisma.creatorProfile.findUnique({ where: { userId: user.id } });
 
   const allowed =

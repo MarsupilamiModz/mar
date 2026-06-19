@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateProfile, applyForCreator, updatePassword } from "@/actions/profile";
@@ -93,6 +94,15 @@ export function SettingsForm({ locale, user }: { locale: string; user: User }) {
             <p className="text-xs text-muted-foreground">{formatDisplayName(user)}</p>
             <Button type="submit" variant="neon" disabled={pending}>Save profile</Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card className="glass">
+        <CardHeader><CardTitle>Security</CardTitle></CardHeader>
+        <CardContent>
+          <Link href={`/${locale}/dashboard/security`} className="text-sm text-neon-purple hover:underline">
+            Security & 2FA →
+          </Link>
         </CardContent>
       </Card>
 

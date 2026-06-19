@@ -194,6 +194,7 @@ export const DEFAULT_FOOTER: FooterSettings = {
       links: [
         { id: "terms", label: "Terms", href: "/legal/terms", order: 0 },
         { id: "privacy", label: "Privacy", href: "/legal/privacy", order: 1 },
+        { id: "dmca", label: "DMCA", href: "/legal/dmca", order: 2 },
       ],
     },
   ],

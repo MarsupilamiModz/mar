@@ -11,6 +11,7 @@ import { ensurePrismaUser } from "@/lib/user-sync";
 import { logPlatformError } from "@/lib/platform-log";
 import { resolveActiveBan } from "@/lib/user-moderation";
 import { sanitizeAuthReturnPath } from "@/lib/auth-redirect";
+import { requiresMfa } from "@/lib/user-security";
 import type { PermissionKey } from "@/lib/permissions";
 
 export const getSession = cache(async () => {
@@ -94,10 +95,17 @@ export async function requireRole(...roles: UserRole[]) {
   return user;
 }
 
+export async function redirectIfMfaRequired(user: { role: UserRole; mfaEnabled: boolean }) {
+  if (!requiresMfa(user.role) || user.mfaEnabled) return;
+  const locale = await resolveAuthLocale();
+  redirect(`/${locale}/dashboard/security?required=1`);
+}
+
 export async function requireStaff() {
   const locale = await resolveAuthLocale();
   const user = await requireAuth();
   if (!isStaff(user.role)) redirect(`/${locale}/dashboard`);
+  await redirectIfMfaRequired(user);
   return user;
 }
 
@@ -105,6 +113,7 @@ export async function requireOwner() {
   const locale = await resolveAuthLocale();
   const user = await requireAuth();
   if (user.role !== "OWNER") redirect(`/${locale}/dashboard`);
+  await redirectIfMfaRequired(user);
   return user;
 }
 
@@ -112,6 +121,7 @@ export async function requireAdmin() {
   const locale = await resolveAuthLocale();
   const user = await requireAuth();
   if (!isAdmin(user.role)) redirect(`/${locale}/dashboard`);
+  await redirectIfMfaRequired(user);
   return user;
 }
 
@@ -142,6 +152,7 @@ export async function requireStudio() {
   if (!canAccessStudio(user.role) && !user.creatorProfile && !user.designerProfile) {
     redirect(`/${locale}/dashboard`);
   }
+  await redirectIfMfaRequired(user);
   return user;
 }
 

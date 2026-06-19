@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, redirectIfMfaRequired } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -18,6 +18,7 @@ export default async function PartnerLayout({
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
   const user = await requireAuth(`/${locale}/login`);
+  await redirectIfMfaRequired(user);
   const profile = await prisma.partnerProfile.findUnique({ where: { userId: user.id } });
 
   if (!profile && !isPartner(user.role)) {

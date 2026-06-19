@@ -14,7 +14,11 @@ import { ModDependenciesPanel } from "@/components/mods/mod-dependencies-panel";
 import { ModVersionsPanel } from "@/components/mods/mod-versions-panel";
 import { ModDownloadButton } from "@/components/mods/mod-download-button";
 import { checkMissingDependencies } from "@/lib/mod-dependencies";
-import { getModBySlug, getTrendingMods } from "@/lib/data";
+import { getModBySlug } from "@/lib/data";
+import { getSimilarMods, getUsersAlsoDownloaded } from "@/lib/recommendations";
+import { trackPlatformEvent } from "@/lib/discovery";
+import { FileIntegrityPanel } from "@/components/trust/file-integrity-panel";
+import { ReportContentButton } from "@/components/trust/report-content-button";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SITE } from "@/lib/site";
@@ -94,13 +98,14 @@ export default async function ModDetailPage({
   const reviewUserIds = mod.reviews.map((r) => r.userId);
   const authorId = mod.author.id;
 
-  const [favorited, related, badgeMap, owned, depCheck] = await Promise.all([
+  const [favorited, similarMods, alsoDownloaded, badgeMap, owned, depCheck] = await Promise.all([
     user
       ? prisma.modFavorite.findUnique({
           where: { modId_userId: { modId: mod.id, userId: user.id } },
         })
       : null,
-    getTrendingMods(4, mod.gameId),
+    getSimilarMods(mod.id, mod.gameId, 4),
+    getUsersAlsoDownloaded(mod.id, 4),
     getInlineBadgesForUsers([authorId, ...reviewUserIds], locale),
     user
       ? prisma.modPurchase
@@ -112,7 +117,7 @@ export default async function ModDetailPage({
     checkMissingDependencies(mod.id, user?.id ?? null),
   ]);
 
-  const relatedMods = related.filter((m) => m.id !== mod.id).slice(0, 4);
+  void trackPlatformEvent({ type: "mod_view", userId: user?.id, modId: mod.id });
   const creatorSlug = mod.author.creatorProfile?.slug ?? mod.author.username;
   const creatorBadges = badgeMap.get(authorId) ?? [];
   const primaryVersion = mod.versions.find((v) => v.isPrimary && !v.isArchived) ?? mod.versions[0];
@@ -187,6 +192,7 @@ export default async function ModDetailPage({
               locale={locale}
               required={depCheck.required}
               optional={depCheck.optional}
+              conflicts={depCheck.conflicts}
               missing={depCheck.missing}
             />
           )}
@@ -278,9 +284,26 @@ export default async function ModDetailPage({
 
             <div className="mt-4 flex flex-wrap gap-1.5">
               {mod.tags.map((tag) => (
-                <Badge key={tag.id} variant="outline">{tag.name}</Badge>
+                <Link key={tag.id} href={`/${locale}/search?tag=${encodeURIComponent(tag.name)}`}>
+                  <Badge variant="outline" className="hover:bg-accent/20 cursor-pointer">{tag.name}</Badge>
+                </Link>
               ))}
             </div>
+
+            <div className="mt-4 flex items-center gap-2">
+              <ReportContentButton targetType="MOD" targetId={mod.id} />
+            </div>
+
+            {primaryVersion?.sha256 && (
+              <div className="mt-4">
+                <FileIntegrityPanel
+                  sha256={primaryVersion.sha256}
+                  fileSize={Number(primaryVersion.fileSize)}
+                  uploadedAt={primaryVersion.createdAt}
+                  locale={locale}
+                />
+              </div>
+            )}
 
             <div className="mt-4">
               <ModSecurityPanel
@@ -293,11 +316,22 @@ export default async function ModDetailPage({
         </div>
       </div>
 
-      {relatedMods.length > 0 && (
+      {similarMods.length > 0 && (
         <section className="mt-12">
-          <h2 className="text-lg font-semibold mb-4">Related mods</h2>
+          <h2 className="text-lg font-semibold mb-4">Similar mods</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {relatedMods.map((m) => (
+            {similarMods.map((m) => (
+              <ModCard key={m.id} locale={locale} mod={m} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {alsoDownloaded.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-lg font-semibold mb-4">Users also downloaded</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {alsoDownloaded.map((m) => (
               <ModCard key={m.id} locale={locale} mod={m} />
             ))}
           </div>

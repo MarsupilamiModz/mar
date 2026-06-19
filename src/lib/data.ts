@@ -57,7 +57,7 @@ const modListSelectMinimal = {
   author: { select: { username: true, displayName: true, avatarUrl: true } },
 };
 
-async function findModsListing(args: NonNullable<Parameters<typeof prisma.mod.findMany>[0]> = {}) {
+export async function findModsListing(args: NonNullable<Parameters<typeof prisma.mod.findMany>[0]> = {}) {
   const { include: _include, select: _select, ...rest } = args;
 
   try {

@@ -555,6 +555,15 @@ model User {
   chatMemberships   ChatChannelMember[]
   chatMessages      ChatMessage[]
   chatChannelsCreated ChatChannel[] @relation("ChatChannelCreator")
+  contentReports      ContentReport[] @relation("ReportReporter")
+  assignedReports     ContentReport[] @relation("ReportAssignee")
+  securityEvents      UserSecurityEvent[]
+  mfaBackupCodes      UserMfaBackupCode[]
+  platformEvents      PlatformEvent[]
+  searchQueries       SearchQueryLog[]
+
+  mfaEnabled          Boolean   @default(false)
+  mfaEnabledAt        DateTime?
 
   @@index([email])
   @@index([username])
@@ -803,6 +812,7 @@ model Mod {
   collections ModCollectionItem[]
   soundProfile SoundProfile?
   soundPlays   SoundPlay[]
+  platformEvents PlatformEvent[]
 
   @@index([status, visibility, downloadCount])
   @@index([gameId, status])
@@ -948,16 +958,23 @@ model ModTag {
 }
 
 model ModDependency {
-  id           String  @id @default(cuid())
+  id           String                 @id @default(cuid())
   modId        String
-  mod          Mod     @relation("ModDeps", fields: [modId], references: [id], onDelete: Cascade)
+  mod          Mod                    @relation("ModDeps", fields: [modId], references: [id], onDelete: Cascade)
   dependencyId String
-  dependency   Mod     @relation("ModDependents", fields: [dependencyId], references: [id], onDelete: Cascade)
-  isRequired   Boolean @default(true)
+  dependency   Mod                    @relation("ModDependents", fields: [dependencyId], references: [id], onDelete: Cascade)
+  isRequired   Boolean                @default(true)
+  relation     ModDependencyRelation  @default(REQUIRED)
   minVersion   String?
   notes        String?
 
   @@unique([modId, dependencyId])
+}
+
+enum ModDependencyRelation {
+  REQUIRED
+  OPTIONAL
+  CONFLICT
 }
 
 model ModChangelog {
@@ -2545,4 +2562,149 @@ model ChatMessage {
 
   @@index([channelId, createdAt])
   @@index([senderId])
+}
+
+enum ReportTargetType {
+  MOD
+  USER
+  REVIEW
+  COMMENT
+  CREATOR
+}
+
+enum ReportCategory {
+  STOLEN
+  MALWARE
+  VIRUS
+  BROKEN_DOWNLOAD
+  COPYRIGHT
+  SPAM
+  FAKE_CREATOR
+  ABUSIVE
+  TOS
+  OTHER
+}
+
+enum ReportStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  INVESTIGATING
+  RESOLVED
+  REJECTED
+}
+
+model ContentReport {
+  id          String           @id @default(cuid())
+  reporterId  String
+  reporter    User             @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType  ReportTargetType
+  targetId    String
+  category    ReportCategory
+  description String           @db.Text
+  attachments Json?
+  status      ReportStatus     @default(SUBMITTED)
+  assigneeId  String?
+  assignee    User?            @relation("ReportAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  adminNotes  String?          @db.Text
+  resolution  String?          @db.Text
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  resolvedAt  DateTime?
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@index([reporterId])
+}
+
+enum DMCAStatus {
+  SUBMITTED
+  LEGAL_REVIEW
+  ACCEPTED
+  REMOVED
+  REJECTED
+}
+
+model DMCAClaim {
+  id             String     @id @default(cuid())
+  companyName    String
+  legalName      String
+  contactEmail   String
+  contactPhone   String?
+  infringingUrl  String
+  description    String     @db.Text
+  evidenceKeys   Json?
+  status         DMCAStatus @default(SUBMITTED)
+  assigneeId     String?
+  adminNotes     String?    @db.Text
+  resolution     String?    @db.Text
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  resolvedAt     DateTime?
+
+  @@index([status, createdAt])
+  @@index([contactEmail])
+}
+
+enum UserSecurityEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  MFA_ENABLED
+  MFA_DISABLED
+  MFA_CHALLENGE
+  BACKUP_CODE_USED
+  PASSWORD_CHANGED
+  SESSION_REVOKED
+}
+
+model UserSecurityEvent {
+  id        String                @id @default(cuid())
+  userId    String
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType UserSecurityEventType
+  ipHash    String?
+  userAgent String?               @db.VarChar(512)
+  metadata  Json?
+  createdAt DateTime              @default(now())
+
+  @@index([userId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model UserMfaBackupCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model PlatformEvent {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  modId     String?
+  mod       Mod?     @relation(fields: [modId], references: [id], onDelete: SetNull)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([modId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model SearchQueryLog {
+  id          String   @id @default(cuid())
+  query       String
+  filters     Json?
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  resultCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([query])
 }

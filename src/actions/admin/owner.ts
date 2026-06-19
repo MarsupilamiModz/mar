@@ -54,6 +54,13 @@ export async function getOwnerControlCenterData() {
     platformErrors,
     campaigns,
     customOrdersPending,
+    trustOpenReports,
+    trustMalwareReports,
+    trustOpenDMCA,
+    trustSearchQueries,
+    trustRecommendationClicks,
+    trustDependencyLinks,
+    topSearchQueries,
   ] = await Promise.all([
     getVisitorMetrics(periods.today),
     getVisitorMetrics(periods.d7),
@@ -104,6 +111,27 @@ export async function getOwnerControlCenterData() {
     prisma.customOrder.count({
       where: { status: { in: ["PENDING", "IN_PROGRESS"] } },
     }).catch(() => 0),
+    prisma.contentReport.count({
+      where: { status: { in: ["SUBMITTED", "UNDER_REVIEW", "INVESTIGATING"] } },
+    }).catch(() => 0),
+    prisma.contentReport.count({
+      where: { category: { in: ["MALWARE", "VIRUS"] }, createdAt: { gte: periods.d30 } },
+    }).catch(() => 0),
+    prisma.dMCAClaim.count({
+      where: { status: { in: ["SUBMITTED", "LEGAL_REVIEW", "ACCEPTED"] } },
+    }).catch(() => 0),
+    prisma.searchQueryLog.count({ where: { createdAt: { gte: periods.d30 } } }).catch(() => 0),
+    prisma.platformEvent.count({
+      where: { type: "recommendation_click", createdAt: { gte: periods.d30 } },
+    }).catch(() => 0),
+    prisma.modDependency.count().catch(() => 0),
+    prisma.searchQueryLog.groupBy({
+      by: ["query"],
+      where: { createdAt: { gte: periods.d30 } },
+      _count: { query: true },
+      orderBy: { _count: { query: "desc" } },
+      take: 10,
+    }).catch(() => []),
   ]);
 
   const revenueChart = await prisma.modPurchase.groupBy({
@@ -165,6 +193,18 @@ export async function getOwnerControlCenterData() {
       bannerText: c.bannerText,
       planName: c.plan?.name ?? null,
     })),
+    trust: {
+      openReports: trustOpenReports,
+      malwareReports: trustMalwareReports,
+      openDMCA: trustOpenDMCA,
+      searchQueries: trustSearchQueries,
+      recommendationClicks: trustRecommendationClicks,
+      dependencyLinks: trustDependencyLinks,
+      topSearchQueries: topSearchQueries.map((q) => ({
+        query: q.query,
+        count: q._count.query,
+      })),
+    },
   });
 }
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ModDependencyRelation } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { UserRole } from "@prisma/client";
 import { fail, ok, requireActionUser } from "@/lib/action-utils";
@@ -16,7 +17,8 @@ export async function addModDependency(
   dependencyId: string,
   isRequired = true,
   minVersion?: string,
-  notes?: string
+  notes?: string,
+  relation?: ModDependencyRelation
 ) {
   const { user, error } = await requireActionUser();
   if (error) return error;
@@ -29,10 +31,24 @@ export async function addModDependency(
   const dep = await prisma.mod.findUnique({ where: { id: dependencyId } });
   if (!dep) return fail("Dependency mod not found");
 
+  const rel = relation ?? (isRequired ? "REQUIRED" : "OPTIONAL");
+
   await prisma.modDependency.upsert({
     where: { modId_dependencyId: { modId, dependencyId } },
-    create: { modId, dependencyId, isRequired, minVersion, notes },
-    update: { isRequired, minVersion, notes },
+    create: {
+      modId,
+      dependencyId,
+      isRequired: rel === "REQUIRED",
+      relation: rel,
+      minVersion,
+      notes,
+    },
+    update: {
+      isRequired: rel === "REQUIRED",
+      relation: rel,
+      minVersion,
+      notes,
+    },
   });
 
   revalidatePath(`/mods/${mod.slug}`);

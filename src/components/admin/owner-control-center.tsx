@@ -113,6 +113,31 @@ export function OwnerControlCenter({ data }: { data: OwnerData }) {
         )}
       </section>
 
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Trust & discovery (30d)</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-4">
+          <StatCard label="Open reports" value={formatNumber(data.trust.openReports)} />
+          <StatCard label="Malware reports" value={formatNumber(data.trust.malwareReports)} />
+          <StatCard label="Open DMCA" value={formatNumber(data.trust.openDMCA)} />
+          <StatCard label="Search queries" value={formatNumber(data.trust.searchQueries)} />
+          <StatCard label="Rec. clicks" value={formatNumber(data.trust.recommendationClicks)} />
+          <StatCard label="Mod dependencies" value={formatNumber(data.trust.dependencyLinks)} />
+        </div>
+        {data.trust.topSearchQueries.length > 0 && (
+          <Card className="glass p-4">
+            <h3 className="font-medium mb-2 text-sm">Top search queries</h3>
+            <ul className="space-y-1 text-sm">
+              {data.trust.topSearchQueries.map((q) => (
+                <li key={q.query} className="flex justify-between">
+                  <span className="text-muted-foreground truncate mr-4">{q.query}</span>
+                  <span className="tabular-nums">{formatNumber(q.count)}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+      </section>
+
       <section className="grid gap-4 lg:grid-cols-2">
         <Card className="glass p-4">
           <h2 className="text-lg font-semibold mb-3">Operations</h2>
@@ -176,7 +201,9 @@ export function OwnerControlCenter({ data }: { data: OwnerData }) {
         <h2 className="text-lg font-semibold mb-3">Quick links</h2>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm"><Link href="/admin/system">System health</Link></Button>
-          <Button asChild variant="outline" size="sm"><Link href="/admin/security">Security center</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link href="/admin/trust">Trust & Security</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link href="/admin/discovery">Discovery</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link href="/admin/security">Malware security</Link></Button>
           <Button asChild variant="outline" size="sm"><Link href="/admin/groups">Permission matrix</Link></Button>
           <Button asChild variant="outline" size="sm"><Link href="/admin/diagnostics">Auth diagnostics</Link></Button>
           <Button asChild variant="outline" size="sm"><Link href="/admin/audit">Audit logs</Link></Button>

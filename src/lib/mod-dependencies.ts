@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { satisfiesMinVersion } from "@/lib/version-utils";
+import type { ModDependencyRelation } from "@prisma/client";
 
 export async function getModDependencies(modId: string) {
   return prisma.modDependency.findMany({
@@ -20,16 +21,29 @@ export async function getModDependencies(modId: string) {
         },
       },
     },
-    orderBy: [{ isRequired: "desc" }, { dependency: { title: "asc" } }],
+    orderBy: [{ relation: "asc" }, { dependency: { title: "asc" } }],
   });
+}
+
+export async function getModConflicts(modId: string) {
+  const deps = await getModDependencies(modId);
+  return deps.filter((d) => d.relation === "CONFLICT");
+}
+
+export function groupDependencies(deps: Awaited<ReturnType<typeof getModDependencies>>) {
+  return {
+    required: deps.filter((d) => d.relation === "REQUIRED" || (d.relation !== "CONFLICT" && d.isRequired)),
+    optional: deps.filter((d) => d.relation === "OPTIONAL" || (!d.isRequired && d.relation !== "CONFLICT")),
+    conflicts: deps.filter((d) => d.relation === "CONFLICT"),
+  };
 }
 
 export async function checkMissingDependencies(modId: string, userId: string | null) {
   const deps = await getModDependencies(modId);
-  const required = deps.filter((d) => d.isRequired);
+  const { required, optional, conflicts } = groupDependencies(deps);
 
   if (required.length === 0) {
-    return { required: [], optional: deps.filter((d) => !d.isRequired), missing: [] };
+    return { required, optional, conflicts, missing: [] };
   }
 
   let ownedModIds = new Set<string>();
@@ -77,9 +91,10 @@ export async function checkMissingDependencies(modId: string, userId: string | n
     return !satisfiesMinVersion(installed, d.minVersion);
   });
 
-  return {
-    required,
-    optional: deps.filter((d) => !d.isRequired),
-    missing,
-  };
+  return { required, optional, conflicts, missing };
+}
+
+export function relationFromLegacy(isRequired: boolean, relation?: ModDependencyRelation): ModDependencyRelation {
+  if (relation) return relation;
+  return isRequired ? "REQUIRED" : "OPTIONAL";
 }

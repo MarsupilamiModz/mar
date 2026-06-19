@@ -28,10 +28,11 @@ type Props = {
   locale: Locale;
   required: Dep[];
   optional: Dep[];
+  conflicts?: Dep[];
   missing: Dep[];
 };
 
-export function ModDependenciesPanel({ locale, required, optional, missing }: Props) {
+export function ModDependenciesPanel({ locale, required, optional, conflicts = [], missing }: Props) {
   const [pending, startTransition] = useTransition();
   const [showMissing, setShowMissing] = useState(missing.length > 0);
 
@@ -59,7 +60,7 @@ export function ModDependenciesPanel({ locale, required, optional, missing }: Pr
     });
   }
 
-  if (required.length === 0 && optional.length === 0) return null;
+  if (required.length === 0 && optional.length === 0 && conflicts.length === 0) return null;
 
   return (
     <Card className="glass">
@@ -70,6 +71,26 @@ export function ModDependenciesPanel({ locale, required, optional, missing }: Pr
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {conflicts.length > 0 && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-destructive">Incompatible mods</p>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {conflicts.map((d) => (
+                    <li key={d.id}>
+                      <Link href={`/${locale}/mods/${d.dependency.slug}`} className="hover:underline">
+                        {d.dependency.title}
+                      </Link>
+                      {d.notes && <span className="text-muted-foreground"> — {d.notes}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
         {showMissing && missing.length > 0 && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
             <div className="flex items-start gap-2">

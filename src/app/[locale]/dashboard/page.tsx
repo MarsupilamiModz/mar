@@ -10,6 +10,8 @@ import { formatDisplayName } from "@/lib/display-name";
 import { getDashboardStats } from "@/lib/dashboard-stats";
 import { getUserMembershipState } from "@/lib/user-membership";
 import Link from "next/link";
+import { getPersonalizedRecommendations } from "@/lib/recommendations";
+import { ModCard } from "@/components/mods/mod-card";
 
 async function DashboardStats({
   userId,
@@ -98,6 +100,7 @@ export default async function DashboardPage({
 
   const isPremium = hasPremiumAccess(user);
   const membership = await getUserMembershipState(user.id);
+  const recommendations = await getPersonalizedRecommendations(user.id, 4);
 
   return (
     <div>
@@ -122,6 +125,22 @@ export default async function DashboardPage({
             </Link>
           </CardContent>
         </Card>
+      )}
+
+      {recommendations.length > 0 && (
+        <section className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Recommended for you</h2>
+            <Link href={`/${locale}/search`} className="text-sm text-neon-purple hover:underline">
+              Browse all
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {recommendations.map((mod) => (
+              <ModCard key={mod.id} mod={mod} locale={locale} />
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );
