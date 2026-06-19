@@ -140,7 +140,10 @@ export async function bulkMediaAction(input: {
 
   if (section === "mods" || section === "sounds") {
     if (action === "delete") {
-      await prisma.mod.deleteMany({ where: { id: { in: ids } } });
+      await prisma.mod.updateMany({
+        where: { id: { in: ids } },
+        data: { status: "ARCHIVED", visibility: "PRIVATE" },
+      });
     } else {
       const data =
         action === "approve"

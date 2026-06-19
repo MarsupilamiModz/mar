@@ -743,7 +743,10 @@ export async function bulkModAdminAction(input: {
   const { ids, action } = input;
 
   if (action === "delete") {
-    await prisma.mod.deleteMany({ where: { id: { in: ids } } });
+    await prisma.mod.updateMany({
+      where: { id: { in: ids } },
+      data: { status: "ARCHIVED", visibility: "PRIVATE" },
+    });
   } else if (action === "archive") {
     await prisma.mod.updateMany({ where: { id: { in: ids } }, data: { status: "ARCHIVED" } });
   } else if (action === "restore") {

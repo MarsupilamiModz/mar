@@ -52,24 +52,28 @@ export async function DashboardRecommendations({
   userId: string;
   locale: string;
 }) {
-  const { getPersonalizedRecommendations } = await import("@/lib/recommendations");
-  const recommendations = await getPersonalizedRecommendations(userId, 4);
+  try {
+    const { getPersonalizedRecommendations } = await import("@/lib/recommendations");
+    const recommendations = await getPersonalizedRecommendations(userId, 4);
 
-  if (recommendations.length === 0) return null;
+    if (recommendations.length === 0) return null;
 
-  return (
-    <section className="mt-8">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Recommended for you</h2>
-        <Link href={`/${locale}/search`} className="text-sm text-neon-purple hover:underline">
-          Browse all
-        </Link>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {recommendations.map((mod) => (
-          <ModCard key={mod.id} mod={mod} locale={locale} />
-        ))}
-      </div>
-    </section>
-  );
+    return (
+      <section className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Recommended for you</h2>
+          <Link href={`/${locale}/search`} className="text-sm text-neon-purple hover:underline">
+            Browse all
+          </Link>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {recommendations.map((mod) => (
+            <ModCard key={mod.id} mod={mod} locale={locale} />
+          ))}
+        </div>
+      </section>
+    );
+  } catch {
+    return null;
+  }
 }

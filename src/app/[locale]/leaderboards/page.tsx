@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { setRequestLocale } from "next-intl/server";
-import { getLeaderboard, PUBLIC_LEADERBOARD_METRICS, syncCreatorRanks } from "@/lib/leaderboards";
+import { getLeaderboard, PUBLIC_LEADERBOARD_METRICS, syncCreatorRanksIfStale } from "@/lib/leaderboards";
 import { getAllGames } from "@/lib/data";
 import { LeaderboardClient } from "@/components/leaderboards/leaderboard-client";
 import type { LeaderboardMetric, LeaderboardPeriod } from "@prisma/client";
@@ -30,7 +30,7 @@ export default async function LeaderboardsPage({
 
   setRequestLocale(locale);
 
-  void syncCreatorRanks();
+  void syncCreatorRanksIfStale();
 
   const metric = (searchParams.metric?.toUpperCase() ?? "DOWNLOADS") as LeaderboardMetric;
   const period = (searchParams.period?.toUpperCase() ?? "ALL_TIME") as LeaderboardPeriod;

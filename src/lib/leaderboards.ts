@@ -216,6 +216,18 @@ export function getLeaderboard(filters: LeaderboardFilters) {
   })();
 }
 
+export async function syncCreatorRanksIfStale(maxAgeMs = 60 * 60 * 1000) {
+  const key = "creator_ranks_last_sync";
+  const { syncedAt } = await getSiteSetting<{ syncedAt?: string }>(key, {});
+  if (syncedAt) {
+    const elapsed = Date.now() - new Date(syncedAt).getTime();
+    if (elapsed >= 0 && elapsed < maxAgeMs) return;
+  }
+
+  await syncCreatorRanks();
+  await setSiteSetting(key, { syncedAt: new Date().toISOString() });
+}
+
 export async function syncCreatorRanks() {
   const creators = await prisma.creatorProfile.findMany({
     include: {

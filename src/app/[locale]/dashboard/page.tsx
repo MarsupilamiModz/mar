@@ -4,8 +4,6 @@ import { requireAuth, hasPremiumAccess } from "@/lib/auth";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Heart, Crown, Trophy } from "lucide-react";
-import { evaluateUserAchievements } from "@/lib/achievements";
-import { syncCreatorRanks } from "@/lib/leaderboards";
 import { formatDisplayName } from "@/lib/display-name";
 import { getDashboardStats } from "@/lib/dashboard-stats";
 import { getUserMembershipState } from "@/lib/user-membership";
@@ -95,8 +93,6 @@ export default async function DashboardPage({
   setRequestLocale(locale);
   const t = await getTranslations("dashboard");
   const user = await requireAuth();
-  void Promise.all([evaluateUserAchievements(user.id), syncCreatorRanks()]).catch(() => undefined);
-
   const isPremium = hasPremiumAccess(user);
   const membership = await getUserMembershipState(user.id);
 
