@@ -44,12 +44,15 @@ export async function fetchBanState(userId: string): Promise<BanStateRow | null>
 
   let banExpiresAt: Date | null = null;
   try {
-    const activeBan = await prisma.userBan.findFirst({
+    const userBanDelegate = prisma.userBan as unknown as {
+      findFirst: (args: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
+    };
+    const activeBan = await userBanDelegate.findFirst({
       where: { userId, liftedAt: null },
       orderBy: { createdAt: "desc" },
-      select: { expiresAt: true },
+      select: { expiresAt: true, createdAt: true },
     });
-    banExpiresAt = activeBan?.expiresAt ?? null;
+    banExpiresAt = (activeBan?.expiresAt as Date | null | undefined) ?? null;
   } catch {
     /* UserBan.expiresAt column may not exist pre-migration */
   }
