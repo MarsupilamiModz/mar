@@ -1,0 +1,19 @@
+{
+  "email": {
+    "title": "E-Mail",
+    "verified": "Verifiziert",
+    "unverified": "Nicht verifiziert",
+    "noEmail": "Keine E-Mail hinterlegt (OAuth-Konto)",
+    "oauthHint": "Verbinde eine E-Mail-Adresse oder kontaktiere den Support.",
+    "verifiedAt": "Verifiziert am {date}",
+    "resendVerification": "Bestätigungs-E-Mail erneut senden",
+    "verificationSent": "Bestätigungs-E-Mail gesendet",
+    "changeEmail": "E-Mail-Adresse ändern",
+    "newEmailPlaceholder": "neu@email.com",
+    "changeHint": "Wir senden einen Bestätigungslink an deine neue Adresse.",
+    "updateEmail": "E-Mail-Änderung anfordern",
+    "changeRequested": "Prüfe dein Postfach zur Bestätigung",
+    "historyTitle": "E-Mail-Verlauf",
+    "noHistory": "Noch keine E-Mails an deine Adresse gesendet."
+  }
+}

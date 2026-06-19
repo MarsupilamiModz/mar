@@ -471,6 +471,7 @@ model User {
   discordUsername   String?
   stripeCustomerId  String?   @unique
   emailVerified     Boolean   @default(false)
+  emailVerifiedAt   DateTime?
   isBanned          Boolean   @default(false)
   banReason         String?
   bannedAt          DateTime?
@@ -550,6 +551,7 @@ model User {
   trustedCreators   TrustedCreator[]       @relation("TrustedCreatorApprover")
   securityLogs      SecurityLog[]
   teamProfile       TeamMember?
+  emailLogs         EmailLog[]
 
   @@index([email])
   @@index([username])
@@ -1559,6 +1561,8 @@ enum EmailLogStatus {
 
 model EmailLog {
   id          String         @id @default(cuid())
+  userId      String?
+  user        User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   to          String
   subject     String
   templateKey String?
@@ -1572,6 +1576,8 @@ model EmailLog {
 
   @@index([status, createdAt])
   @@index([templateKey])
+  @@index([userId, createdAt])
+  @@index([to])
 }
 
 model Announcement {

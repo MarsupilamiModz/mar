@@ -90,7 +90,7 @@ export function SettingsForm({ locale, user }: { locale: string; user: User }) {
                 <option value="de">Deutsch</option>
               </select>
             </div>
-            <p className="text-xs text-muted-foreground">{formatDisplayName(user)} · {user.email}</p>
+            <p className="text-xs text-muted-foreground">{formatDisplayName(user)}</p>
             <Button type="submit" variant="neon" disabled={pending}>Save profile</Button>
           </form>
         </CardContent>

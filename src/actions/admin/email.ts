@@ -132,17 +132,29 @@ export async function updateAdminEmailTemplate(
   }, "email:save-template");
 }
 
-export async function listAdminEmailLogs(limit = 50) {
+export async function listAdminEmailLogs(params?: {
+  limit?: number;
+  userId?: string;
+  to?: string;
+}) {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
+
+  const limit = Math.min(params?.limit ?? 50, 100);
+  const where = {
+    ...(params?.userId && { userId: params.userId }),
+    ...(params?.to && { to: { contains: params.to, mode: "insensitive" as const } }),
+  };
 
   return actionTry(
     () =>
       prisma.emailLog.findMany({
+        where,
         orderBy: { createdAt: "desc" },
-        take: Math.min(limit, 100),
+        take: limit,
         select: {
           id: true,
+          userId: true,
           to: true,
           subject: true,
           templateKey: true,

@@ -25,14 +25,18 @@ export default function RegisterPage() {
     setLoading(true);
     setError("");
     const supabase = createClient();
-    const { error: err } = await supabase.auth.signUp({
+    const { data, error: err } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/${locale}/dashboard` },
+      options: { emailRedirectTo: `${window.location.origin}/api/auth/callback?locale=${locale}&next=/${locale}/dashboard/settings` },
     });
     setLoading(false);
     if (err) {
       setError(err.message);
+      return;
+    }
+    if (data.user && !data.session) {
+      router.push(`/${locale}/login?verify=pending`);
       return;
     }
     void sendRegistrationWelcomeEmail(email);

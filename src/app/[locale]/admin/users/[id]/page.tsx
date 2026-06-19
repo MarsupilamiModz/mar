@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { getUserDetail } from "@/actions/admin/users";
+import { getUserDetail, getUserEmailLogs } from "@/actions/admin/users";
 import { getAdminMembershipPlans } from "@/actions/admin/memberships";
 import { getAdminUserMembership } from "@/actions/admin/user-membership";
 import { getAdminPermissionGroups } from "@/actions/admin/branding";
@@ -15,11 +15,12 @@ export default async function AdminUserDetailPage({
 }) {
   const { locale, id } = await params;
 
-  const [result, plansResult, groupsResult, membershipResult] = await Promise.all([
+  const [result, plansResult, groupsResult, membershipResult, emailLogsResult] = await Promise.all([
     getUserDetail(id),
     getAdminMembershipPlans(),
     getAdminPermissionGroups(),
     getAdminUserMembership(id),
+    getUserEmailLogs(id),
   ]);
   if (!result.success) notFound();
   const plans = plansResult.success ? plansResult.data : [];
@@ -28,6 +29,7 @@ export default async function AdminUserDetailPage({
     : [];
 
   const membership = membershipResult.success ? membershipResult.data : null;
+  const emailLogs = emailLogsResult.success ? emailLogsResult.data.logs : [];
 
   return (
     <div>
@@ -45,6 +47,7 @@ export default async function AdminUserDetailPage({
         permissionGroups={permissionGroups}
         membershipState={membership?.state ?? null}
         billingHistory={membership?.billingHistory ?? []}
+        emailLogs={emailLogs}
       />
     </div>
   );

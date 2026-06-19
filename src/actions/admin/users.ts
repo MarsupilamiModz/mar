@@ -14,6 +14,8 @@ import {
 } from "@/lib/action-utils";
 import { hasPremiumAccess } from "@/lib/auth";
 import { invalidateUserSessionCache } from "@/lib/auth-cache";
+import { createServiceClient } from "@/lib/supabase/server";
+import { isValidEmail, normalizeEmail } from "@/lib/email/address";
 
 const roleSchema = z.nativeEnum(UserRole);
 
@@ -348,6 +350,126 @@ export async function permanentlyDeleteUser(userId: string): Promise<ActionResul
     entityId: userId,
   });
 
+  revalidatePath("/admin/users");
+  return ok(undefined);
+}
+
+export async function getUserEmailLogs(userId: string, limit = 30) {
+  const { error } = await requireActionPermission("users.read");
+  if (error) return error;
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+  if (!target) return fail("User not found");
+
+  const logs = await prisma.emailLog.findMany({
+    where: {
+      OR: [{ userId }, { to: { contains: target.email } }],
+    },
+    orderBy: { createdAt: "desc" },
+    take: Math.min(limit, 100),
+    select: {
+      id: true,
+      to: true,
+      subject: true,
+      templateKey: true,
+      status: true,
+      error: true,
+      sentAt: true,
+      createdAt: true,
+    },
+  });
+
+  return ok({ logs });
+}
+
+export async function adminResendVerification(userId: string, locale = "en") {
+  const { user: actor, error } = await requireActionPermission("users.write");
+  if (error) return error;
+
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target || target.deletedAt) return fail("User not found");
+  if (!isValidEmail(target.email)) return fail("User has no real email address");
+  if (target.emailVerified) return fail("Email is already verified");
+
+  const admin = await createServiceClient();
+  const { getAppUrl } = await import("@/lib/app-url");
+  const redirectTo = `${getAppUrl()}/api/auth/callback?locale=${locale}&next=/${locale}/dashboard/settings`;
+
+  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email: target.email,
+    options: { redirectTo },
+  });
+  if (linkError) return fail(linkError.message);
+
+  const verifyLink = linkData.properties?.action_link;
+  if (!verifyLink) return fail("Could not generate verification link");
+
+  const { sendEmail } = await import("@/lib/email/send");
+  const { SITE } = await import("@/lib/site");
+  await sendEmail({
+    to: target.email,
+    subject: `[${SITE.name}] Verify your email`,
+    html: `<p>Hi ${target.displayName ?? target.username},</p><p>An admin requested email verification for your account.</p><p><a href="${verifyLink}">Verify your email address</a></p>`,
+    templateKey: "email_verification",
+    userId: target.id,
+  });
+
+  await createAuditLog({
+    actorId: actor.id,
+    action: "user.admin_verification_resent",
+    entityType: "User",
+    entityId: userId,
+  });
+
+  revalidatePath(`/admin/users/${userId}`);
+  return ok(undefined);
+}
+
+export async function adminUpdateUserEmail(userId: string, email: string, confirm = false) {
+  const { user: actor, error } = await requireActionPermission("users.write");
+  if (error) return error;
+
+  const nextEmail = normalizeEmail(email);
+  if (!isValidEmail(nextEmail)) return fail("Invalid email address");
+
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target || target.deletedAt) return fail("User not found");
+
+  const taken = await prisma.user.findFirst({
+    where: { email: nextEmail, id: { not: userId }, deletedAt: null },
+  });
+  if (taken) return fail("Email is already in use");
+
+  const admin = await createServiceClient();
+  const { error: authError } = await admin.auth.admin.updateUserById(target.supabaseId, {
+    email: nextEmail,
+    email_confirm: confirm,
+  });
+  if (authError) return fail(authError.message);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      email: nextEmail,
+      emailVerified: confirm,
+      emailVerifiedAt: confirm ? new Date() : null,
+    },
+  });
+
+  await createAuditLog({
+    actorId: actor.id,
+    action: "user.admin_email_update",
+    entityType: "User",
+    entityId: userId,
+    metadata: { from: target.email, to: nextEmail, confirmed: confirm },
+  });
+
+  invalidateUserSessionCache(target.supabaseId);
+  revalidatePath(`/admin/users/${userId}`);
   revalidatePath("/admin/users");
   return ok(undefined);
 }

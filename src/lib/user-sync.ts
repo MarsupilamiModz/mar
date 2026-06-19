@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import { prisma, withDbRetry } from "@/lib/db";
 import { logPlatformError } from "@/lib/platform-log";
 import { getCachedUserBySupabaseId, invalidateUserSessionCache } from "@/lib/auth-cache";
+import { isValidEmail } from "@/lib/email/address";
 
 const userInclude = {
   creatorProfile: true,
@@ -63,6 +64,44 @@ function discordFromSession(session: User) {
   };
 }
 
+function buildSessionSyncData(session: User, existing: NonNullable<Awaited<ReturnType<typeof getCachedUserBySupabaseId>>>) {
+  const email = sessionEmail(session);
+  const sessionVerified = !!session.email_confirmed_at;
+  const { discordId, discordUsername } = discordFromSession(session);
+
+  const data: {
+    email?: string;
+    emailVerified?: boolean;
+    emailVerifiedAt?: Date | null;
+    discordId?: string;
+    discordUsername?: string;
+    avatarUrl?: string;
+  } = {};
+
+  if (isValidEmail(email) && email !== existing.email) {
+    data.email = email;
+    data.emailVerified = sessionVerified;
+    data.emailVerifiedAt = session.email_confirmed_at
+      ? new Date(session.email_confirmed_at)
+      : null;
+  } else if (sessionVerified && !existing.emailVerified) {
+    data.emailVerified = true;
+    data.emailVerifiedAt = session.email_confirmed_at
+      ? new Date(session.email_confirmed_at)
+      : new Date();
+  }
+
+  if (discordId && existing.discordId !== discordId) data.discordId = discordId;
+  if (discordUsername && existing.discordUsername !== discordUsername) {
+    data.discordUsername = discordUsername;
+  }
+  if (session.user_metadata?.avatar_url && existing.avatarUrl !== session.user_metadata.avatar_url) {
+    data.avatarUrl = session.user_metadata.avatar_url as string;
+  }
+
+  return data;
+}
+
 /** Upsert app user row from Supabase auth session — safe for OAuth callback + getCurrentUser. */
 export async function ensurePrismaUser(session: User) {
   const existing = await withDbRetry(
@@ -75,30 +114,40 @@ export async function ensurePrismaUser(session: User) {
   const { discordId, discordUsername } = discordFromSession(session);
 
   if (existing) {
-    const needsUpdate =
-      (discordId && existing.discordId !== discordId) ||
-      (discordUsername && existing.discordUsername !== discordUsername) ||
-      (session.user_metadata?.avatar_url && existing.avatarUrl !== session.user_metadata.avatar_url);
+    const syncData = buildSessionSyncData(session, existing);
+    if (Object.keys(syncData).length > 0) {
+      if (syncData.email) {
+        const conflict = await withDbRetry(
+          () =>
+            prisma.user.findFirst({
+              where: {
+                email: syncData.email,
+                id: { not: existing.id },
+                deletedAt: null,
+              },
+            }),
+          { label: "user:email-conflict" }
+        );
+        if (conflict) {
+          delete syncData.email;
+          delete syncData.emailVerified;
+          delete syncData.emailVerifiedAt;
+        }
+      }
 
-    if (needsUpdate) {
-      const updated = await withDbRetry(
-        () =>
-          prisma.user.update({
-            where: { id: existing.id },
-            data: {
-              ...(discordId ? { discordId } : {}),
-              ...(discordUsername ? { discordUsername } : {}),
-              ...(session.user_metadata?.avatar_url
-                ? { avatarUrl: session.user_metadata.avatar_url as string }
-                : {}),
-              emailVerified: existing.emailVerified || !!session.email_confirmed_at,
-            },
-            include: userInclude,
-          }),
-        { label: "user:update-discord" }
-      );
-      invalidateUserSessionCache(session.id);
-      return updated;
+      if (Object.keys(syncData).length > 0) {
+        const updated = await withDbRetry(
+          () =>
+            prisma.user.update({
+              where: { id: existing.id },
+              data: syncData,
+              include: userInclude,
+            }),
+          { label: "user:sync-session" }
+        );
+        invalidateUserSessionCache(session.id);
+        return updated;
+      }
     }
     return existing;
   }
@@ -120,6 +169,9 @@ export async function ensurePrismaUser(session: User) {
             ...(discordUsername ? { discordUsername } : {}),
             avatarUrl: (session.user_metadata?.avatar_url as string | undefined) ?? byEmail.avatarUrl,
             emailVerified: byEmail.emailVerified || !!session.email_confirmed_at,
+            ...(session.email_confirmed_at
+              ? { emailVerifiedAt: new Date(session.email_confirmed_at) }
+              : {}),
           },
           include: userInclude,
         }),
@@ -169,6 +221,9 @@ export async function ensurePrismaUser(session: User) {
               username,
             avatarUrl: session.user_metadata?.avatar_url as string | undefined,
             emailVerified: !!session.email_confirmed_at,
+            emailVerifiedAt: session.email_confirmed_at
+              ? new Date(session.email_confirmed_at)
+              : null,
             discordId,
             discordUsername,
           },

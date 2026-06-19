@@ -11,6 +11,8 @@ import {
   unbanUser,
   updateUserRole,
   assignUserPermissionGroup,
+  adminResendVerification,
+  adminUpdateUserEmail,
 } from "@/actions/admin/users";
 import { MembershipManager } from "@/components/admin/membership-manager";
 import type { MembershipTier } from "@prisma/client";
@@ -23,6 +25,8 @@ import { formatRoleLabel, roleBadgeVariant } from "@/lib/role-display";
 import { TICKET_STATUS_LABELS } from "@/lib/ticket-labels";
 import { formatDisplayName } from "@/lib/display-name";
 import { ASSIGNABLE_ROLES } from "@/lib/permission-types";
+import { Input } from "@/components/ui/input";
+import { isPlaceholderEmail } from "@/lib/email/address";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -30,6 +34,8 @@ type UserDetail = {
   id: string;
   username: string;
   email: string;
+  emailVerified: boolean;
+  emailVerifiedAt: Date | null;
   displayName: string | null;
   role: UserRole;
   permissionGroupId: string | null;
@@ -60,6 +66,7 @@ export function UserDetailPanel({
   permissionGroups = [],
   membershipState = null,
   billingHistory = [],
+  emailLogs = [],
 }: {
   locale: string;
   user: UserDetail;
@@ -87,10 +94,21 @@ export function UserDetailPanel({
     stripePaymentId: string | null;
     plan: { name: string };
   }[];
+  emailLogs?: {
+    id: string;
+    to: string;
+    subject: string;
+    templateKey: string | null;
+    status: string;
+    error: string | null;
+    sentAt: Date | null;
+    createdAt: Date;
+  }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmBan, setConfirmBan] = useState(false);
+  const [adminEmail, setAdminEmail] = useState(user.email);
 
   async function run(action: () => Promise<{ success: boolean; error?: string }>, msg: string) {
     startTransition(async () => {
@@ -110,6 +128,11 @@ export function UserDetailPanel({
           <p className="text-muted-foreground">{user.email}</p>
           <div className="mt-2 flex gap-2">
             <Badge variant={roleBadgeVariant(user.role)}>{formatRoleLabel(user.role)}</Badge>
+            {!isPlaceholderEmail(user.email) && (
+              <Badge variant={user.emailVerified ? "premium" : "destructive"}>
+                {user.emailVerified ? "Email verified" : "Email unverified"}
+              </Badge>
+            )}
             {user.isBanned && <Badge variant="destructive">Banned</Badge>}
             {user.deletedAt && <Badge variant="destructive">Deleted</Badge>}
           </div>
@@ -263,6 +286,95 @@ export function UserDetailPanel({
                     <Link href={`/${locale}/admin/tickets/${t.id}`} className="text-sm hover:text-neon-purple">
                       {t.ticketNumber} — {t.subject} ({TICKET_STATUS_LABELS[t.status as keyof typeof TICKET_STATUS_LABELS]})
                     </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="glass">
+          <CardHeader><CardTitle>Email</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {user.emailVerifiedAt && (
+              <p className="text-xs text-muted-foreground">
+                Verified {safeToLocaleDateString(new Date(user.emailVerifiedAt))}
+              </p>
+            )}
+            {!isPlaceholderEmail(user.email) && !user.emailVerified && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() =>
+                  run(() => adminResendVerification(user.id, locale), "Verification email sent")
+                }
+              >
+                Resend verification
+              </Button>
+            )}
+            <div className="space-y-2 pt-2 border-t border-border/40">
+              <label className="text-xs text-muted-foreground">Admin email override</label>
+              <Input
+                type="email"
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                disabled={pending}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pending || !adminEmail.trim()}
+                  onClick={() =>
+                    run(
+                      () => adminUpdateUserEmail(user.id, adminEmail, false),
+                      "Email updated (unverified)"
+                    )
+                  }
+                >
+                  Set email
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pending || !adminEmail.trim()}
+                  onClick={() =>
+                    run(
+                      () => adminUpdateUserEmail(user.id, adminEmail, true),
+                      "Email updated & verified"
+                    )
+                  }
+                >
+                  Set & verify
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass lg:col-span-2">
+          <CardHeader><CardTitle>Email log</CardTitle></CardHeader>
+          <CardContent>
+            {!emailLogs?.length ? (
+              <p className="text-sm text-muted-foreground">No emails logged for this user</p>
+            ) : (
+              <ul className="space-y-2 text-sm max-h-48 overflow-y-auto">
+                {emailLogs.map((log) => (
+                  <li key={log.id} className="flex justify-between gap-4 border-b border-border/30 pb-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{log.subject}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {log.templateKey ?? "custom"} · {log.status}
+                        {log.error ? ` · ${log.error}` : ""}
+                      </p>
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {safeToLocaleDateString(new Date(log.sentAt ?? log.createdAt))}
+                    </span>
                   </li>
                 ))}
               </ul>

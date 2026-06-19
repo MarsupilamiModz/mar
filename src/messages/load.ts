@@ -21,6 +21,7 @@ const modules = [
   "shop",
   "security",
   "sounds",
+  "email",
 ] as const;
 
 async function loadLocaleModules(locale: Locale) {

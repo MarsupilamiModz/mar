@@ -15,6 +15,7 @@ export type SendEmailParams = {
   text?: string;
   templateKey?: string;
   queueOnFailure?: boolean;
+  userId?: string;
 };
 
 function buildTransport(settings: EmailSettings) {
@@ -65,6 +66,7 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
         templateKey: params.templateKey,
         html: params.html,
         status: "PENDING",
+        userId: params.userId,
       },
     });
     logId = log.id;

@@ -1,0 +1,19 @@
+{
+  "email": {
+    "title": "Email",
+    "verified": "Verified",
+    "unverified": "Unverified",
+    "noEmail": "No email on file (OAuth account)",
+    "oauthHint": "Connect an email address by signing up with email or contact support.",
+    "verifiedAt": "Verified on {date}",
+    "resendVerification": "Resend verification email",
+    "verificationSent": "Verification email sent",
+    "changeEmail": "Change email address",
+    "newEmailPlaceholder": "new@email.com",
+    "changeHint": "We will send a confirmation link to your new address.",
+    "updateEmail": "Request email change",
+    "changeRequested": "Check your inbox to confirm the new email",
+    "historyTitle": "Email history",
+    "noHistory": "No emails sent to your address yet."
+  }
+}
