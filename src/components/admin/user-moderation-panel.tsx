@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { ModerationAction } from "@prisma/client";
+import type { ModerationAction } from "@/lib/moderation-types";
 import {
   moderateBanUser,
   moderateMuteUser,

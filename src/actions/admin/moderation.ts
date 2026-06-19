@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ModerationAction, UserRole, type Prisma } from "@prisma/client";
+import { UserRole, type Prisma } from "@prisma/client";
+import type { ModerationAction } from "@/lib/moderation-types";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
@@ -35,7 +36,7 @@ async function logModeration(
     data: {
       userId,
       actorId,
-      action,
+      action: action as unknown as Prisma.UserModerationLogUncheckedCreateInput["action"],
       reason: reason ?? null,
       internalNote: internalNote ?? null,
       expiresAt: expiresAt ?? null,
