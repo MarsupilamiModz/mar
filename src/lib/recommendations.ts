@@ -1,7 +1,8 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { findModsListing } from "@/lib/data";
 
-export async function getSimilarMods(modId: string, gameId: string, limit = 4) {
+async function fetchSimilarMods(modId: string, gameId: string, limit: number) {
   const mod = await prisma.mod.findUnique({
     where: { id: modId },
     select: {
@@ -27,7 +28,7 @@ export async function getSimilarMods(modId: string, gameId: string, limit = 4) {
       categoryId: true,
       tags: { select: { name: true } },
     },
-    take: 80,
+    take: 40,
     orderBy: { downloadCount: "desc" },
   });
 
@@ -61,14 +62,22 @@ export async function getSimilarMods(modId: string, gameId: string, limit = 4) {
   return mods.sort((a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99));
 }
 
-export async function getUsersAlsoDownloaded(modId: string, limit = 4) {
+export function getSimilarMods(modId: string, gameId: string, limit = 4) {
+  return unstable_cache(
+    () => fetchSimilarMods(modId, gameId, limit),
+    ["similar-mods", modId, gameId, String(limit)],
+    { revalidate: 300, tags: [`mod-recs-${modId}`] }
+  )();
+}
+
+async function fetchUsersAlsoDownloaded(modId: string, limit: number) {
   const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
   const downloaderIds = (
     await prisma.download.findMany({
       where: { modId, createdAt: { gte: since }, userId: { not: null } },
       select: { userId: true },
       distinct: ["userId"],
-      take: 500,
+      take: 200,
     })
   )
     .map((d) => d.userId)
@@ -97,6 +106,14 @@ export async function getUsersAlsoDownloaded(modId: string, limit = 4) {
   });
   const order = new Map(ids.map((id, i) => [id, i]));
   return mods.sort((a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99));
+}
+
+export function getUsersAlsoDownloaded(modId: string, limit = 4) {
+  return unstable_cache(
+    () => fetchUsersAlsoDownloaded(modId, limit),
+    ["also-downloaded", modId, String(limit)],
+    { revalidate: 600, tags: [`mod-recs-${modId}`] }
+  )();
 }
 
 export async function getVelocityTrendingMods(limit = 12, gameId?: string) {
@@ -130,24 +147,30 @@ export async function getVelocityTrendingMods(limit = 12, gameId?: string) {
   return mods.sort((a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99));
 }
 
-export async function getPersonalizedRecommendations(userId: string, limit = 8) {
+async function fetchPersonalizedRecommendations(userId: string, limit: number) {
   const [follows, favorites, downloads] = await Promise.all([
     prisma.profileFollow.findMany({
       where: { followerId: userId },
       select: { followingId: true },
-      take: 50,
+      take: 30,
     }),
     prisma.modFavorite.findMany({
       where: { userId },
-      select: { mod: { select: { gameId: true, categoryId: true, authorId: true, tags: { select: { name: true } } } } },
+      select: {
+        modId: true,
+        mod: { select: { gameId: true, categoryId: true, authorId: true, tags: { select: { name: true } } } },
+      },
       orderBy: { createdAt: "desc" },
-      take: 20,
+      take: 15,
     }),
     prisma.download.findMany({
       where: { userId },
-      select: { mod: { select: { gameId: true, categoryId: true, authorId: true, tags: { select: { name: true } } } } },
+      select: {
+        modId: true,
+        mod: { select: { gameId: true, categoryId: true, authorId: true, tags: { select: { name: true } } } },
+      },
       orderBy: { createdAt: "desc" },
-      take: 30,
+      take: 20,
       distinct: ["modId"],
     }),
   ]);
@@ -155,32 +178,21 @@ export async function getPersonalizedRecommendations(userId: string, limit = 8) 
   const followedAuthorIds = follows.map((f) => f.followingId);
   const gameIds = new Set<string>();
   const categoryIds = new Set<string>();
-  const authorIds = new Set<string>();
   const tagNames = new Set<string>();
+  const exclude = new Set<string>();
 
-  for (const row of [...favorites, ...downloads]) {
+  for (const row of favorites) {
+    exclude.add(row.modId);
     if (row.mod.gameId) gameIds.add(row.mod.gameId);
     if (row.mod.categoryId) categoryIds.add(row.mod.categoryId);
-    authorIds.add(row.mod.authorId);
     row.mod.tags.forEach((t) => tagNames.add(t.name.toLowerCase()));
   }
-
-  const downloadedIds = (
-    await prisma.download.findMany({
-      where: { userId },
-      select: { modId: true },
-      distinct: ["modId"],
-    })
-  ).map((d) => d.modId);
-
-  const favoritedIds = (
-    await prisma.modFavorite.findMany({
-      where: { userId },
-      select: { modId: true },
-    })
-  ).map((f) => f.modId);
-
-  const exclude = new Set([...downloadedIds, ...favoritedIds]);
+  for (const row of downloads) {
+    exclude.add(row.modId);
+    if (row.mod.gameId) gameIds.add(row.mod.gameId);
+    if (row.mod.categoryId) categoryIds.add(row.mod.categoryId);
+    row.mod.tags.forEach((t) => tagNames.add(t.name.toLowerCase()));
+  }
 
   const where = {
     status: "PUBLISHED" as const,
@@ -206,4 +218,12 @@ export async function getPersonalizedRecommendations(userId: string, limit = 8) 
     orderBy: [{ isFeatured: "desc" }, { downloadCount: "desc" }],
     take: limit,
   });
+}
+
+export function getPersonalizedRecommendations(userId: string, limit = 8) {
+  return unstable_cache(
+    () => fetchPersonalizedRecommendations(userId, limit),
+    ["personalized-recs", userId, String(limit)],
+    { revalidate: 120, tags: [`user-recs-${userId}`] }
+  )();
 }

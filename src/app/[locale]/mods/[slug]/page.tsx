@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { safeToLocaleString } from "@/lib/i18n/safe-locale";
 import Link from "next/link";
@@ -6,7 +7,6 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Star, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ModCard } from "@/components/mods/mod-card";
 import { ModDetailMedia } from "@/components/mods/mod-detail-media";
 import { FavoriteButton } from "@/components/mods/favorite-button";
 import { ReviewForm } from "@/components/mods/review-form";
@@ -15,7 +15,7 @@ import { ModVersionsPanel } from "@/components/mods/mod-versions-panel";
 import { ModDownloadButton } from "@/components/mods/mod-download-button";
 import { checkMissingDependencies } from "@/lib/mod-dependencies";
 import { getModBySlug } from "@/lib/data";
-import { getSimilarMods, getUsersAlsoDownloaded } from "@/lib/recommendations";
+import { ModRecommendations } from "@/components/mods/mod-recommendations";
 import { trackPlatformEvent } from "@/lib/discovery";
 import { FileIntegrityPanel } from "@/components/trust/file-integrity-panel";
 import { ReportContentButton } from "@/components/trust/report-content-button";
@@ -98,14 +98,12 @@ export default async function ModDetailPage({
   const reviewUserIds = mod.reviews.map((r) => r.userId);
   const authorId = mod.author.id;
 
-  const [favorited, similarMods, alsoDownloaded, badgeMap, owned, depCheck] = await Promise.all([
+  const [favorited, badgeMap, owned, depCheck] = await Promise.all([
     user
       ? prisma.modFavorite.findUnique({
           where: { modId_userId: { modId: mod.id, userId: user.id } },
         })
       : null,
-    getSimilarMods(mod.id, mod.gameId, 4),
-    getUsersAlsoDownloaded(mod.id, 4),
     getInlineBadgesForUsers([authorId, ...reviewUserIds], locale),
     user
       ? prisma.modPurchase
@@ -316,27 +314,9 @@ export default async function ModDetailPage({
         </div>
       </div>
 
-      {similarMods.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-lg font-semibold mb-4">Similar mods</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {similarMods.map((m) => (
-              <ModCard key={m.id} locale={locale} mod={m} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {alsoDownloaded.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-lg font-semibold mb-4">Users also downloaded</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {alsoDownloaded.map((m) => (
-              <ModCard key={m.id} locale={locale} mod={m} />
-            ))}
-          </div>
-        </section>
-      )}
+      <Suspense fallback={null}>
+        <ModRecommendations modId={mod.id} gameId={mod.gameId} locale={locale} />
+      </Suspense>
     </div>
   );
 }

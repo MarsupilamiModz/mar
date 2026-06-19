@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getLocale } from "next-intl/server";
 import { defaultLocale } from "@/i18n/config";
 import { getSafeLocale } from "@/lib/i18n/safe-locale";
@@ -97,6 +98,10 @@ export async function requireRole(...roles: UserRole[]) {
 
 export async function redirectIfMfaRequired(user: { role: UserRole; mfaEnabled: boolean }) {
   if (!requiresMfa(user.role) || user.mfaEnabled) return;
+
+  const h = await headers();
+  if (h.get("next-action")) return;
+
   const locale = await resolveAuthLocale();
   redirect(`/${locale}/dashboard/security?required=1`);
 }

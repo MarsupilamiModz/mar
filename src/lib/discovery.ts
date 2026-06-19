@@ -98,18 +98,16 @@ export async function logSearchQuery(params: {
   userId?: string;
   resultCount: number;
 }) {
-  try {
-    await prisma.searchQueryLog.create({
+  void prisma.searchQueryLog
+    .create({
       data: {
         query: params.query.slice(0, 200),
         filters: (params.filters ?? undefined) as Prisma.InputJsonValue | undefined,
         userId: params.userId,
         resultCount: params.resultCount,
       },
-    });
-  } catch {
-    // non-blocking
-  }
+    })
+    .catch(() => undefined);
 }
 
 export async function getPopularTags(limit = 30) {
@@ -128,16 +126,14 @@ export async function trackPlatformEvent(params: {
   modId?: string;
   metadata?: Record<string, unknown>;
 }) {
-  try {
-    await prisma.platformEvent.create({
+  void prisma.platformEvent
+    .create({
       data: {
         type: params.type,
         userId: params.userId,
         modId: params.modId,
         metadata: (params.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
       },
-    });
-  } catch {
-    // non-blocking
-  }
+    })
+    .catch(() => undefined);
 }

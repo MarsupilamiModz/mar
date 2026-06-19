@@ -29,6 +29,10 @@ function hasSessionCookies(request: NextRequest): boolean {
   );
 }
 
+function isServerAction(request: NextRequest): boolean {
+  return request.method === "POST" && request.headers.has("next-action");
+}
+
 function isStatelessApi(pathname: string): boolean {
   return (
     pathname.startsWith("/api/stripe/webhook") ||
@@ -59,9 +63,14 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Server Actions: refresh session only — skip intl rewrites that break action forwarding.
+  if (isServerAction(request)) {
+    if (!hasSessionCookies(request)) return NextResponse.next();
+    const { response } = await updateSession(request);
+    return response;
+  }
+
   const cookieHint = hasSessionCookies(request);
-  const sessionResult = cookieHint ? await updateSession(request) : null;
-  const authenticated = Boolean(sessionResult?.userId);
 
   const localeMatch = pathname.match(localeRegex);
   const locale = localeMatch?.[1] ?? defaultLocale;
@@ -69,6 +78,10 @@ export async function middleware(request: NextRequest) {
 
   const isProtected = protectedPrefixes.some((p) => pathWithoutLocale.startsWith(p));
   const isAuthEntry = authEntryPaths.some((p) => pathWithoutLocale === p || pathWithoutLocale.startsWith(`${p}/`));
+
+  const shouldRefreshSession = cookieHint && (isProtected || isAuthEntry);
+  const sessionResult = shouldRefreshSession ? await updateSession(request) : null;
+  const authenticated = Boolean(sessionResult?.userId);
 
   if (isAuthEntry && authenticated) {
     const authError = request.nextUrl.searchParams.get("error");
