@@ -110,8 +110,8 @@ export async function listRecentModerationLogs(limit = 30): Promise<ModerationLo
   return rows;
 }
 
-/** User fields added in platform_stabilization — cast so older generated clients still compile. */
-export const userModerationListSelect = {
+/** Core User fields — valid on all deployed Prisma clients. */
+const CORE_USER_LIST_SELECT = {
   id: true,
   username: true,
   email: true,
@@ -121,11 +121,7 @@ export const userModerationListSelect = {
   banReason: true,
   bannedAt: true,
   createdAt: true,
-  isSuspended: true,
-  isMuted: true,
-  warningCount: true,
-  banExpiresAt: true,
-} as Prisma.UserSelect;
+} as const;
 
 export type ModerationUserRow = {
   id: string;
@@ -171,15 +167,15 @@ export async function listModerationUsers(args: {
     skip: args.skip,
     take: args.take,
     orderBy: { updatedAt: "desc" },
-    select: userModerationListSelect,
+    select: CORE_USER_LIST_SELECT,
   });
   return rows.map((row) => normalizeModerationUser(row as Record<string, unknown>));
 }
 
 export const flaggedUsersWhere = {
   deletedAt: null,
-  OR: [{ isBanned: true }, { isSuspended: true }, { warningCount: { gt: 0 } }],
-} as Prisma.UserWhereInput;
+  isBanned: true,
+} satisfies Prisma.UserWhereInput;
 
 export async function updateUserModerationFields(
   userId: string,
@@ -195,33 +191,4 @@ export async function createUserBanRecord(data: Record<string, unknown>) {
   await prisma.userBan.create({
     data: data as Prisma.UserBanCreateInput,
   });
-}
-
-export const banStateSelect = {
-  id: true,
-  isBanned: true,
-  banReason: true,
-  banExpiresAt: true,
-  bannedAt: true,
-  isSuspended: true,
-  isMuted: true,
-  warningCount: true,
-} as Prisma.UserSelect;
-
-export type BanStateRow = {
-  id: string;
-  isBanned: boolean;
-  banReason: string | null;
-  banExpiresAt: Date | null;
-  bannedAt: Date | null;
-  isSuspended: boolean;
-  isMuted: boolean;
-  warningCount: number;
-};
-
-export async function fetchBanState(userId: string): Promise<BanStateRow | null> {
-  return prisma.user.findUnique({
-    where: { id: userId },
-    select: banStateSelect,
-  }) as Promise<BanStateRow | null>;
 }

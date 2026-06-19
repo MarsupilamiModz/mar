@@ -43,13 +43,19 @@ export const getCurrentUser = cache(async () => {
     if (user?.deletedAt) return null;
     if (!user) return null;
 
-    const banState = await resolveActiveBan(user.id);
-    if (banState?.isBanned) {
-      return { ...user, isBanned: true, banReason: banState.banReason, banExpiresAt: banState.banExpiresAt };
+    try {
+      const banState = await resolveActiveBan(user.id);
+      if (banState?.isBanned) {
+        return {
+          ...user,
+          isBanned: true,
+          banReason: banState.banReason ?? user.banReason,
+        };
+      }
+    } catch (banErr) {
+      console.warn("[getCurrentUser] ban check skipped", banErr);
     }
-    if (banState) {
-      return { ...user, ...banState };
-    }
+
     return user;
   } catch (err) {
     void logPlatformError("auth:get-current-user", err);
