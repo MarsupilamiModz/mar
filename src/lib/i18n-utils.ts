@@ -35,24 +35,37 @@ export function humanizeMessageKey(key: string): string {
 }
 
 export function intlOnError(error: IntlError) {
-  if (error.code === "MISSING_MESSAGE") {
+  if (
+    error.code === "MISSING_MESSAGE" ||
+    error.code === "INSUFFICIENT_PATH" ||
+    error.code === "INVALID_MESSAGE" ||
+    error.code === "ENVIRONMENT_FALLBACK"
+  ) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn(`[i18n] ${error.message}`);
+      console.warn(`[i18n] ${error.code}: ${error.message}`);
     }
     return;
   }
-  if (error.code === "INSUFFICIENT_PATH" || error.code === "INVALID_MESSAGE") {
-    console.warn(`[i18n] ${error.message}`);
-  }
+  console.error(`[i18n] ${error.code}: ${error.message}`);
 }
 
 export function intlGetMessageFallback({
   namespace,
   key,
+  error,
 }: {
   namespace?: string;
   key: string;
   error?: IntlError;
 }) {
+  if (error?.code === "MISSING_MESSAGE" && process.env.NODE_ENV !== "production") {
+    console.warn(`[i18n] missing ${namespace ? `${namespace}.` : ""}${key}`);
+  }
   return humanizeMessageKey(namespace ? `${namespace}.${key}` : key);
+}
+
+/** Safe server-side label when a translation may be missing or resolve to a nested object. */
+export function safeTranslationLabel(value: unknown, fallbackKey: string): string {
+  if (typeof value === "string" && value.length > 0) return value;
+  return humanizeMessageKey(fallbackKey);
 }

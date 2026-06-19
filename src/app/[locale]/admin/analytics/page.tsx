@@ -1,4 +1,5 @@
 import { getAdminAnalytics } from "@/actions/admin/analytics";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth";
@@ -74,7 +75,7 @@ export default async function AdminAnalyticsPage() {
               <div key={m.slug} className="flex justify-between">
                 <span className="line-clamp-1">{m.title}</span>
                 <span className="text-muted-foreground shrink-0 ml-2">
-                  {m.downloadCount.toLocaleString()}
+                  {safeToLocaleString(m.downloadCount)}
                 </span>
               </div>
             ))}

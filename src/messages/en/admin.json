@@ -34,7 +34,7 @@
     "mediaSettings": "Media Settings",
     "systemHealth": "System Health",
     "securityCenter": "Security Center",
-    "apiKeys": "API Keys",
+    "apiKeysNav": "API Keys",
     "modManagement": "Mod management",
     "modTotal": "{count} mods in catalog",
     "uploadMod": "Upload mod",

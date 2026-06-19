@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SecurityBadge } from "@/components/security/security-badge";
@@ -51,7 +52,7 @@ export async function ModSecurityPanel({ scanStatus, scannedAt, isTrusted = fals
         <div className="border-t border-border/30 pt-3 space-y-1 text-xs text-muted-foreground">
           {scannedAt && (
             <p>
-              {t("panel.lastScan")}: {scannedAt.toLocaleDateString()}
+              {t("panel.lastScan")}: {safeToLocaleDateString(scannedAt)}
             </p>
           )}
           <p>

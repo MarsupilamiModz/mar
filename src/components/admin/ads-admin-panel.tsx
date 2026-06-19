@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -158,11 +159,11 @@ export function AdsAdminPanel({ data }: Props) {
           <div className="grid gap-4 sm:grid-cols-4">
             <Card className="glass p-4">
               <p className="text-xs text-muted-foreground">Impressions</p>
-              <p className="text-2xl font-bold">{data.totalImpressions.toLocaleString()}</p>
+              <p className="text-2xl font-bold">{safeToLocaleString(data.totalImpressions)}</p>
             </Card>
             <Card className="glass p-4">
               <p className="text-xs text-muted-foreground">Clicks</p>
-              <p className="text-2xl font-bold">{data.totalClicks.toLocaleString()}</p>
+              <p className="text-2xl font-bold">{safeToLocaleString(data.totalClicks)}</p>
             </Card>
             <Card className="glass p-4">
               <p className="text-xs text-muted-foreground">CTR</p>

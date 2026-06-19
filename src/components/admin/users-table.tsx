@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { useCallback, useState, useTransition } from "react";
 import Link from "next/link";
 import { UserRole } from "@prisma/client";
@@ -228,7 +229,7 @@ export function UsersTable({
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(u.createdAt).toLocaleDateString()}
+                    {safeToLocaleDateString(new Date(u.createdAt))}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { getTranslations } from "next-intl/server";
 import { getDesignerDashboard } from "@/actions/designer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +17,7 @@ export default async function DesignerOverviewPage({ params }: { params: Promise
     : { uploads: [], orders: [], totalEarnings: 0, totalDownloads: 0, profile: null };
 
   const stats = [
-    { label: t("totalDownloads"), value: data.totalDownloads.toLocaleString() },
+    { label: t("totalDownloads"), value: safeToLocaleString(data.totalDownloads) },
     { label: t("totalEarnings"), value: `$${data.totalEarnings.toFixed(2)}` },
     { label: t("openOrders"), value: data.orders.filter((o) => o.status !== "COMPLETED").length },
     { label: t("uploads"), value: data.uploads.length },

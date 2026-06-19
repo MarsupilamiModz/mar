@@ -11,8 +11,10 @@ import {
 import type { NavUser } from "@/components/layout/user-nav";
 import type { Locale } from "@/i18n/config";
 import { getCachedPublicBranding } from "@/lib/branding-data";
+import { getSafeLocale } from "@/lib/i18n/safe-locale";
 
 async function HeaderWithUser({ locale }: { locale: string }) {
+  const safeLocale = getSafeLocale(locale);
   let user: NavUser | null = null;
   try {
     user = await getNavUser();
@@ -24,7 +26,7 @@ async function HeaderWithUser({ locale }: { locale: string }) {
     getTranslations("nav"),
     getCachedPublicBranding(),
   ]);
-  const defaults = NAV_LABEL_DEFAULTS[locale as Locale] ?? NAV_LABEL_DEFAULTS.en;
+  const defaults = NAV_LABEL_DEFAULTS[safeLocale] ?? NAV_LABEL_DEFAULTS.en;
 
   const navLabels: NavLabels = {
     games: resolveNavLabel(t("games"), defaults.games),
@@ -42,7 +44,7 @@ async function HeaderWithUser({ locale }: { locale: string }) {
 
   return (
     <Header
-      locale={locale}
+      locale={safeLocale}
       user={user}
       navLabels={navLabels}
       header={brandingBundle.header}

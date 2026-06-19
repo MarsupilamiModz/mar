@@ -6,6 +6,7 @@ import { SoundWaveformPlayer } from "@/components/audio/sound-waveform-player";
 import { resolveAssetUrl } from "@/lib/assets";
 import { getPreviewLimitSeconds, formatDuration } from "@/lib/sound";
 import { estimateBitrateKbps, formatFileSize } from "@/lib/sound-security";
+import { formatNumber, safeToLocaleDateString } from "@/lib/format-locale";
 import type { SoundPreviewType } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { useTranslations } from "next-intl";
@@ -85,7 +86,7 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline">{ts(`categories.${categoryKey(sound.audioCategory)}`)}</Badge>
             {sound.genre && <Badge variant="outline">{sound.genre}</Badge>}
-            <Badge variant="secondary">{sound.playCount.toLocaleString()} {ts("plays")}</Badge>
+            <Badge variant="secondary">{formatNumber(sound.playCount)} {ts("plays")}</Badge>
           </div>
           {sound.artist && <p className="text-sm text-muted-foreground">{sound.artist}</p>}
           {loading ? (
@@ -121,7 +122,7 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
             <div>
               <p className="uppercase tracking-wider opacity-70">Uploaded</p>
               <p className="text-foreground">
-                {sound.createdAt ? new Date(sound.createdAt).toLocaleDateString() : "—"}
+                {sound.createdAt ? safeToLocaleDateString(new Date(sound.createdAt)) : "—"}
               </p>
             </div>
           </div>

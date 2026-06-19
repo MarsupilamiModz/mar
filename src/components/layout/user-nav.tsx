@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { isStaff, isDesigner, isCreator, isPartner } from "@/lib/permissions";
 import type { UserRole } from "@prisma/client";
 import { formatDisplayName } from "@/lib/display-name";
+import { getSafeLocale } from "@/lib/i18n/safe-locale";
 
 const NotificationCenter = dynamic(
   () => import("@/components/layout/notification-center").then((m) => m.NotificationCenter),
@@ -46,6 +47,7 @@ export type NavUser = {
 export function UserNav({ locale, user }: { locale: string; user: NavUser }) {
   const router = useRouter();
   const displayName = formatDisplayName(user);
+  const safeLocale = getSafeLocale(locale);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -56,7 +58,7 @@ export function UserNav({ locale, user }: { locale: string; user: NavUser }) {
 
   return (
     <div className="flex items-center gap-1 sm:gap-2">
-      <NotificationCenter locale={locale} userId={user.id} />
+      {user?.id ? <NotificationCenter locale={safeLocale} userId={user.id} /> : null}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="flex items-center gap-2 px-2">

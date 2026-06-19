@@ -6,6 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 import { slugify as slugifyText } from "@/lib/slug";
+import { safeIntlNumberFormat } from "@/lib/i18n/safe-locale";
 
 export function slugify(text: string | null | undefined) {
   return slugifyText(text);
@@ -20,8 +21,12 @@ export function formatBytes(bytes: number) {
 }
 
 export function formatPrice(cents: number, locale = "en") {
-  return new Intl.NumberFormat(locale === "de" ? "de-DE" : "en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(cents / 100);
+  try {
+    return safeIntlNumberFormat(locale, {
+      style: "currency",
+      currency: "USD",
+    }).format(cents / 100);
+  } catch {
+    return `$${(cents / 100).toFixed(2)}`;
+  }
 }

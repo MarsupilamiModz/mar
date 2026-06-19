@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PartnerApplication } from "@prisma/client";
 
@@ -32,7 +33,7 @@ export function PartnerApplicationStatus({
         <div className="flex items-center gap-2">
           <Badge variant={statusVariant(application.status)}>{statusLabel(application.status)}</Badge>
           <span className="text-sm text-muted-foreground">
-            Submitted {new Date(application.createdAt).toLocaleDateString()}
+            Submitted {safeToLocaleDateString(new Date(application.createdAt))}
           </span>
         </div>
         <CardTitle>Partner application</CardTitle>

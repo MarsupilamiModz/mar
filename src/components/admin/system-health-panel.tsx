@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -147,7 +148,7 @@ export function SystemHealthPanel({
             <div className="rounded-lg border border-border/40 p-4">
               <p className="text-xs text-muted-foreground">{t("adRevenue")}</p>
               <p className="text-lg font-semibold">
-                {metrics.ads.impressions.toLocaleString()} imp · {metrics.ads.ctr.toFixed(2)}% CTR
+                {safeToLocaleString(metrics.ads.impressions)} imp · {metrics.ads.ctr.toFixed(2)}% CTR
               </p>
             </div>
             <div className="rounded-lg border border-border/40 p-4">

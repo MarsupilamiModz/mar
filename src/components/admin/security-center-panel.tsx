@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -384,7 +385,7 @@ export function SecurityCenterPanel({ settings, stats }: Props) {
                       <p className="font-medium text-sm">{sound.title}</p>
                       <p className="text-xs text-muted-foreground">
                         by {sound.author.displayName ?? sound.author.username} ·{" "}
-                        {new Date(sound.createdAt).toLocaleDateString()}
+                        {safeToLocaleDateString(new Date(sound.createdAt))}
                         {duration != null && ` · ${duration}s`}
                       </p>
                       {peaks.length > 0 && (

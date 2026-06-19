@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { formatDistanceToNow } from "date-fns";
 import { Download, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -98,7 +99,7 @@ function VersionRow({
           {" · "}
           {formatBytes(version.fileSize)}
           {version.gameVersion && ` · ${version.gameVersion}`}
-          {` · ${version.downloadCount.toLocaleString()} downloads`}
+          {` · ${safeToLocaleString(version.downloadCount)} downloads`}
         </p>
         {version.changelog && (
           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{version.changelog}</p>

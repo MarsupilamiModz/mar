@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDateTime } from "@/lib/format-locale";
+import { getSafeLocale } from "@/lib/i18n/safe-locale";
 import { createClient } from "@/lib/supabase/client";
 
 type NotificationRow = {
@@ -41,8 +42,9 @@ const CATEGORY_KEYS = [
   { id: "system", labelKey: "categoriesSystem" },
 ] as const;
 
-export function NotificationCenter({ locale, userId }: { locale: string; userId: string }) {
+export function NotificationCenter({ locale, userId }: { locale: string; userId?: string | null }) {
   const td = useTranslations("dashboard");
+  const safeLocale = getSafeLocale(locale);
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<NotificationRow[]>([]);
@@ -71,6 +73,7 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId:
   }, [open, refresh]);
 
   useEffect(() => {
+    if (!userId) return;
     const supabase = createClient();
     const channel = supabase
       .channel(`notifications:${userId}`)
@@ -90,6 +93,8 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId:
       void supabase.removeChannel(channel);
     };
   }, [userId, refresh]);
+
+  if (!userId) return null;
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -177,7 +182,7 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId:
                   <div className="flex items-center gap-2 mt-1">
                     {!n.read && <Badge variant="premium" className="text-[9px] px-1 py-0">New</Badge>}
                     <span className="text-[10px] text-muted-foreground">
-                      {formatDateTime(n.createdAt, locale)}
+                      {formatDateTime(n.createdAt, safeLocale)}
                     </span>
                   </div>
                 </div>

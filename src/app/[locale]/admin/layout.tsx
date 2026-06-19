@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/auth";
 import { userHasPermission, getEffectivePermissions } from "@/lib/permission-store";
 import { permissionSetIncludes } from "@/lib/permission-types";
 import { formatDisplayName } from "@/lib/display-name";
+import { safeTranslationLabel } from "@/lib/i18n-utils";
 import type { PermissionKey } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,7 @@ const linkDefs = [
   { href: "/settings/media", labelKey: "mediaSettings", permission: "settings.write" as const },
   { href: "/system", labelKey: "systemHealth", permission: "settings.write" as const },
   { href: "/security", labelKey: "securityCenter", permission: "settings.write" as const },
-  { href: "/api-keys", labelKey: "apiKeys", permission: "settings.write" as const },
+  { href: "/api-keys", labelKey: "apiKeysNav", permission: "settings.write" as const },
 ] as const;
 
 async function filterLinks(user: { id: string; role: Parameters<typeof userHasPermission>[0]["role"]; permissionGroupId?: string | null }) {
@@ -76,7 +77,7 @@ export default async function AdminLayout({
                 href={`/${locale}/admin${l.href}`}
                 className="block rounded px-2 py-1.5 text-muted-foreground hover:bg-accent/20 hover:text-foreground"
               >
-                {t(l.labelKey)}
+                {safeTranslationLabel(t(l.labelKey), l.labelKey)}
               </Link>
             ))}
           </nav>

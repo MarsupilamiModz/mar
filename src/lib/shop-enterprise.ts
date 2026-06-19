@@ -76,13 +76,15 @@ export const ALLOWED_ORDER_UPLOAD_MIMES = [
 export const MAX_ORDER_UPLOAD_BYTES = 25 * 1024 * 1024;
 export const MAX_ORDER_UPLOAD_FILES = 10;
 
+import { safeIntlNumberFormat } from "@/lib/i18n/safe-locale";
+
 export function formatShopPrice(
   priceCents: number,
   pricingMode: ShopPricingMode,
   locale = "en",
   currency = "EUR"
 ): string {
-  const formatted = new Intl.NumberFormat(locale, {
+  const formatted = safeIntlNumberFormat(locale, {
     style: "currency",
     currency,
   }).format(priceCents / 100);

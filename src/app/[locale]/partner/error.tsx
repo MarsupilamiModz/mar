@@ -2,7 +2,7 @@
 
 import { PageError } from "@/components/error/page-error";
 
-export default function LocaleError({
+export default function PartnerError({
   error,
   reset,
 }: {

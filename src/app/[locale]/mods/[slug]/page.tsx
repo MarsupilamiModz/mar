@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -225,7 +226,7 @@ export default async function ModDetailPage({
                 {mod.averageRating.toFixed(1)}
               </span>
               <span className="flex items-center gap-1">
-                <Download className="h-4 w-4" /> {mod.downloadCount.toLocaleString()}
+                <Download className="h-4 w-4" /> {safeToLocaleString(mod.downloadCount)}
               </span>
             </div>
             <div className="flex gap-2">

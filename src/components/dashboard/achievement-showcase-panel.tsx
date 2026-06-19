@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Star, StarOff, RefreshCw, ChevronUp, ChevronDown, GripVertical } from "lucide-react";
@@ -97,7 +98,7 @@ export function AchievementShowcasePanel({
         <div>
           <CardTitle>{t("achievementsTitle")}</CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Level {level} · {xp.toLocaleString()} XP · {t("featuredCount", { count: showcased.length })}
+            Level {level} · {safeToLocaleString(xp)} XP · {t("featuredCount", { count: showcased.length })}
           </p>
         </div>
         <Button
@@ -198,7 +199,7 @@ export function AchievementShowcasePanel({
                   <p className="text-sm font-medium truncate">{a.name}</p>
                   {a.description && <p className="text-xs text-muted-foreground line-clamp-2">{a.description}</p>}
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Unlocked {new Date(a.unlockedAt).toLocaleDateString()}
+                    Unlocked {safeToLocaleDateString(new Date(a.unlockedAt))}
                   </p>
                 </div>
                 <Button

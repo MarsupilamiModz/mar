@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { SafeImage } from "@/components/ui/safe-image";
 import type { PublisherLevel } from "@prisma/client";
 import { Card } from "@/components/ui/card";
@@ -49,7 +50,7 @@ export function CreatorDiscoveryCard({ locale, creator }: CreatorCardProps) {
             )}
           </div>
           <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
-            <span>{creator.totalDownloads.toLocaleString()} DL</span>
+            <span>{safeToLocaleString(creator.totalDownloads)} DL</span>
           </div>
         </Card>
       </CreatorCardFrame>

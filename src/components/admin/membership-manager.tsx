@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,13 +82,13 @@ export function MembershipManager({
           <div>
             <p className="text-xs text-muted-foreground">Renewal date</p>
             <p className="text-sm">
-              {state.renewalDate ? new Date(state.renewalDate).toLocaleDateString(locale) : "—"}
+              {state.renewalDate ? new Date(state.renewalDate).toLocaleDateString(getIntlLocale(locale)) : "—"}
             </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Cancel date</p>
             <p className="text-sm">
-              {state.cancelDate ? new Date(state.cancelDate).toLocaleDateString(locale) : "—"}
+              {state.cancelDate ? new Date(state.cancelDate).toLocaleDateString(getIntlLocale(locale)) : "—"}
             </p>
           </div>
         </div>
@@ -167,7 +168,7 @@ export function MembershipManager({
                   <span>{row.plan.name}</span>
                   <span className="text-muted-foreground">
                     {formatMoneyFromCents(row.amountCents, locale)} ·{" "}
-                    {new Date(row.createdAt).toLocaleDateString(locale)}
+                    {new Date(row.createdAt).toLocaleDateString(getIntlLocale(locale))}
                   </span>
                 </li>
               ))}

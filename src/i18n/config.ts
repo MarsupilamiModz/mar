@@ -30,10 +30,13 @@ export function isValidLocale(locale: string): locale is Locale {
   return locales.includes(locale as Locale);
 }
 
+import { getSafeLocale as getSafeLocaleImpl } from "@/lib/i18n/safe-locale";
+
 /** Returns a supported locale or falls back to the default. */
 export function resolveLocale(locale: string | undefined | null): Locale {
-  if (locale && isValidLocale(locale)) return locale;
-  return defaultLocale;
+  return getSafeLocaleImpl(locale);
 }
+
+export { getSafeLocale, getIntlLocale } from "@/lib/i18n/safe-locale";
 
 export const localeRegex = new RegExp(`^/(${locales.join("|")})(/|$)`);

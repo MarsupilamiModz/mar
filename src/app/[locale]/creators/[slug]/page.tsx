@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { SafeImage } from "@/components/ui/safe-image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { prisma } from "@/lib/db";
@@ -112,7 +113,7 @@ export default async function CreatorProfilePage({
               </div>
             </div>
             <Card className="glass p-4 min-w-[140px] text-center">
-              <p className="text-2xl font-bold">{profile.totalDownloads.toLocaleString()}</p>
+              <p className="text-2xl font-bold">{safeToLocaleString(profile.totalDownloads)}</p>
               <p className="text-xs text-muted-foreground">{t("downloads")}</p>
               <p className="text-lg font-semibold mt-2">{profile.followerCount}</p>
               <p className="text-xs text-muted-foreground">{t("followers")}</p>

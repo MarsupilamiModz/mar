@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { SafeImage } from "@/components/ui/safe-image";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -72,7 +73,7 @@ export function PartnerHubCard({
             <p className="text-xs font-mono text-neon-blue">{t("affiliateCode")}: {partner.affiliateCode}</p>
           )}
           <div className="flex gap-4 text-xs text-muted-foreground pt-1">
-            <span>{partner.followerCount.toLocaleString()} followers</span>
+            <span>{safeToLocaleString(partner.followerCount)} followers</span>
             <span>{partner.totalConversions} {t("conversions")}</span>
           </div>
           {partner.socialLinks && partner.socialLinks.length > 0 && (

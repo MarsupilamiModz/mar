@@ -5,6 +5,7 @@ import { ModCard } from "@/components/mods/mod-card";
 import { Card } from "@/components/ui/card";
 import { formatCreditsFromCents } from "@/lib/credits";
 import { mapModMedia } from "@/lib/mod-media";
+import { formatDateTime } from "@/lib/format-locale";
 import type { Locale } from "@/i18n/config";
 
 export default async function LibraryPage({ params }: { params: Promise<{ locale: Locale }> }) {
@@ -66,7 +67,7 @@ export default async function LibraryPage({ params }: { params: Promise<{ locale
                 <div>
                   <p className="font-medium">{p.product.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(p.createdAt).toLocaleString(locale)} · {p.product.productType}
+                    {formatDateTime(p.createdAt, locale)} · {p.product.productType}
                   </p>
                 </div>
                 <p className="text-sm text-neon-purple">

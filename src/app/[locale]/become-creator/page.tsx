@@ -1,4 +1,5 @@
 import { setRequestLocale } from "next-intl/server";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { requireAuth } from "@/lib/auth";
 import { getMyCreatorApplication } from "@/actions/applications";
 import { CreatorApplicationForm } from "@/components/applications/creator-application-form";
@@ -24,7 +25,7 @@ export default async function BecomeCreatorPage({
           <Badge className="mb-3">{existing.status.replace("_", " ")}</Badge>
           <h1 className="text-2xl font-bold">Creator application</h1>
           <p className="text-muted-foreground mt-2">
-            Your application was submitted on {new Date(existing.createdAt).toLocaleDateString()}.
+            Your application was submitted on {safeToLocaleDateString(new Date(existing.createdAt))}.
             {existing.adminNotes && ` Note: ${existing.adminNotes}`}
           </p>
         </Card>

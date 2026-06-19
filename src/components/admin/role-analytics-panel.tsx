@@ -1,6 +1,7 @@
 "use client";
 
 import { Card } from "@/components/ui/card";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { Badge } from "@/components/ui/badge";
 import { formatRoleLabel } from "@/lib/role-display";
 
@@ -37,11 +38,11 @@ export function RoleAnalyticsPanel({ data }: Props) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="glass p-4">
           <p className="text-xs text-muted-foreground">Total users</p>
-          <p className="text-2xl font-bold">{totalUsers.toLocaleString()}</p>
+          <p className="text-2xl font-bold">{safeToLocaleString(totalUsers)}</p>
         </Card>
         <Card className="glass p-4">
           <p className="text-xs text-muted-foreground">Active memberships</p>
-          <p className="text-2xl font-bold">{data.activePurchases.toLocaleString()}</p>
+          <p className="text-2xl font-bold">{safeToLocaleString(data.activePurchases)}</p>
         </Card>
         <Card className="glass p-4">
           <p className="text-xs text-muted-foreground">Custom roles</p>

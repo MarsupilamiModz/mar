@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { useState, useTransition } from "react";
 import { TicketCategory, TicketPriority, TicketStatus } from "@prisma/client";
 import { getTicketsAdmin } from "@/actions/tickets";
@@ -177,7 +178,7 @@ export function TicketsTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(t.updatedAt).toLocaleDateString()}
+                    {safeToLocaleDateString(new Date(t.updatedAt))}
                   </TableCell>
                 </TableRow>
               ))

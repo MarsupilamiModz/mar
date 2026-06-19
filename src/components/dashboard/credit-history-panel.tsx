@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCredits } from "@/lib/credits";
+import { formatDateTime } from "@/lib/format-locale";
 
 type CreditTransactionType =
   | "PURCHASE"
@@ -54,7 +55,7 @@ export function CreditHistoryPanel({
                 <div className="min-w-0">
                   <p className="font-medium truncate">{tx.description ?? TYPE_LABELS[tx.type] ?? tx.type}</p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(tx.createdAt).toLocaleString(locale)}
+                    {formatDateTime(tx.createdAt, locale)}
                   </p>
                 </div>
                 <span className={tx.amount >= 0 ? "text-neon-blue font-semibold shrink-0" : "text-red-400 font-semibold shrink-0"}>

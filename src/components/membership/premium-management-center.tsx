@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import Link from "next/link";
 import { ExternalLink, CreditCard, Calendar, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -124,8 +125,8 @@ export function PremiumManagementCenter({
           <Calendar className="h-4 w-4 text-neon-purple" />
           <span>
             {subscription?.cancelAtPeriodEnd || membership.cancelDate
-              ? `Access until ${new Date(nextBilling).toLocaleDateString(locale)}`
-              : `Next billing: ${new Date(nextBilling).toLocaleDateString(locale)}`}
+              ? `Access until ${new Date(nextBilling).toLocaleDateString(getIntlLocale(locale))}`
+              : `Next billing: ${new Date(nextBilling).toLocaleDateString(getIntlLocale(locale))}`}
           </span>
         </div>
       )}
@@ -165,7 +166,7 @@ export function PremiumManagementCenter({
               <div>
                 <p className="font-medium">{inv.number ?? inv.id.slice(-8)}</p>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(inv.created).toLocaleDateString(locale)} · {(inv.amountDue / 100).toFixed(2)}{" "}
+                  {new Date(inv.created).toLocaleDateString(getIntlLocale(locale))} · {(inv.amountDue / 100).toFixed(2)}{" "}
                   {inv.currency.toUpperCase()}
                 </p>
               </div>
@@ -194,7 +195,7 @@ export function PremiumManagementCenter({
                 <p className="font-medium">{p.plan.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {formatCreditsFromCents(p.amountCents, locale)} ·{" "}
-                  {new Date(p.createdAt).toLocaleDateString(locale)}
+                  {new Date(p.createdAt).toLocaleDateString(getIntlLocale(locale))}
                 </p>
               </div>
               {p.stripePaymentId && (

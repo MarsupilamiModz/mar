@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import type { ShopProductCategory } from "@prisma/client";
 
 export const DEFAULT_CREDIT_PACKS = [
@@ -24,7 +25,7 @@ export async function ensureDefaultCreditPacks() {
         isActive: true,
         isFeatured: "isFeatured" in pack ? pack.isFeatured : false,
         sortOrder: pack.sortOrder,
-        description: `${pack.creditsAmount.toLocaleString()} Credits for the XumariModz platform`,
+        description: `${safeToLocaleString(pack.creditsAmount)} Credits for the XumariModz platform`,
       },
       update: {},
     });

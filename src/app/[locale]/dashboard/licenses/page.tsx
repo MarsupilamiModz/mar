@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { useTranslations } from "next-intl";
 import { redeemLicense, getUserLicenses } from "@/actions/licenses";
 import { Button } from "@/components/ui/button";
@@ -79,7 +80,7 @@ export default function LicensesPage() {
                     {a.licenseKey.mod?.title ?? a.licenseKey.productType}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(a.createdAt).toLocaleDateString()}
+                    {safeToLocaleDateString(new Date(a.createdAt))}
                   </p>
                 </div>
                 <Badge variant="outline">{a.licenseKey.status}</Badge>

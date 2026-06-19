@@ -1,4 +1,4 @@
-/** Base prices stored in EUR cents; display converts by visitor locale/region. */
+import { getIntlLocale, safeIntlNumberFormat } from "@/lib/i18n/safe-locale";
 
 export type SupportedCurrency = "EUR" | "USD" | "GBP" | "PLN" | "TRY";
 
@@ -64,12 +64,16 @@ export function formatMoneyFromCents(
 ): string {
   const cur = currency ?? detectCurrency(locale);
   const amount = convertFromEurCents(eurCents, cur);
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: cur,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount / 100);
+  try {
+    return safeIntlNumberFormat(locale, {
+      style: "currency",
+      currency: cur,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount / 100);
+  } catch {
+    return `${(amount / 100).toFixed(2)} ${cur}`;
+  }
 }
 
 export function formatMoneyWithInterval(
@@ -79,10 +83,16 @@ export function formatMoneyWithInterval(
   interval = "month"
 ): string {
   const price = formatMoneyFromCents(eurCents, locale, currency);
-  const intervalLabel =
-    interval === "month"
-      ? new Intl.RelativeTimeFormat(locale, { numeric: "always" }).format(1, "month").replace(/^in /, "/")
-      : `/${interval}`;
+  let intervalLabel = `/${interval}`;
+  if (interval === "month") {
+    try {
+      intervalLabel = new Intl.RelativeTimeFormat(getIntlLocale(locale), { numeric: "always" })
+        .format(1, "month")
+        .replace(/^in /, "/");
+    } catch {
+      intervalLabel = "/mo";
+    }
+  }
   return `${price}${interval === "month" ? "/mo" : intervalLabel}`;
 }
 

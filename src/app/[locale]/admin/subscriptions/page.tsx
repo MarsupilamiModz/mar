@@ -1,4 +1,5 @@
 import { getAdminMembershipPurchases } from "@/actions/admin/memberships";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -70,7 +71,7 @@ export default async function AdminMembershipPurchasesPage({ params }: { params:
                       </td>
                       <td className="p-4">{formatCents(p.amountCents, locale)}</td>
                       <td className="p-4 text-muted-foreground">
-                        {new Date(p.createdAt).toLocaleDateString(locale)}
+                        {new Date(p.createdAt).toLocaleDateString(getIntlLocale(locale))}
                       </td>
                     </tr>
                   ))

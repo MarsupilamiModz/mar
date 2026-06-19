@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { UserRole } from "@prisma/client";
 import {
   banUser,
@@ -187,7 +188,7 @@ export function UserDetailPanel({
         <Card className="glass"><CardHeader><CardTitle className="text-sm">Downloads</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{user._count.downloads}</p></CardContent></Card>
         <Card className="glass"><CardHeader><CardTitle className="text-sm">Favorites</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{user._count.favorites}</p></CardContent></Card>
         <Card className="glass"><CardHeader><CardTitle className="text-sm">Mods</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{user._count.mods}</p></CardContent></Card>
-        <Card className="glass"><CardHeader><CardTitle className="text-sm">Member since</CardTitle></CardHeader><CardContent><p className="text-sm">{new Date(user.createdAt).toLocaleDateString()}</p></CardContent></Card>
+        <Card className="glass"><CardHeader><CardTitle className="text-sm">Member since</CardTitle></CardHeader><CardContent><p className="text-sm">{safeToLocaleDateString(new Date(user.createdAt))}</p></CardContent></Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -215,7 +216,7 @@ export function UserDetailPanel({
                 {user.membershipPurchases.map((p) => (
                   <li key={p.id} className="flex justify-between">
                     <span>{p.plan.name}</span>
-                    <span className="text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</span>
+                    <span className="text-muted-foreground">{safeToLocaleDateString(new Date(p.createdAt))}</span>
                   </li>
                 ))}
               </ul>
@@ -242,7 +243,7 @@ export function UserDetailPanel({
               <ul className="space-y-2 text-sm">
                 {user.subscriptions.map((s) => (
                   <li key={s.id}>
-                    {s.status} · {s.interval} · ends {new Date(s.currentPeriodEnd).toLocaleDateString()}
+                    {s.status} · {s.interval} · ends {safeToLocaleDateString(new Date(s.currentPeriodEnd))}
                   </li>
                 ))}
               </ul>

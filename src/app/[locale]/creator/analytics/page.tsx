@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/auth";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   getCreatorAnalytics,
@@ -62,7 +63,7 @@ export default async function CreatorAnalyticsPage({ params }: { params: Promise
                   {v.modTitle} v{v.version}
                   {v.isPrimary && " (latest)"}
                 </span>
-                <span className="text-muted-foreground">{v.totalDownloads.toLocaleString()} downloads</span>
+                <span className="text-muted-foreground">{safeToLocaleString(v.totalDownloads)} downloads</span>
               </div>
             ))}
           </div>
@@ -77,7 +78,7 @@ export default async function CreatorAnalyticsPage({ params }: { params: Promise
               <div key={s.id} className="flex justify-between text-sm border-b border-border/30 pb-2 last:border-0">
                 <span>{s.title}</span>
                 <span className="text-muted-foreground">
-                  {s.plays.toLocaleString()} plays · {s.downloads.toLocaleString()} DL
+                  {safeToLocaleString(s.plays)} plays · {safeToLocaleString(s.downloads)} DL
                 </span>
               </div>
             ))}

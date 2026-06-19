@@ -2,6 +2,8 @@ import { cache } from "react";
 import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
+import { defaultLocale } from "@/i18n/config";
+import { getSafeLocale } from "@/lib/i18n/safe-locale";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin, isStaff, isDesigner, canAccessStudio } from "@/lib/permissions";
 import { userHasPermission } from "@/lib/permission-store";
@@ -17,7 +19,10 @@ export const getSession = cache(async () => {
       error,
     } = await supabase.auth.getUser();
     if (error) {
-      console.error("[getSession]", error.message);
+      const msg = error.message ?? "";
+      if (!msg.toLowerCase().includes("session") && !msg.toLowerCase().includes("jwt")) {
+        console.error("[getSession]", msg);
+      }
       return null;
     }
     return user;
@@ -42,8 +47,16 @@ export const getCurrentUser = cache(async () => {
   }
 });
 
+async function resolveAuthLocale(): Promise<string> {
+  try {
+    return getSafeLocale(await getLocale());
+  } catch {
+    return defaultLocale;
+  }
+}
+
 export async function requireAuth(returnPath?: string) {
-  const locale = await getLocale();
+  const locale = await resolveAuthLocale();
   const loginBase = `/${locale}/login`;
   const loginPath = returnPath
     ? `${loginBase}?redirect=${encodeURIComponent(returnPath)}`
@@ -55,28 +68,28 @@ export async function requireAuth(returnPath?: string) {
 }
 
 export async function requireRole(...roles: UserRole[]) {
-  const locale = await getLocale();
+  const locale = await resolveAuthLocale();
   const user = await requireAuth();
   if (!roles.includes(user.role)) redirect(`/${locale}/dashboard`);
   return user;
 }
 
 export async function requireStaff() {
-  const locale = await getLocale();
+  const locale = await resolveAuthLocale();
   const user = await requireAuth();
   if (!isStaff(user.role)) redirect(`/${locale}/dashboard`);
   return user;
 }
 
 export async function requireAdmin() {
-  const locale = await getLocale();
+  const locale = await resolveAuthLocale();
   const user = await requireAuth();
   if (!isAdmin(user.role)) redirect(`/${locale}/dashboard`);
   return user;
 }
 
 export async function requireDesigner() {
-  const locale = await getLocale();
+  const locale = await resolveAuthLocale();
   const user = await requireAuth();
   if (!isDesigner(user.role) && !user.designerProfile) {
     redirect(`/${locale}/dashboard`);
@@ -85,7 +98,7 @@ export async function requireDesigner() {
 }
 
 export async function requirePagePermission(permission: PermissionKey) {
-  const locale = await getLocale();
+  const locale = await resolveAuthLocale();
   const user = await requireAuth();
   const allowed = await userHasPermission(
     { id: user.id, role: user.role, permissionGroupId: user.permissionGroupId },
@@ -96,7 +109,7 @@ export async function requirePagePermission(permission: PermissionKey) {
 }
 
 export async function requireStudio() {
-  const locale = await getLocale();
+  const locale = await resolveAuthLocale();
   const user = await requireAuth();
   if (!canAccessStudio(user.role) && !user.creatorProfile && !user.designerProfile) {
     redirect(`/${locale}/dashboard`);

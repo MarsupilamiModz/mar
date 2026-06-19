@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
 import { useTransition } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "@/hooks/use-toast";
@@ -78,7 +79,7 @@ export function CreatorModVersionManager({ versions }: { modId?: string; version
               {formatBytes(v.fileSize)}
               {v.gameVersion && ` · ${v.gameVersion}`}
               {" · "}
-              {v.downloadCount.toLocaleString()} downloads
+              {safeToLocaleString(v.downloadCount)} downloads
             </p>
             {v.changelog && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{v.changelog}</p>}
             <div className="flex flex-wrap gap-1 mt-2">
