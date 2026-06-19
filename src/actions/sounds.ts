@@ -120,35 +120,36 @@ export async function attachSoundPreviewFromSession(
 
   await registerMediaFromSession(session, "SOUND_PREVIEW", user.id, modId);
 
+  const soundExtras = {
+    previewFileId: soundFileId,
+    previewMimeType: audioMeta.mimeType || mimeType,
+    previewBitrateKbps: audioMeta.bitrateKbps ?? undefined,
+    uploadedById: user.id,
+  };
+
   await prisma.soundProfile.upsert({
     where: { modId },
     create: {
       modId,
       previewFileKey: session.fileKey,
-      previewFileId: soundFileId,
       previewFileName: session.fileName,
       previewFileSize: session.fileSize,
-      previewMimeType: audioMeta.mimeType || mimeType,
-      previewBitrateKbps: audioMeta.bitrateKbps ?? undefined,
       previewDurationSeconds: durationSeconds,
       durationSeconds: durationSeconds,
-      uploadedById: user.id,
       previewScanStatus: "PENDING",
       waveformPeaks: meta?.waveformPeaks as Prisma.InputJsonValue,
-    },
+      ...soundExtras,
+    } as Prisma.SoundProfileUncheckedCreateInput,
     update: {
       previewFileKey: session.fileKey,
-      previewFileId: soundFileId ?? undefined,
       previewFileName: session.fileName,
       previewFileSize: session.fileSize,
-      previewMimeType: audioMeta.mimeType || mimeType,
-      previewBitrateKbps: audioMeta.bitrateKbps ?? undefined,
       previewDurationSeconds: durationSeconds,
       durationSeconds: durationSeconds ?? undefined,
-      uploadedById: user.id,
       previewScanStatus: "PENDING",
       waveformPeaks: meta?.waveformPeaks as Prisma.InputJsonValue,
-    },
+      ...soundExtras,
+    } as Prisma.SoundProfileUncheckedUpdateInput,
   });
 
   revalidatePath(`/mods/${mod.slug}`);

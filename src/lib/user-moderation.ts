@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { banStateSelect, fetchBanState, type BanStateRow } from "@/lib/moderation-store";
 
 export type BanDurationPreset = "1d" | "3d" | "7d" | "30d" | "permanent";
 
@@ -25,20 +26,8 @@ export function formatBanDurationLabel(expiresAt: Date | null | undefined, local
 }
 
 /** Lift expired temporary bans and return whether user is currently banned. */
-export async function resolveActiveBan(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      isBanned: true,
-      banReason: true,
-      banExpiresAt: true,
-      bannedAt: true,
-      isSuspended: true,
-      isMuted: true,
-      warningCount: true,
-    },
-  });
+export async function resolveActiveBan(userId: string): Promise<BanStateRow | null> {
+  const user = await fetchBanState(userId);
   if (!user) return null;
 
   if (user.isBanned && user.banExpiresAt && user.banExpiresAt <= new Date()) {
@@ -51,7 +40,7 @@ export async function resolveActiveBan(userId: string) {
           bannedAt: null,
           banExpiresAt: null,
           bannedById: null,
-        },
+        } as Record<string, unknown> as never,
       }),
       prisma.userBan.updateMany({
         where: { userId, liftedAt: null },
@@ -79,3 +68,5 @@ export async function isUserModerationBlocked(userId: string) {
   }
   return { blocked: false as const };
 }
+
+export { banStateSelect };

@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { UserRole, type Prisma } from "@prisma/client";
-import type { ModerationAction } from "@/lib/moderation-types";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
@@ -15,6 +14,14 @@ import {
 } from "@/lib/action-utils";
 import { invalidateUserSessionCache } from "@/lib/auth-cache";
 import { banExpiresFromPreset, type BanDurationPreset } from "@/lib/user-moderation";
+import type { ModerationAction } from "@/lib/moderation-types";
+import {
+  createModerationLogEntry,
+  flaggedUsersWhere,
+  listRecentModerationLogs,
+  updateUserModerationFields,
+  userModerationListSelect,
+} from "@/lib/moderation-store";
 
 const banSchema = z.object({
   userId: z.string().cuid(),
@@ -32,16 +39,14 @@ async function logModeration(
   expiresAt?: Date | null,
   metadata?: Prisma.InputJsonValue
 ) {
-  await prisma.userModerationLog.create({
-    data: {
-      userId,
-      actorId,
-      action: action as unknown as Prisma.UserModerationLogUncheckedCreateInput["action"],
-      reason: reason ?? null,
-      internalNote: internalNote ?? null,
-      expiresAt: expiresAt ?? null,
-      metadata: metadata ?? undefined,
-    },
+  await createModerationLogEntry({
+    userId,
+    actorId,
+    action,
+    reason,
+    internalNote,
+    expiresAt,
+    metadata,
   });
 }
 
@@ -80,34 +85,11 @@ export async function getModerationOverview(params?: { search?: string; page?: n
       skip,
       take: limit,
       orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        displayName: true,
-        role: true,
-        isBanned: true,
-        isSuspended: true,
-        isMuted: true,
-        warningCount: true,
-        banReason: true,
-        banExpiresAt: true,
-        bannedAt: true,
-        createdAt: true,
-      },
+      select: userModerationListSelect,
     }),
     prisma.user.count({ where }),
-    prisma.userModerationLog.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 30,
-      include: {
-        user: { select: { username: true } },
-        actor: { select: { username: true } },
-      },
-    }),
-    prisma.user.count({
-      where: { deletedAt: null, OR: [{ isBanned: true }, { isSuspended: true }, { warningCount: { gt: 0 } }] },
-    }),
+    listRecentModerationLogs(30),
+    prisma.user.count({ where: flaggedUsersWhere }),
   ]);
 
   return ok({ users, total, pages: Math.ceil(total / limit), page, recentLogs, flagged });
@@ -134,21 +116,21 @@ export async function moderateBanUser(input: z.infer<typeof banSchema>): Promise
       data: {
         isBanned: true,
         banReason: parsed.data.reason,
-        banExpiresAt: expiresAt,
         bannedAt: new Date(),
         bannedById: actor.id,
+        banExpiresAt: expiresAt,
         moderationNote: parsed.data.internalNote ?? null,
-      },
+      } as Record<string, unknown> as never,
     }),
     prisma.userBan.create({
       data: {
         userId: parsed.data.userId,
         reason: parsed.data.reason,
-        internalNote: parsed.data.internalNote,
+        bannedById: actor.id,
         banType,
         expiresAt,
-        bannedById: actor.id,
-      },
+        internalNote: parsed.data.internalNote,
+      } as Record<string, unknown> as never,
     }),
   ]);
 
@@ -190,10 +172,10 @@ export async function moderateUnbanUser(userId: string, note?: string): Promise<
       data: {
         isBanned: false,
         banReason: null,
-        banExpiresAt: null,
         bannedAt: null,
         bannedById: null,
-      },
+        banExpiresAt: null,
+      } as Record<string, unknown> as never,
     }),
     prisma.userBan.updateMany({
       where: { userId, liftedAt: null },
@@ -218,7 +200,7 @@ export async function moderateSuspendUser(userId: string, reason: string): Promi
   const check = await assertCanModerate(actor.id, actor.role, userId);
   if (!check.success) return check;
 
-  await prisma.user.update({ where: { id: userId }, data: { isSuspended: true, moderationNote: reason } });
+  await updateUserModerationFields(userId, { isSuspended: true, moderationNote: reason });
   await logModeration(userId, actor.id, "SUSPEND", reason);
   await createAuditLog({
     actorId: actor.id,
@@ -236,7 +218,7 @@ export async function moderateUnsuspendUser(userId: string): Promise<ActionResul
   const { user: actor, error } = await requireActionPermission("users.write");
   if (error) return error;
 
-  await prisma.user.update({ where: { id: userId }, data: { isSuspended: false } });
+  await updateUserModerationFields(userId, { isSuspended: false });
   await logModeration(userId, actor.id, "UNSUSPEND");
   revalidatePath("/admin/moderation");
   return ok(undefined);
@@ -249,7 +231,7 @@ export async function moderateMuteUser(userId: string, reason?: string): Promise
   const check = await assertCanModerate(actor.id, actor.role, userId);
   if (!check.success) return check;
 
-  await prisma.user.update({ where: { id: userId }, data: { isMuted: true } });
+  await updateUserModerationFields(userId, { isMuted: true });
   await logModeration(userId, actor.id, "MUTE", reason);
   revalidatePath("/admin/moderation");
   return ok(undefined);
@@ -259,7 +241,7 @@ export async function moderateUnmuteUser(userId: string): Promise<ActionResult> 
   const { user: actor, error } = await requireActionPermission("users.write");
   if (error) return error;
 
-  await prisma.user.update({ where: { id: userId }, data: { isMuted: false } });
+  await updateUserModerationFields(userId, { isMuted: false });
   await logModeration(userId, actor.id, "UNMUTE");
   revalidatePath("/admin/moderation");
   return ok(undefined);
@@ -272,9 +254,9 @@ export async function moderateWarnUser(userId: string, reason: string): Promise<
   const check = await assertCanModerate(actor.id, actor.role, userId);
   if (!check.success) return check;
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { warningCount: { increment: 1 }, moderationNote: reason },
+  await updateUserModerationFields(userId, {
+    warningCount: { increment: 1 },
+    moderationNote: reason,
   });
   await logModeration(userId, actor.id, "WARN", reason);
   await createAuditLog({
@@ -293,7 +275,7 @@ export async function moderateResetWarnings(userId: string): Promise<ActionResul
   const { user: actor, error } = await requireActionPermission("users.write");
   if (error) return error;
 
-  await prisma.user.update({ where: { id: userId }, data: { warningCount: 0 } });
+  await updateUserModerationFields(userId, { warningCount: 0 });
   await logModeration(userId, actor.id, "RESET_WARNINGS");
   revalidatePath("/admin/moderation");
   return ok(undefined);

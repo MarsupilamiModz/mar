@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { getObjectBufferFromR2 } from "@/lib/r2";
 import { parseAudioMetadata, mimeFromAudioFileName } from "@/lib/audio-metadata";
 import { estimateBitrateKbps } from "@/lib/sound-storage";
@@ -66,6 +67,6 @@ export async function ensureSoundProfileMetadata(modId: string) {
       durationSeconds: durationSeconds ?? profile.durationSeconds ?? undefined,
       previewMimeType: meta.mimeType,
       previewBitrateKbps: meta.bitrateKbps ?? undefined,
-    },
+    } as Prisma.SoundProfileUncheckedUpdateInput,
   });
 }

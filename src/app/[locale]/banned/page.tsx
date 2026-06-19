@@ -9,7 +9,8 @@ export default async function BannedPage({ params }: { params: Promise<{ locale:
   const user = await getCurrentUser();
 
   const reason = user?.banReason ?? "Your account has been suspended for violating platform policies.";
-  const expiresAt = user?.banExpiresAt ?? null;
+  const expiresAt =
+    (user as { banExpiresAt?: Date | null } | null)?.banExpiresAt ?? null;
 
   return (
     <div className="mx-auto max-w-lg px-4 py-24 text-center space-y-6">
