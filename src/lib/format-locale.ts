@@ -24,13 +24,21 @@ export function formatEuro(cents: number, locale?: string | null) {
 export function formatDateTime(value: Date | number | string, locale?: string | null) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
+  const datePart = formatDate(date, locale);
   try {
-    return safeIntlDateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(date);
+    const timePart = safeIntlDateTimeFormat(locale, { timeStyle: "short" }).format(date);
+    return `${datePart} ${timePart}`;
   } catch {
-    return date.toISOString();
+    return datePart;
   }
 }
 
-export function formatDate(value: Date | number | string, locale?: string | null) {
-  return safeToLocaleDateString(value, locale, { dateStyle: "medium" });
+/** Global date format: DD.MM.YYYY */
+export function formatDate(value: Date | number | string, _locale?: string | null) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  return `${dd}.${mm}.${yyyy}`;
 }

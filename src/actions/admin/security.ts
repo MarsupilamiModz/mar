@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import type { FileScanStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { fail, ok, requireActionPermission } from "@/lib/action-utils";
@@ -15,6 +15,7 @@ import { getVirusTotalQuota } from "@/lib/security/quota";
 import { logSecurityEvent } from "@/lib/security/audit";
 import { enqueueScan } from "@/lib/security/scan-queue";
 import { isDownloadAllowed } from "@/lib/security/status";
+import { CACHE_TAGS } from "@/lib/cache";
 
 export async function getMalwareSettingsAdmin() {
   const { error } = await requireActionPermission("settings.write");
@@ -536,6 +537,7 @@ export async function approveSound(modId: string, notes?: string) {
   revalidatePath("/admin/security");
   revalidatePath("/mods");
   revalidatePath(`/mods/${mod.slug}`);
+  revalidateTag(CACHE_TAGS.mods);
   return ok(undefined);
 }
 
@@ -569,6 +571,7 @@ export async function rejectSound(modId: string, reason?: string) {
   revalidatePath("/admin/security");
   revalidatePath("/mods");
   revalidatePath(`/mods/${mod.slug}`);
+  revalidateTag(CACHE_TAGS.mods);
   return ok(undefined);
 }
 

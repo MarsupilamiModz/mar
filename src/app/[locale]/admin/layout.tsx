@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 const linkDefs = [
   { href: "", labelKey: "overview", permission: "analytics.read" as const },
   { href: "/users", labelKey: "users", permission: "users.read" as const },
+  { href: "/moderation", labelKey: "userModeration", permission: "users.write" as const },
   { href: "/tickets", labelKey: "tickets", permission: "tickets.read" as const },
   { href: "/mods", labelKey: "mods", permission: "mods.read" as const },
   { href: "/media", labelKey: "mediaCenter", permission: "mods.read" as const },

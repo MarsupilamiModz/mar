@@ -42,7 +42,7 @@ export async function ModSecurityPanel({ scanStatus, scannedAt, isTrusted = fals
         </div>
 
         {verified && (
-          <p className="font-medium text-emerald-400">{t("badges.verifiedSafeDownload")}</p>
+          <p className="font-medium text-emerald-400">✓ {t("badges.verifiedSafe")}</p>
         )}
 
         {isTrusted && verified && (

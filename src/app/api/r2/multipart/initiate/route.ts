@@ -14,6 +14,7 @@ import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 import { fileSizeBigInt } from "@/lib/file-size";
 import { getMediaSettings } from "@/lib/media-settings";
 import { isAudioFileName, MAX_PREVIEW_BYTES } from "@/lib/sound";
+import { createSoundFileId, mimeFromFileName, soundPreviewStorageKey } from "@/lib/sound-storage";
 
 const purposeSchema = z.enum([
   "mod-version",
@@ -129,8 +130,16 @@ export async function POST(req: Request) {
     }
 
     const safeName = fileName.replace(/[^\w.-]/g, "_");
-    const relativePath = `${user.id}/${Date.now()}-${safeName}`;
-    const fileKey = storageKey(`uploads/${purpose}/${relativePath}`);
+    let fileKey: string;
+    let soundFileId: string | undefined;
+
+    if (purpose === "sound-preview" && modId) {
+      soundFileId = createSoundFileId();
+      fileKey = soundPreviewStorageKey(modId, soundFileId, safeName);
+    } else {
+      const relativePath = `${user.id}/${Date.now()}-${safeName}`;
+      fileKey = storageKey(`uploads/${purpose}/${relativePath}`);
+    }
 
     logUploadServer("initiate_start", {
       userId: user.id,
@@ -151,9 +160,12 @@ export async function POST(req: Request) {
         uploadId,
         fileName: safeName,
         fileSize: fileSizeBigInt(fileSize),
-        contentType,
+        contentType: contentType || (purpose === "sound-preview" ? mimeFromFileName(safeName) : contentType),
         modId,
-        metadata: metadata ?? {},
+        metadata: {
+          ...(metadata ?? {}),
+          ...(soundFileId ? { soundFileId } : {}),
+        },
         completedParts: [],
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },

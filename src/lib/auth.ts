@@ -9,6 +9,7 @@ import { isAdmin, isStaff, isDesigner, canAccessStudio } from "@/lib/permissions
 import { userHasPermission } from "@/lib/permission-store";
 import { ensurePrismaUser } from "@/lib/user-sync";
 import { logPlatformError } from "@/lib/platform-log";
+import { resolveActiveBan } from "@/lib/user-moderation";
 import type { PermissionKey } from "@/lib/permissions";
 
 export const getSession = cache(async () => {
@@ -39,6 +40,15 @@ export const getCurrentUser = cache(async () => {
   try {
     const user = await ensurePrismaUser(session);
     if (user?.deletedAt) return null;
+    if (!user) return null;
+
+    const banState = await resolveActiveBan(user.id);
+    if (banState?.isBanned) {
+      return { ...user, isBanned: true, banReason: banState.banReason, banExpiresAt: banState.banExpiresAt };
+    }
+    if (banState) {
+      return { ...user, ...banState };
+    }
     return user;
   } catch (err) {
     void logPlatformError("auth:get-current-user", err);

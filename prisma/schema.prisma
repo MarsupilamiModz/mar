@@ -474,8 +474,13 @@ model User {
   isBanned          Boolean   @default(false)
   banReason         String?
   bannedAt          DateTime?
+  banExpiresAt      DateTime?
   bannedById        String?
   bannedBy          User?     @relation("BanIssuer", fields: [bannedById], references: [id])
+  isMuted           Boolean   @default(false)
+  isSuspended       Boolean   @default(false)
+  warningCount      Int       @default(0)
+  moderationNote    String?   @db.Text
   deletedAt         DateTime?
   role              UserRole  @default(USER)
   permissionGroupId String?
@@ -530,6 +535,9 @@ model User {
   userMembership    UserMembership?
   shopPurchases     ShopPurchase[]
   soundApprovals    SoundProfile[]         @relation("SoundApprover")
+  soundUploads      SoundProfile[]         @relation("SoundUploader")
+  moderationLogs    UserModerationLog[]    @relation("ModerationTarget")
+  moderationActions UserModerationLog[]    @relation("ModerationActor")
   modCollections    ModCollection[]
   collectionFollows ModCollectionFollow[]
   apiKeys           ApiKey[]
@@ -547,6 +555,7 @@ model User {
   @@index([username])
   @@index([role])
   @@index([isBanned])
+  @@index([banExpiresAt])
   @@index([deletedAt])
   @@index([createdAt])
 }
@@ -841,9 +850,14 @@ model SoundProfile {
   bpm                  Int?
   genre                String?
   previewFileKey       String?
+  previewFileId        String?            @unique
   previewFileName      String?
   previewFileSize      BigInt?
+  previewMimeType      String?
+  previewBitrateKbps   Int?
   previewDurationSeconds Int?
+  uploadedById         String?
+  uploadedBy           User?              @relation("SoundUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
   previewType          SoundPreviewType   @default(FULL)
   previewCustomSeconds Int?
   waveformPeaks        Json?
@@ -862,6 +876,8 @@ model SoundProfile {
   @@index([audioCategory])
   @@index([genre])
   @@index([approvalStatus])
+  @@index([previewScanStatus])
+  @@index([uploadedById])
   @@map("sound_profiles")
 }
 
@@ -1370,17 +1386,54 @@ model AuditLog {
 }
 
 model UserBan {
-  id         String    @id @default(cuid())
-  userId     String
-  user       User      @relation("BannedUser", fields: [userId], references: [id], onDelete: Cascade)
-  reason     String?
-  bannedById String?
-  bannedBy   User?     @relation("BanActor", fields: [bannedById], references: [id])
-  liftedAt   DateTime?
-  createdAt  DateTime  @default(now())
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation("BannedUser", fields: [userId], references: [id], onDelete: Cascade)
+  reason       String?
+  banType      String    @default("PERMANENT")
+  expiresAt    DateTime?
+  internalNote String?   @db.Text
+  bannedById   String?
+  bannedBy     User?     @relation("BanActor", fields: [bannedById], references: [id])
+  liftedAt     DateTime?
+  createdAt    DateTime  @default(now())
 
   @@index([userId])
   @@index([createdAt])
+  @@index([expiresAt])
+}
+
+enum ModerationAction {
+  BAN_PERMANENT
+  BAN_TEMPORARY
+  UNBAN
+  SUSPEND
+  UNSUSPEND
+  MUTE
+  UNMUTE
+  WARN
+  RESET_WARNINGS
+  SOFT_DELETE
+  RESTORE
+  ROLE_CHANGE
+}
+
+model UserModerationLog {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation("ModerationTarget", fields: [userId], references: [id], onDelete: Cascade)
+  actorId      String?
+  actor        User?            @relation("ModerationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action       ModerationAction
+  reason       String?          @db.Text
+  internalNote String?          @db.Text
+  expiresAt    DateTime?
+  metadata     Json?
+  createdAt    DateTime         @default(now())
+
+  @@index([userId, createdAt])
+  @@index([actorId])
+  @@index([action])
 }
 
 model SupportTicket {

@@ -10,6 +10,8 @@ import { resolveAssetUrl } from "@/lib/assets";
 import { registerMediaFromSession } from "@/lib/media-files";
 import { getPreviewLimitSeconds, isAudioFileName, MAX_PREVIEW_BYTES } from "@/lib/sound";
 import { fileSizeNumber } from "@/lib/file-size";
+import { probeAudioFromStorage } from "@/lib/audio-probe";
+import { mimeFromFileName } from "@/lib/sound-storage";
 import { z } from "zod";
 
 const soundProfileSchema = z.object({
@@ -99,6 +101,23 @@ export async function attachSoundPreviewFromSession(
   if (!isAudioFileName(session.fileName)) return fail("Invalid audio format");
   if (fileSizeNumber(session.fileSize) > MAX_PREVIEW_BYTES) return fail("Preview file too large");
 
+  const sessionMeta = (session.metadata ?? {}) as Record<string, string>;
+  const soundFileId = sessionMeta.soundFileId ?? null;
+  const fileSize = fileSizeNumber(session.fileSize);
+  const mimeType = session.contentType || mimeFromFileName(session.fileName);
+
+  const audioMeta = await probeAudioFromStorage(
+    session.fileKey,
+    session.fileName,
+    mimeType,
+    fileSize
+  );
+
+  const durationSeconds =
+    meta?.durationSeconds ??
+    audioMeta.durationSeconds ??
+    undefined;
+
   await registerMediaFromSession(session, "SOUND_PREVIEW", user.id, modId);
 
   await prisma.soundProfile.upsert({
@@ -106,16 +125,28 @@ export async function attachSoundPreviewFromSession(
     create: {
       modId,
       previewFileKey: session.fileKey,
+      previewFileId: soundFileId,
       previewFileName: session.fileName,
       previewFileSize: session.fileSize,
-      previewDurationSeconds: meta?.durationSeconds,
+      previewMimeType: audioMeta.mimeType || mimeType,
+      previewBitrateKbps: audioMeta.bitrateKbps ?? undefined,
+      previewDurationSeconds: durationSeconds,
+      durationSeconds: durationSeconds,
+      uploadedById: user.id,
+      previewScanStatus: "PENDING",
       waveformPeaks: meta?.waveformPeaks as Prisma.InputJsonValue,
     },
     update: {
       previewFileKey: session.fileKey,
+      previewFileId: soundFileId ?? undefined,
       previewFileName: session.fileName,
       previewFileSize: session.fileSize,
-      previewDurationSeconds: meta?.durationSeconds ?? undefined,
+      previewMimeType: audioMeta.mimeType || mimeType,
+      previewBitrateKbps: audioMeta.bitrateKbps ?? undefined,
+      previewDurationSeconds: durationSeconds,
+      durationSeconds: durationSeconds ?? undefined,
+      uploadedById: user.id,
+      previewScanStatus: "PENDING",
       waveformPeaks: meta?.waveformPeaks as Prisma.InputJsonValue,
     },
   });
@@ -169,11 +200,18 @@ export async function getSoundStreamInfo(modId: string) {
     return fail("Sound pending security approval");
   }
 
-  const profile = mod.soundProfile;
+  const { ensureSoundProfileMetadata } = await import("@/lib/audio-probe");
+  const profile = (await ensureSoundProfileMetadata(modId)) ?? mod.soundProfile;
+
+  const durationSeconds =
+    profile.previewDurationSeconds ??
+    profile.durationSeconds ??
+    null;
+
   const limit = getPreviewLimitSeconds(
     profile.previewType,
     profile.previewCustomSeconds,
-    profile.previewDurationSeconds ?? profile.durationSeconds
+    durationSeconds
   );
 
   const url = await getSignedDownloadUrl(profile.previewFileKey!, 600);
@@ -185,7 +223,7 @@ export async function getSoundStreamInfo(modId: string) {
     artist: profile.artist,
     coverUrl: profile.coverImageKey ? resolveAssetUrl(profile.coverImageKey) : null,
     streamUrl: url,
-    durationSeconds: profile.previewDurationSeconds ?? profile.durationSeconds,
+    durationSeconds,
     previewLimitSeconds: limit,
     waveformPeaks: (profile.waveformPeaks as number[] | null) ?? null,
   });

@@ -34,6 +34,7 @@ export type SecurityBadgeKey =
   | "rejected"
   | "securityChecked"
   | "approved"
+  | "verifiedSafe"
   | "verifiedSafeDownload"
   | "virusTotalPassed"
   | "manuallyVerified"
@@ -50,7 +51,7 @@ export function getSecurityBadgeKey(
     case "CLEAN":
       return "verifiedClean";
     case "APPROVED":
-      return "manuallyApproved";
+      return "verifiedSafe";
     case "MANUAL_REVIEW":
       return "manualReview";
     case "MALWARE":

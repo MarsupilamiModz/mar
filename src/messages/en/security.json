@@ -11,6 +11,7 @@
       "rejected": "Rejected",
       "securityChecked": "Security Checked",
       "approved": "Approved",
+      "verifiedSafe": "Verified Safe",
       "verifiedSafeDownload": "Verified Safe Download",
       "virusTotalPassed": "VirusTotal Scan Passed",
       "manuallyVerified": "Manually Verified",
