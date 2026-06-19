@@ -552,6 +552,9 @@ model User {
   securityLogs      SecurityLog[]
   teamProfile       TeamMember?
   emailLogs         EmailLog[]
+  chatMemberships   ChatChannelMember[]
+  chatMessages      ChatMessage[]
+  chatChannelsCreated ChatChannel[] @relation("ChatChannelCreator")
 
   @@index([email])
   @@index([username])
@@ -2486,4 +2489,60 @@ model TeamMember {
 
   @@index([visibility, isActive, sortOrder])
   @@index([departmentId, sortOrder])
+}
+
+enum ChatChannelType {
+  PUBLIC
+  DEPARTMENT
+  DM
+}
+
+model ChatChannel {
+  id          String          @id @default(cuid())
+  slug        String          @unique
+  name        String
+  description String?         @db.Text
+  type        ChatChannelType @default(PUBLIC)
+  department  String?
+  isArchived  Boolean         @default(false)
+  createdById String?
+  createdBy   User?           @relation("ChatChannelCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  members  ChatChannelMember[]
+  messages ChatMessage[]
+
+  @@index([type, isArchived])
+}
+
+model ChatChannelMember {
+  id         String      @id @default(cuid())
+  channelId  String
+  channel    ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt DateTime?
+  joinedAt   DateTime    @default(now())
+
+  @@unique([channelId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String       @id @default(cuid())
+  channelId String
+  channel   ChatChannel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content   String       @db.Text
+  replyToId String?
+  replyTo   ChatMessage? @relation("ChatReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   ChatMessage[] @relation("ChatReplies")
+  editedAt  DateTime?
+  deletedAt DateTime?
+  createdAt DateTime     @default(now())
+
+  @@index([channelId, createdAt])
+  @@index([senderId])
 }

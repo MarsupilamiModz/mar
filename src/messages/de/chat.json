@@ -1,0 +1,14 @@
+{
+  "chat": {
+    "channels": "Kanäle",
+    "public": "Öffentlich",
+    "departments": "Abteilungen",
+    "directMessages": "Direktnachrichten",
+    "startDm": "Teammitglied anschreiben",
+    "selectChannel": "Wähle einen Kanal",
+    "emptyChannel": "Noch keine Nachrichten — sag Hallo!",
+    "messagePlaceholder": "Nachricht an das Team… (@username zum Erwähnen)",
+    "mentionHint": "Enter senden · Shift+Enter für neue Zeile",
+    "send": "Senden"
+  }
+}

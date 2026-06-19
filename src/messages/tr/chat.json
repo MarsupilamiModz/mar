@@ -1,0 +1,14 @@
+{
+  "chat": {
+    "channels": "Channels",
+    "public": "Public",
+    "departments": "Departments",
+    "directMessages": "Direct messages",
+    "startDm": "Message teammate",
+    "selectChannel": "Select a channel to start chatting",
+    "emptyChannel": "No messages yet — say hello!",
+    "messagePlaceholder": "Message the team… (@username to mention)",
+    "mentionHint": "Enter to send · Shift+Enter for new line",
+    "send": "Send"
+  }
+}

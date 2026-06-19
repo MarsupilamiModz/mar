@@ -232,3 +232,23 @@ export async function notifyStaffNewShopOrder(params: {
     )
   );
 }
+
+export async function notifyChatMention(params: {
+  userId: string;
+  channelId: string;
+  channelName: string;
+  senderName: string;
+  preview: string;
+  locale?: string;
+}) {
+  const loc = params.locale ?? "en";
+  return notifyUser({
+    userId: params.userId,
+    type: "MENTION",
+    category: "system",
+    title: `${params.senderName} mentioned you in ${params.channelName}`,
+    body: params.preview,
+    link: `/${loc}/admin/chat?channel=${params.channelId}`,
+    metadata: { channelId: params.channelId },
+  });
+}

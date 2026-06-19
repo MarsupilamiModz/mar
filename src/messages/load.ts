@@ -22,6 +22,7 @@ const modules = [
   "security",
   "sounds",
   "email",
+  "chat",
 ] as const;
 
 async function loadLocaleModules(locale: Locale) {
