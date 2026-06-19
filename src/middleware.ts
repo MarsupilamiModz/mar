@@ -10,7 +10,16 @@ const intlMiddleware = createMiddleware({
   localeDetection: true,
 });
 
-const protectedPrefixes = ["/dashboard", "/admin", "/creator", "/designer", "/banned"];
+const protectedPrefixes = [
+  "/dashboard",
+  "/admin",
+  "/creator",
+  "/designer",
+  "/partner",
+  "/banned",
+];
+
+const authEntryPaths = ["/login", "/register"];
 
 const SESSION_COOKIE_HINTS = ["sb-", "auth-token"];
 
@@ -20,7 +29,6 @@ function hasSessionCookies(request: NextRequest): boolean {
   );
 }
 
-/** High-frequency API routes — auth validated in route handlers, skip Supabase refresh. */
 function isStatelessApi(pathname: string): boolean {
   return (
     pathname.startsWith("/api/stripe/webhook") ||
@@ -29,6 +37,12 @@ function isStatelessApi(pathname: string): boolean {
     pathname.startsWith("/api/assets/") ||
     pathname.startsWith("/api/platform/")
   );
+}
+
+function mergeSessionCookies(target: NextResponse, sessionResponse: NextResponse | null) {
+  sessionResponse?.cookies.getAll().forEach((cookie) => {
+    target.cookies.set(cookie.name, cookie.value, cookie);
+  });
 }
 
 export async function middleware(request: NextRequest) {
@@ -41,30 +55,34 @@ export async function middleware(request: NextRequest) {
     if (!hasSessionCookies(request)) {
       return NextResponse.next();
     }
-    return updateSession(request);
+    const { response } = await updateSession(request);
+    return response;
   }
 
-  const hasSession = hasSessionCookies(request);
-  const sessionResponse = hasSession ? await updateSession(request) : null;
+  const cookieHint = hasSessionCookies(request);
+  const sessionResult = cookieHint ? await updateSession(request) : null;
+  const authenticated = Boolean(sessionResult?.userId);
 
   const localeMatch = pathname.match(localeRegex);
   const locale = localeMatch?.[1] ?? defaultLocale;
   const pathWithoutLocale = pathname.replace(localeRegex, "") || "/";
 
   const isProtected = protectedPrefixes.some((p) => pathWithoutLocale.startsWith(p));
+  const isAuthEntry = authEntryPaths.some((p) => pathWithoutLocale === p || pathWithoutLocale.startsWith(`${p}/`));
 
-  if (isProtected && !hasSession) {
+  if (isAuthEntry && authenticated) {
+    const dashboard = new URL(`/${locale}/dashboard`, request.url);
+    return NextResponse.redirect(dashboard);
+  }
+
+  if (isProtected && !authenticated) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   const intlResponse = intlMiddleware(request);
-
-  sessionResponse?.cookies.getAll().forEach((cookie) => {
-    intlResponse.cookies.set(cookie.name, cookie.value);
-  });
-
+  mergeSessionCookies(intlResponse, sessionResult?.response ?? null);
   return intlResponse;
 }
 

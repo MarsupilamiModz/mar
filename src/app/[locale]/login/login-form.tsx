@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Logo } from "@/components/brand/logo";
+import { resolveLoginRedirect } from "@/lib/auth-redirect";
 import { useState } from "react";
 
 export function LoginForm() {
@@ -42,7 +43,10 @@ export function LoginForm() {
       setError(err.message);
       return;
     }
-    router.push(searchParams.get("redirect") ?? `/${locale}/dashboard`);
+    router.push(resolveLoginRedirect(locale, {
+      redirect: searchParams.get("redirect"),
+      next: searchParams.get("next"),
+    }));
     router.refresh();
   }
 
@@ -51,7 +55,10 @@ export function LoginForm() {
     setError("");
     const supabase = createClient();
     const callbackUrl = new URL("/api/auth/callback", window.location.origin);
-    callbackUrl.searchParams.set("next", searchParams.get("redirect") ?? `/${locale}/dashboard`);
+    callbackUrl.searchParams.set("next", resolveLoginRedirect(locale, {
+      redirect: searchParams.get("redirect"),
+      next: searchParams.get("next"),
+    }));
     callbackUrl.searchParams.set("locale", locale);
 
     const { error: err } = await supabase.auth.signInWithOAuth({

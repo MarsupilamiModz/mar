@@ -47,6 +47,10 @@ export async function createTicket(input: {
   const { user, error } = await requireActionUser();
   if (error) return error;
 
+  if ((user as { isSuspended?: boolean }).isSuspended) {
+    return fail("Your account is suspended and cannot create support tickets.");
+  }
+
   const parsed = createTicketSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.message);
 

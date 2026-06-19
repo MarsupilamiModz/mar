@@ -1,7 +1,12 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function updateSession(request: NextRequest) {
+export type SessionRefreshResult = {
+  response: NextResponse;
+  userId: string | null;
+};
+
+export async function updateSession(request: NextRequest): Promise<SessionRefreshResult> {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -23,6 +28,14 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
-  return supabaseResponse;
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error && process.env.NODE_ENV === "development") {
+    console.warn("[auth:middleware]", error.message);
+  }
+
+  return { response: supabaseResponse, userId: user?.id ?? null };
 }

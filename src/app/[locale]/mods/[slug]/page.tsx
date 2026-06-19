@@ -36,6 +36,7 @@ import { resolveSoundScanStatus } from "@/lib/sound-security";
 import { formatCreditsFromCents } from "@/lib/credits";
 import type { Locale } from "@/i18n/config";
 import { serializeModVersions } from "@/lib/file-size";
+import { formatModRating, hasModRatings } from "@/lib/rating-display";
 
 export async function generateMetadata({
   params,
@@ -223,7 +224,10 @@ export default async function ModDetailPage({
             <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
               <span className="flex items-center gap-1">
                 <Star className="h-4 w-4 fill-neon-purple text-neon-purple" />
-                {mod.averageRating.toFixed(1)}
+                {formatModRating(mod.averageRating, mod.reviewCount)}
+                {hasModRatings(mod.reviewCount) && (
+                  <span className="opacity-70">({mod.reviewCount})</span>
+                )}
               </span>
               <span className="flex items-center gap-1">
                 <Download className="h-4 w-4" /> {safeToLocaleString(mod.downloadCount)}

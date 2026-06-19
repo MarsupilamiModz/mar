@@ -147,6 +147,10 @@ export async function updateUserRole(
     metadata: { from: target.role, to: parsed.data },
   });
 
+  if (target.supabaseId) {
+    invalidateUserSessionCache(target.supabaseId);
+  }
+
   const { invalidatePermissionCache } = await import("@/lib/permission-store");
   invalidatePermissionCache();
   revalidatePath("/admin/users");

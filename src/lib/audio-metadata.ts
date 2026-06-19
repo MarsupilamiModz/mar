@@ -32,6 +32,12 @@ export function parseAudioMetadata(
   if (lower.endsWith(".mp3") || mimeType.includes("mpeg")) {
     return parseMp3(buffer, mimeType);
   }
+  if (lower.endsWith(".ogg") || mimeType.includes("ogg")) {
+    return parseOgg(buffer, mimeType);
+  }
+  if (lower.endsWith(".m4a") || mimeType.includes("mp4") || mimeType.includes("aac")) {
+    return parseMp4(buffer, mimeType);
+  }
 
   return { durationSeconds: null, bitrateKbps: null, mimeType };
 }
@@ -100,7 +106,17 @@ function parseFlac(buffer: Buffer, mimeType: string): AudioMetadata {
 }
 
 function parseMp3(buffer: Buffer, mimeType: string): AudioMetadata {
-  for (let i = 0; i < Math.min(buffer.length - 4, 8192); i++) {
+  let start = 0;
+  if (buffer.length >= 10 && buffer.toString("ascii", 0, 3) === "ID3") {
+    const tagSize =
+      ((buffer[6] & 0x7f) << 21) |
+      ((buffer[7] & 0x7f) << 14) |
+      ((buffer[8] & 0x7f) << 7) |
+      (buffer[9] & 0x7f);
+    start = 10 + tagSize;
+  }
+
+  for (let i = start; i < Math.min(buffer.length - 4, start + 16384); i++) {
     if (buffer[i] === 0xff && (buffer[i + 1] & 0xe0) === 0xe0) {
       const version = (buffer[i + 1] >> 3) & 0x03;
       const layer = (buffer[i + 1] >> 1) & 0x03;
@@ -123,6 +139,70 @@ function parseMp3(buffer: Buffer, mimeType: string): AudioMetadata {
           : null;
       return { durationSeconds, bitrateKbps, mimeType, sampleRate };
     }
+  }
+  return { durationSeconds: null, bitrateKbps: null, mimeType };
+}
+
+function parseOgg(buffer: Buffer, mimeType: string): AudioMetadata {
+  if (buffer.length < 64 || buffer.toString("ascii", 0, 4) !== "OggS") {
+    return { durationSeconds: null, bitrateKbps: null, mimeType };
+  }
+  let offset = 0;
+  let sampleRate: number | null = null;
+  let totalSamples = 0;
+
+  while (offset + 27 < buffer.length) {
+    if (buffer.toString("ascii", offset, offset + 4) !== "OggS") break;
+    const segments = buffer[offset + 26];
+    const headerSize = 27 + segments;
+    if (offset + headerSize >= buffer.length) break;
+    const pageBodyStart = offset + headerSize;
+    const ident = buffer.toString("ascii", pageBodyStart, pageBodyStart + 6);
+    if (ident === "vorbis" && buffer[pageBodyStart + 7] === 1 && pageBodyStart + 16 <= buffer.length) {
+      sampleRate = buffer.readUInt32LE(pageBodyStart + 12);
+    }
+    const granuleHigh = buffer.readUInt32LE(offset + 10);
+    const granuleLow = buffer.readUInt32LE(offset + 6);
+    const granule = granuleHigh * 4294967296 + granuleLow;
+    if (granule > 0) totalSamples = granule;
+    let pageSize = headerSize;
+    for (let s = 0; s < segments; s++) {
+      pageSize += buffer[offset + 27 + s];
+    }
+    offset += pageSize;
+    if (offset + 5 < buffer.length && (buffer[offset + 5] & 0x04)) break;
+  }
+
+  const durationSeconds =
+    sampleRate && totalSamples > 0 ? Math.round(totalSamples / sampleRate) : null;
+  const bitrateKbps =
+    durationSeconds && durationSeconds > 0
+      ? Math.round((buffer.length * 8) / durationSeconds / 1000)
+      : null;
+  return { durationSeconds, bitrateKbps, mimeType, sampleRate };
+}
+
+function parseMp4(buffer: Buffer, mimeType: string): AudioMetadata {
+  let offset = 0;
+  while (offset + 8 <= buffer.length) {
+    const size = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    if (size < 8) break;
+    if (type === "mvhd" && offset + 28 <= buffer.length) {
+      const version = buffer[offset + 8];
+      if (version === 0) {
+        const timeScale = buffer.readUInt32BE(offset + 20);
+        const duration = buffer.readUInt32BE(offset + 24);
+        const durationSeconds =
+          timeScale > 0 ? Math.round(duration / timeScale) : null;
+        const bitrateKbps =
+          durationSeconds && durationSeconds > 0
+            ? Math.round((buffer.length * 8) / durationSeconds / 1000)
+            : null;
+        return { durationSeconds, bitrateKbps, mimeType };
+      }
+    }
+    offset += size;
   }
   return { durationSeconds: null, bitrateKbps: null, mimeType };
 }

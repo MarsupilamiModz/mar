@@ -48,7 +48,7 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
       .then((data) => {
         if (cancelled || data.error) return;
         setStream({
-          streamUrl: data.streamUrl,
+          streamUrl: data.playbackUrl ?? data.streamUrl,
           previewLimitSeconds: data.previewLimitSeconds,
           waveformPeaks: data.waveformPeaks ?? sound.waveformPeaks,
           durationSeconds: data.durationSeconds ?? sound.previewDurationSeconds ?? sound.durationSeconds,

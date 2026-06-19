@@ -10,6 +10,7 @@ import { userHasPermission } from "@/lib/permission-store";
 import { ensurePrismaUser } from "@/lib/user-sync";
 import { logPlatformError } from "@/lib/platform-log";
 import { resolveActiveBan } from "@/lib/user-moderation";
+import { sanitizeAuthReturnPath } from "@/lib/auth-redirect";
 import type { PermissionKey } from "@/lib/permissions";
 
 export const getSession = cache(async () => {
@@ -67,12 +68,15 @@ async function resolveAuthLocale(): Promise<string> {
 
 export async function requireAuth(returnPath?: string) {
   const locale = await resolveAuthLocale();
-  const loginBase = `/${locale}/login`;
-  const loginPath = returnPath
-    ? `${loginBase}?redirect=${encodeURIComponent(returnPath)}`
-    : loginBase;
+  const destination = sanitizeAuthReturnPath(locale, returnPath);
+  const loginPath = `/${locale}/login?redirect=${encodeURIComponent(destination)}`;
   const user = await getCurrentUser();
-  if (!user) redirect(loginPath);
+  if (!user) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[auth:requireAuth] no user — redirecting to login", { destination });
+    }
+    redirect(loginPath);
+  }
   if (user.isBanned) redirect(`/${locale}/banned`);
   return user;
 }
@@ -110,6 +114,7 @@ export async function requireDesigner() {
 export async function requirePagePermission(permission: PermissionKey) {
   const locale = await resolveAuthLocale();
   const user = await requireAuth();
+  if (user.role === "OWNER") return user;
   const allowed = await userHasPermission(
     { id: user.id, role: user.role, permissionGroupId: user.permissionGroupId },
     permission

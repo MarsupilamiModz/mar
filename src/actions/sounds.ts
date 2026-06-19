@@ -226,6 +226,7 @@ export async function getSoundStreamInfo(modId: string) {
     artist: profile.artist,
     coverUrl: profile.coverImageKey ? resolveAssetUrl(profile.coverImageKey) : null,
     streamUrl: url,
+    playbackUrl: `/api/sounds/${modId}/audio`,
     durationSeconds,
     previewLimitSeconds: limit,
     waveformPeaks: (profile.waveformPeaks as number[] | null) ?? null,

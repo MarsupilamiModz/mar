@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SafeImage } from "@/components/ui/safe-image";
 import { getFeaturedMediaUrl, type ModMediaItem } from "@/lib/mod-media";
 import { formatNumber } from "@/lib/format-locale";
+import { formatModRating, hasModRatings } from "@/lib/rating-display";
 import { SecurityBadge } from "@/components/security/security-badge";
 import { isSecurityVerified } from "@/lib/security/status";
 import type { FileScanStatus } from "@prisma/client";
@@ -21,6 +22,7 @@ type ModCardProps = {
     pricing: string;
     downloadCount: number;
     averageRating: number;
+    reviewCount?: number;
     favoriteCount?: number;
     game?: { name: string; slug: string };
     media?: ModMediaItem[];
@@ -115,7 +117,10 @@ export function ModCard({ locale, mod, pricingLabel, isFavorited, showLike = tru
           <div className="mt-auto flex items-center gap-4 pt-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Star className="h-3.5 w-3.5 fill-neon-purple/80 text-neon-purple" />
-              {mod.averageRating.toFixed(1)}
+              {formatModRating(mod.averageRating, mod.reviewCount ?? 0)}
+              {hasModRatings(mod.reviewCount ?? 0) && (
+                <span className="opacity-70">({mod.reviewCount})</span>
+              )}
             </span>
             <span className="flex items-center gap-1">
               <Download className="h-3.5 w-3.5" />

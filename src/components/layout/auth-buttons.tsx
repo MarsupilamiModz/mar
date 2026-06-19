@@ -9,28 +9,6 @@ import { UserNav, type NavUser } from "@/components/layout/user-nav";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { UserRole } from "@prisma/client";
 
-function sessionFallbackUser(session: {
-  user: {
-    id: string;
-    email?: string | null;
-    user_metadata?: Record<string, unknown>;
-  };
-}): NavUser {
-  const meta = session.user.user_metadata ?? {};
-  const username =
-    (meta.preferred_username as string | undefined) ??
-    session.user.email?.split("@")[0] ??
-    "user";
-  return {
-    id: session.user.id,
-    username,
-    displayName: (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? null,
-    avatarUrl: (meta.avatar_url as string | undefined) ?? null,
-    role: "USER" as UserRole,
-    isPremium: false,
-  };
-}
-
 function AuthLoadingAvatar() {
   return (
     <div className="flex items-center gap-2 px-2">
@@ -63,8 +41,8 @@ export function AuthButtons({
     const supabase = createClient();
 
     async function syncUser() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
         setHasSession(false);
         setUser(null);
         setReady(true);
@@ -74,7 +52,7 @@ export function AuthButtons({
       setHasSession(true);
 
       try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        const res = await fetch("/api/auth/me", { cache: "no-store", credentials: "include" });
         if (res.ok) {
           const data = await res.json();
           if (data?.id) {
@@ -87,7 +65,14 @@ export function AuthButtons({
         /* fall through to session fallback */
       }
 
-      setUser(sessionFallbackUser(session));
+      setUser({
+        id: authUser.id,
+        username: authUser.email?.split("@")[0] ?? "user",
+        displayName: (authUser.user_metadata?.full_name as string | undefined) ?? null,
+        avatarUrl: (authUser.user_metadata?.avatar_url as string | undefined) ?? null,
+        role: "USER" as UserRole,
+        isPremium: false,
+      });
       setReady(true);
     }
 

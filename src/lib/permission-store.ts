@@ -76,8 +76,17 @@ const loadRolePermissionMap = unstable_cache(
 
       const result = { ...DEFAULT_ROLE_PERMISSIONS };
       for (const role of Object.keys(DEFAULT_ROLE_PERMISSIONS) as UserRole[]) {
+        if (role === "OWNER") {
+          result[role] = Object.keys(PERMISSIONS) as PermissionKey[];
+          continue;
+        }
         if (dbByRole.has(role)) {
-          result[role] = dbByRole.get(role)!;
+          const dbPerms = dbByRole.get(role)!;
+          if (role === "ADMIN" && dbPerms.length > 0) {
+            result[role] = Array.from(new Set([...DEFAULT_ROLE_PERMISSIONS.ADMIN, ...dbPerms]));
+          } else if (dbPerms.length > 0) {
+            result[role] = dbPerms;
+          }
         }
       }
       return result;
@@ -133,6 +142,7 @@ export async function userHasPermission(
   user: PermissionUser,
   permission: PermissionKey
 ): Promise<boolean> {
+  if (user.role === "OWNER") return true;
   try {
     const effective = await getEffectivePermissions(user);
     return permissionSetIncludes(effective, permission);
