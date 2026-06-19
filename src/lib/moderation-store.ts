@@ -127,6 +127,55 @@ export const userModerationListSelect = {
   banExpiresAt: true,
 } as Prisma.UserSelect;
 
+export type ModerationUserRow = {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string | null;
+  role: string;
+  isBanned: boolean;
+  isSuspended: boolean;
+  isMuted: boolean;
+  warningCount: number;
+  banReason: string | null;
+  banExpiresAt: Date | null;
+  bannedAt: Date | null;
+  createdAt: Date;
+};
+
+export function normalizeModerationUser(raw: Record<string, unknown>): ModerationUserRow {
+  return {
+    id: String(raw.id ?? ""),
+    username: String(raw.username ?? ""),
+    email: String(raw.email ?? ""),
+    displayName: (raw.displayName as string | null | undefined) ?? null,
+    role: String(raw.role ?? "USER"),
+    isBanned: Boolean(raw.isBanned),
+    isSuspended: Boolean(raw.isSuspended ?? false),
+    isMuted: Boolean(raw.isMuted ?? false),
+    warningCount: Number(raw.warningCount ?? 0),
+    banReason: (raw.banReason as string | null | undefined) ?? null,
+    banExpiresAt: (raw.banExpiresAt as Date | null | undefined) ?? null,
+    bannedAt: (raw.bannedAt as Date | null | undefined) ?? null,
+    createdAt: (raw.createdAt as Date) ?? new Date(0),
+  };
+}
+
+export async function listModerationUsers(args: {
+  where: Prisma.UserWhereInput;
+  skip: number;
+  take: number;
+}): Promise<ModerationUserRow[]> {
+  const rows = await prisma.user.findMany({
+    where: args.where,
+    skip: args.skip,
+    take: args.take,
+    orderBy: { updatedAt: "desc" },
+    select: userModerationListSelect,
+  });
+  return rows.map((row) => normalizeModerationUser(row as Record<string, unknown>));
+}
+
 export const flaggedUsersWhere = {
   deletedAt: null,
   OR: [{ isBanned: true }, { isSuspended: true }, { warningCount: { gt: 0 } }],

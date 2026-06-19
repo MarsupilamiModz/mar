@@ -18,9 +18,10 @@ import type { ModerationAction } from "@/lib/moderation-types";
 import {
   createModerationLogEntry,
   flaggedUsersWhere,
+  listModerationUsers,
   listRecentModerationLogs,
   updateUserModerationFields,
-  userModerationListSelect,
+  type ModerationUserRow,
 } from "@/lib/moderation-store";
 
 const banSchema = z.object({
@@ -80,19 +81,20 @@ export async function getModerationOverview(params?: { search?: string; page?: n
   };
 
   const [users, total, recentLogs, flagged] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { updatedAt: "desc" },
-      select: userModerationListSelect,
-    }),
+    listModerationUsers({ where, skip, take: limit }),
     prisma.user.count({ where }),
     listRecentModerationLogs(30),
     prisma.user.count({ where: flaggedUsersWhere }),
   ]);
 
-  return ok({ users, total, pages: Math.ceil(total / limit), page, recentLogs, flagged });
+  return ok({
+    users: users satisfies ModerationUserRow[],
+    total,
+    pages: Math.ceil(total / limit),
+    page,
+    recentLogs,
+    flagged,
+  });
 }
 
 export async function moderateBanUser(input: z.infer<typeof banSchema>): Promise<ActionResult> {

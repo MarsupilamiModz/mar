@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ModerationAction } from "@/lib/moderation-types";
+import type { ModerationLogRow, ModerationUserRow } from "@/lib/moderation-store";
 import {
   moderateBanUser,
   moderateMuteUser,
@@ -25,30 +26,7 @@ import { toast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/format-locale";
 import { formatDisplayName } from "@/lib/display-name";
 
-type UserRow = {
-  id: string;
-  username: string;
-  email: string;
-  displayName: string | null;
-  role: string;
-  isBanned: boolean;
-  isSuspended: boolean;
-  isMuted: boolean;
-  warningCount: number;
-  banReason: string | null;
-  banExpiresAt: Date | null;
-  bannedAt: Date | null;
-  createdAt: Date;
-};
-
-type LogRow = {
-  id: string;
-  action: ModerationAction;
-  reason: string | null;
-  createdAt: Date;
-  user: { username: string };
-  actor: { username: string } | null;
-};
+type LogRow = ModerationLogRow;
 
 const ACTION_LABELS: Record<ModerationAction, string> = {
   BAN_PERMANENT: "Permanent ban",
@@ -72,7 +50,7 @@ export function UserModerationPanel({
   flagged,
 }: {
   locale: string;
-  users: UserRow[];
+  users: ModerationUserRow[];
   recentLogs: LogRow[];
   flagged: number;
 }) {
