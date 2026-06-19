@@ -202,7 +202,9 @@ export async function getSoundStreamInfo(modId: string) {
   }
 
   const { ensureSoundProfileMetadata } = await import("@/lib/audio-probe");
-  const profile = (await ensureSoundProfileMetadata(modId)) ?? mod.soundProfile;
+  await ensureSoundProfileMetadata(modId);
+  const profile =
+    (await prisma.soundProfile.findUnique({ where: { modId } })) ?? mod.soundProfile;
 
   const durationSeconds =
     profile.previewDurationSeconds ??

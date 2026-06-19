@@ -8,6 +8,21 @@ import { estimateBitrateKbps } from "@/lib/sound-storage";
 
 const MAX_PROBE_BYTES = 8 * 1024 * 1024;
 
+type SoundProfileRecord = Record<string, unknown> & {
+  previewFileKey?: string | null;
+  previewFileName?: string | null;
+  previewFileSize?: bigint | number | null;
+  previewDurationSeconds?: number | null;
+  durationSeconds?: number | null;
+};
+
+function readSoundProfileExtras(profile: SoundProfileRecord) {
+  return {
+    previewMimeType: (profile.previewMimeType as string | null | undefined) ?? null,
+    previewBitrateKbps: (profile.previewBitrateKbps as number | null | undefined) ?? null,
+  };
+}
+
 export async function probeAudioFromStorage(
   fileKey: string,
   fileName: string,
@@ -36,11 +51,14 @@ export async function probeAudioFromStorage(
 }
 
 export async function ensureSoundProfileMetadata(modId: string) {
-  const profile = await prisma.soundProfile.findUnique({ where: { modId } });
+  const profile = (await prisma.soundProfile.findUnique({ where: { modId } })) as
+    | SoundProfileRecord
+    | null;
   if (!profile?.previewFileKey) return null;
 
+  const extras = readSoundProfileExtras(profile);
   const hasDuration = (profile.previewDurationSeconds ?? profile.durationSeconds ?? 0) > 0;
-  if (hasDuration && profile.previewMimeType && profile.previewBitrateKbps) {
+  if (hasDuration && extras.previewMimeType && extras.previewBitrateKbps) {
     return profile;
   }
 
@@ -48,7 +66,7 @@ export async function ensureSoundProfileMetadata(modId: string) {
   const meta = await probeAudioFromStorage(
     profile.previewFileKey,
     profile.previewFileName ?? "audio.mp3",
-    profile.previewMimeType,
+    extras.previewMimeType,
     fileSize
   );
 
