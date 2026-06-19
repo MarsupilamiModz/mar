@@ -1,8 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { TicketStatus } from "@prisma/client";
-import { replyToTicket, closeTicket, reopenTicket, addInternalNote } from "@/actions/tickets";
+import {
+  replyToTicket,
+  closeTicket,
+  reopenTicket,
+  addInternalNote,
+  uploadTicketAttachment,
+  getTicketAttachmentUrl,
+} from "@/actions/tickets";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +18,15 @@ import { toast } from "@/hooks/use-toast";
 import { TICKET_STATUS_LABELS, TICKET_CATEGORY_LABELS, TICKET_PRIORITY_LABELS } from "@/lib/ticket-labels";
 import { formatDisplayName } from "@/lib/display-name";
 import { cn } from "@/lib/utils";
+import { Paperclip, Download } from "lucide-react";
+
+type Attachment = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  messageId?: string | null;
+};
 
 type Message = {
   id: string;
@@ -19,6 +35,7 @@ type Message = {
   isInternal?: boolean;
   createdAt: Date;
   sender: { username: string; displayName?: string | null; avatarUrl: string | null; role: string };
+  attachments?: Attachment[];
 };
 
 type Ticket = {
@@ -31,7 +48,42 @@ type Ticket = {
   closedAt: Date | null;
   user: { username: string };
   messages: Message[];
+  attachments?: Attachment[];
 };
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function TicketAttachmentButton({ attachment }: { attachment: Attachment }) {
+  const [pending, startTransition] = useTransition();
+
+  function download() {
+    startTransition(async () => {
+      const result = await getTicketAttachmentUrl(attachment.id);
+      if (result.success) {
+        window.open(result.data.url, "_blank", "noopener,noreferrer");
+      } else {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+      }
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={download}
+      disabled={pending}
+      className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-background/40 px-2 py-1 text-xs hover:bg-accent/20"
+    >
+      <Download className="h-3 w-3" />
+      {attachment.fileName}
+      <span className="text-muted-foreground">({formatFileSize(attachment.fileSize)})</span>
+    </button>
+  );
+}
 
 export function TicketThread({
   ticket,
@@ -44,19 +96,42 @@ export function TicketThread({
 }) {
   const [content, setContent] = useState("");
   const [internalNote, setInternalNote] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [pending, startTransition] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function uploadFiles(messageId?: string) {
+    for (const file of files) {
+      const formData = new FormData();
+      formData.set("ticketId", ticket.id);
+      formData.set("file", file);
+      if (messageId) formData.set("messageId", messageId);
+      const result = await uploadTicketAttachment(formData);
+      if (!result.success) {
+        toast({ title: "Upload failed", description: result.error, variant: "destructive" });
+      }
+    }
+  }
 
   function sendReply() {
-    if (!content.trim()) return;
+    if (!content.trim() && files.length === 0) return;
     startTransition(async () => {
-      const result = await replyToTicket(ticket.id, content, isStaff);
-      if (result.success) {
-        setContent("");
-        toast({ title: "Reply sent" });
-        window.location.reload();
-      } else {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
+      let messageId: string | undefined;
+      if (content.trim()) {
+        const result = await replyToTicket(ticket.id, content, isStaff);
+        if (!result.success) {
+          toast({ title: "Error", description: result.error, variant: "destructive" });
+          return;
+        }
+        messageId = result.data?.messageId;
       }
+      if (files.length > 0) {
+        await uploadFiles(messageId);
+      }
+      setContent("");
+      setFiles([]);
+      toast({ title: "Reply sent" });
+      window.location.reload();
     });
   }
 
@@ -94,6 +169,9 @@ export function TicketThread({
     });
   }
 
+  const orphanAttachments =
+    ticket.attachments?.filter((a) => !a.messageId) ?? [];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
@@ -105,6 +183,14 @@ export function TicketThread({
         </Badge>
       </div>
       <h1 className="text-2xl font-bold">{ticket.subject}</h1>
+
+      {orphanAttachments.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {orphanAttachments.map((a) => (
+            <TicketAttachmentButton key={a.id} attachment={a} />
+          ))}
+        </div>
+      )}
 
       <div className="space-y-4">
         {ticket.messages.map((msg) => (
@@ -132,6 +218,13 @@ export function TicketThread({
                 <span>{new Date(msg.createdAt).toLocaleString()}</span>
               </div>
               <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              {msg.attachments && msg.attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {msg.attachments.map((a) => (
+                    <TicketAttachmentButton key={a.id} attachment={a} />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -145,9 +238,39 @@ export function TicketThread({
             onChange={(e) => setContent(e.target.value)}
             rows={4}
           />
-          <div className="flex gap-2">
-            <Button variant="neon" onClick={sendReply} disabled={pending || !content.trim()}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            accept="image/*,application/pdf,.zip,.txt,.log"
+            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+          />
+          {files.length > 0 && (
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              {files.map((f) => (
+                <span key={f.name} className="rounded border border-border/40 px-2 py-0.5">
+                  {f.name}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="neon"
+              onClick={sendReply}
+              disabled={pending || (!content.trim() && files.length === 0)}
+            >
               Send Reply
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={pending}
+            >
+              <Paperclip className="h-4 w-4 mr-1" />
+              Attach files
             </Button>
             <Button variant="outline" onClick={handleClose} disabled={pending}>
               Close Ticket

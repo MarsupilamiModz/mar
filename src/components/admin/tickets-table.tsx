@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { safeToLocaleDateString } from "@/lib/i18n/safe-locale";
 import { useState, useTransition } from "react";
-import { TicketCategory, TicketPriority, TicketStatus } from "@prisma/client";
+import { TicketCategory, TicketDepartment, TicketPriority, TicketStatus } from "@prisma/client";
 import { getTicketsAdmin } from "@/actions/tickets";
 import { formatDisplayName } from "@/lib/display-name";
 import { Badge } from "@/components/ui/badge";
@@ -26,9 +26,15 @@ import {
 } from "@/components/ui/table";
 import {
   TICKET_CATEGORY_LABELS,
+  TICKET_DEPARTMENT_LABELS,
+  TICKET_DEPARTMENTS,
   TICKET_PRIORITY_LABELS,
   TICKET_STATUS_LABELS,
 } from "@/lib/ticket-labels";
+import { TicketQueueNav } from "@/components/admin/ticket-queue-nav";
+import { TicketSlaTimer } from "@/components/admin/ticket-sla-timer";
+import type { TicketQueue } from "@/lib/ticket-queues";
+import { getSlaTimerState } from "@/lib/sla";
 
 type TicketRow = {
   id: string;
@@ -37,6 +43,8 @@ type TicketRow = {
   category: TicketCategory;
   priority: TicketPriority;
   status: TicketStatus;
+  department?: TicketDepartment;
+  tags?: unknown;
   updatedAt: Date;
   slaResponseDueAt: Date | null;
   slaResolveDueAt: Date | null;
@@ -46,32 +54,52 @@ type TicketRow = {
   _count: { messages: number };
 };
 
+function parseTags(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.filter((t): t is string => typeof t === "string");
+  return [];
+}
+
 export function TicketsTable({
   locale,
+  currentUserId,
+  staffUsers,
   initialTickets,
   initialPages,
   initialPage,
+  initialQueue = "all",
 }: {
   locale: string;
+  currentUserId: string;
+  staffUsers: { id: string; username: string }[];
   initialTickets: TicketRow[];
   initialPages: number;
   initialPage: number;
+  initialQueue?: TicketQueue;
 }) {
   const [pending, startTransition] = useTransition();
   const [tickets, setTickets] = useState(initialTickets);
   const [pages, setPages] = useState(initialPages);
   const [page, setPage] = useState(initialPage);
   const [search, setSearch] = useState("");
+  const [queue, setQueue] = useState<TicketQueue>(initialQueue);
   const [status, setStatus] = useState<string>("all");
   const [category, setCategory] = useState<string>("all");
+  const [priority, setPriority] = useState<string>("all");
+  const [department, setDepartment] = useState<string>("all");
+  const [assigneeId, setAssigneeId] = useState<string>("all");
 
-  function refresh(p = page) {
+  function refresh(p = page, q = queue) {
     startTransition(async () => {
       const result = await getTicketsAdmin({
         page: p,
         search: search || undefined,
+        queue: q,
+        currentUserId,
         status: status !== "all" ? (status as TicketStatus) : undefined,
         category: category !== "all" ? (category as TicketCategory) : undefined,
+        priority: priority !== "all" ? (priority as TicketPriority) : undefined,
+        department: department !== "all" ? (department as TicketDepartment) : undefined,
+        assigneeId: assigneeId !== "all" ? assigneeId : undefined,
       });
       if (result.success) {
         setTickets(result.data.tickets as TicketRow[]);
@@ -81,6 +109,11 @@ export function TicketsTable({
     });
   }
 
+  function selectQueue(q: TicketQueue) {
+    setQueue(q);
+    refresh(1, q);
+  }
+
   const priorityColor = (p: TicketPriority) =>
     p === "CRITICAL" || p === "URGENT"
       ? "destructive"
@@ -88,24 +121,19 @@ export function TicketsTable({
         ? "premium"
         : "outline";
 
-  function isSlaOverdue(t: TicketRow) {
-    const now = Date.now();
-    if (!t.firstResponseAt && t.slaResponseDueAt && new Date(t.slaResponseDueAt).getTime() < now) {
-      return true;
-    }
-    if (
-      t.status !== "CLOSED" &&
-      t.status !== "RESOLVED" &&
-      t.slaResolveDueAt &&
-      new Date(t.slaResolveDueAt).getTime() < now
-    ) {
-      return true;
-    }
-    return false;
+  function slaSummary(t: TicketRow) {
+    const resolved = t.status === "RESOLVED" || t.status === "CLOSED";
+    const response = getSlaTimerState(t.slaResponseDueAt, !!t.firstResponseAt, resolved);
+    const resolve = getSlaTimerState(t.slaResolveDueAt, false, resolved);
+    if (response?.variant === "overdue" || resolve?.variant === "overdue") return "overdue";
+    if (response?.variant === "warning" || resolve?.variant === "warning") return "warning";
+    return "ok";
   }
 
   return (
     <div className="space-y-4">
+      <TicketQueueNav locale={locale} active={queue} onChange={selectQueue} />
+
       <div className="flex flex-wrap gap-3">
         <Input
           placeholder="Search tickets..."
@@ -114,11 +142,29 @@ export function TicketsTable({
           className="max-w-xs"
         />
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             {(Object.keys(TICKET_STATUS_LABELS) as TicketStatus[]).map((s) => (
               <SelectItem key={s} value={s}>{TICKET_STATUS_LABELS[s]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={priority} onValueChange={setPriority}>
+          <SelectTrigger className="w-[130px]"><SelectValue placeholder="Priority" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All priority</SelectItem>
+            {(Object.keys(TICKET_PRIORITY_LABELS) as TicketPriority[]).map((p) => (
+              <SelectItem key={p} value={p}>{TICKET_PRIORITY_LABELS[p]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={department} onValueChange={setDepartment}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Department" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All departments</SelectItem>
+            {TICKET_DEPARTMENTS.map((d) => (
+              <SelectItem key={d} value={d}>{TICKET_DEPARTMENT_LABELS[d]}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -131,57 +177,97 @@ export function TicketsTable({
             ))}
           </SelectContent>
         </Select>
+        <Select value={assigneeId} onValueChange={setAssigneeId}>
+          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Assignee" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All assignees</SelectItem>
+            <SelectItem value={currentUserId}>Assigned to me</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            {staffUsers.map((u) => (
+              <SelectItem key={u.id} value={u.id}>@{u.username}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button variant="neon" onClick={() => refresh(1)} disabled={pending}>Filter</Button>
       </div>
 
-      <div className="glass rounded-xl border border-border/50 overflow-hidden">
+      <div className="glass rounded-xl border border-border/50 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Ticket</TableHead>
               <TableHead>User</TableHead>
-              <TableHead>Category</TableHead>
+              <TableHead>Assignee</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>SLA</TableHead>
               <TableHead>Updated</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {tickets.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                   No tickets found
                 </TableCell>
               </TableRow>
             ) : (
-              tickets.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell>
-                    <Link href={`/${locale}/admin/tickets/${t.id}`} className="hover:text-neon-purple">
-                      <p className="font-medium">{t.ticketNumber}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-1">{t.subject}</p>
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-sm">{formatDisplayName({ username: t.user.username })}</TableCell>
-                  <TableCell className="text-sm">{TICKET_CATEGORY_LABELS[t.category]}</TableCell>
-                  <TableCell>
-                    <Badge variant={priorityColor(t.priority) as "outline"}>
-                      {TICKET_PRIORITY_LABELS[t.priority]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap items-center gap-1">
+              tickets.map((t) => {
+                const tags = parseTags(t.tags);
+                const resolved = t.status === "RESOLVED" || t.status === "CLOSED";
+                const slaState = slaSummary(t);
+                return (
+                  <TableRow key={t.id}>
+                    <TableCell>
+                      <Link href={`/${locale}/admin/tickets/${t.id}`} className="hover:text-neon-purple">
+                        <p className="font-medium">{t.ticketNumber}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-1">{t.subject}</p>
+                        {tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {tags.slice(0, 3).map((tag) => (
+                              <Badge key={tag} variant="secondary" className="text-[10px] px-1 py-0">{tag}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-sm">{formatDisplayName({ username: t.user.username })}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {t.assignee ? `@${t.assignee.username}` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={priorityColor(t.priority) as "outline"}>
+                        {TICKET_PRIORITY_LABELS[t.priority]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="outline">{TICKET_STATUS_LABELS[t.status]}</Badge>
-                      {isSlaOverdue(t) && (
-                        <Badge variant="destructive" className="text-[10px]">SLA overdue</Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {safeToLocaleDateString(new Date(t.updatedAt))}
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1 min-w-[100px]">
+                        <TicketSlaTimer
+                          dueAt={t.slaResponseDueAt}
+                          met={!!t.firstResponseAt}
+                          resolved={resolved}
+                          label="Response"
+                        />
+                        <TicketSlaTimer
+                          dueAt={t.slaResolveDueAt}
+                          met={false}
+                          resolved={resolved}
+                          label="Resolve"
+                        />
+                        {slaState === "overdue" && (
+                          <Badge variant="destructive" className="text-[10px]">Breached</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {safeToLocaleDateString(new Date(t.updatedAt))}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

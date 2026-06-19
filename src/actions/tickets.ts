@@ -16,7 +16,27 @@ import {
 } from "@/lib/notifications-service";
 import { computeSlaDueDates, isSlaOverdue } from "@/lib/sla";
 import { categoryToDepartment } from "@/lib/ticket-labels";
+import { queueWhere, type TicketQueue } from "@/lib/ticket-queues";
 import { randomBytes } from "crypto";
+
+async function notifyWatchers(
+  ticketId: string,
+  ticketNumber: string,
+  subject: string,
+  body: string,
+  excludeUserId?: string,
+  locale = "en"
+) {
+  const { notifyTicketWatchers } = await import("@/lib/notifications-service");
+  void notifyTicketWatchers({
+    ticketId,
+    ticketNumber,
+    subject,
+    body,
+    excludeUserId,
+    locale,
+  });
+}
 
 const createTicketSchema = z.object({
   subject: z.string().min(5).max(200),
@@ -127,7 +147,7 @@ export async function replyToTicket(
   if (ticket.status === "CLOSED" && !isStaff) return fail("Ticket is closed");
   if (isInternal && !isStaff) return fail("Forbidden");
 
-  await prisma.ticketMessage.create({
+  const message = await prisma.ticketMessage.create({
     data: {
       ticketId,
       senderId: user.id,
@@ -181,11 +201,19 @@ export async function replyToTicket(
         ticketId,
       });
     }
+
+    void notifyWatchers(
+      ticketId,
+      ticket.ticketNumber,
+      ticket.subject,
+      isStaff ? "Staff replied" : "Customer replied",
+      user.id
+    );
   }
 
   revalidatePath(`/dashboard/support/${ticketId}`);
   revalidatePath(`/admin/tickets/${ticketId}`);
-  return ok(undefined);
+  return ok({ messageId: message.id });
 }
 
 export async function updateTicketStatus(
@@ -225,6 +253,14 @@ export async function updateTicketStatus(
     entityId: ticketId,
     metadata: { from: ticket.status, to: status },
   });
+
+  void notifyWatchers(
+    ticketId,
+    ticket.ticketNumber,
+    ticket.subject,
+    `Status changed to ${status.replace(/_/g, " ")}`,
+    user.id
+  );
 
   revalidatePath(`/admin/tickets/${ticketId}`);
   revalidatePath("/admin/tickets");
@@ -267,6 +303,14 @@ export async function assignTicket(
     metadata: { assigneeId },
   });
 
+  void notifyWatchers(
+    ticketId,
+    ticket.ticketNumber,
+    ticket.subject,
+    assigneeId ? "Ticket reassigned" : "Ticket unassigned",
+    user.id
+  );
+
   revalidatePath(`/admin/tickets/${ticketId}`);
   return ok(undefined);
 }
@@ -275,10 +319,16 @@ export async function updateTicketPriority(
   ticketId: string,
   priority: TicketPriority
 ): Promise<ActionResult> {
-  const { error } = await requireActionPermission("tickets.write");
+  const { user, error } = await requireActionPermission("tickets.write");
   if (error) return error;
 
-  const sla = computeSlaDueDates(priority);
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    select: { createdAt: true, ticketNumber: true, subject: true },
+  });
+  if (!ticket) return fail("Ticket not found");
+
+  const sla = computeSlaDueDates(priority, ticket.createdAt);
   await prisma.supportTicket.update({
     where: { id: ticketId },
     data: {
@@ -287,6 +337,8 @@ export async function updateTicketPriority(
       slaResolveDueAt: sla.slaResolveDueAt,
     },
   });
+
+  void notifyWatchers(ticketId, ticket.ticketNumber, ticket.subject, `Priority set to ${priority}`, user.id);
 
   revalidatePath(`/admin/tickets/${ticketId}`);
   return ok(undefined);
@@ -401,8 +453,12 @@ export async function getTicketsAdmin(params: {
   status?: TicketStatus;
   category?: TicketCategory;
   priority?: TicketPriority;
+  department?: import("@prisma/client").TicketDepartment;
   search?: string;
   assigneeId?: string;
+  queue?: TicketQueue;
+  currentUserId?: string;
+  tag?: string;
 }) {
   const { error } = await requireActionPermission("tickets.read");
   if (error) return error;
@@ -411,17 +467,30 @@ export async function getTicketsAdmin(params: {
   const limit = 20;
   const skip = (page - 1) * limit;
 
+  const queueFilter = params.queue && params.queue !== "all"
+    ? queueWhere(params.queue, params.currentUserId)
+    : {};
+
   const where = {
+    ...queueFilter,
     ...(params.status && { status: params.status }),
     ...(params.category && { category: params.category }),
     ...(params.priority && { priority: params.priority }),
-    ...(params.assigneeId && { assigneeId: params.assigneeId }),
+    ...(params.department && { department: params.department }),
+    ...(params.assigneeId === "unassigned"
+      ? { assigneeId: null }
+      : params.assigneeId
+        ? { assigneeId: params.assigneeId }
+        : {}),
     ...(params.search && {
       OR: [
         { subject: { contains: params.search, mode: "insensitive" as const } },
         { ticketNumber: { contains: params.search, mode: "insensitive" as const } },
         { user: { username: { contains: params.search, mode: "insensitive" as const } } },
       ],
+    }),
+    ...(params.tag && {
+      tags: { array_contains: [params.tag.trim().toLowerCase()] },
     }),
   };
 
@@ -502,12 +571,22 @@ export async function escalateTicket(ticketId: string) {
   const { user, error } = await requireActionPermission("tickets.write");
   if (error) return error;
 
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    select: { createdAt: true, ticketNumber: true, subject: true },
+  });
+  if (!ticket) return fail("Ticket not found");
+
+  const sla = computeSlaDueDates("URGENT", ticket.createdAt);
+
   await prisma.supportTicket.update({
     where: { id: ticketId },
     data: {
       status: "ESCALATED",
       priority: "URGENT",
       escalatedAt: new Date(),
+      slaResponseDueAt: sla.slaResponseDueAt,
+      slaResolveDueAt: sla.slaResolveDueAt,
     },
   });
 
@@ -518,19 +597,37 @@ export async function escalateTicket(ticketId: string) {
     entityId: ticketId,
   });
 
+  void notifyWatchers(ticketId, ticket.ticketNumber, ticket.subject, "Ticket escalated", user.id);
+
   revalidatePath(`/admin/tickets/${ticketId}`);
   return ok(undefined);
 }
 
 export async function addTicketTags(ticketId: string, tags: string[]) {
-  const { error } = await requireActionPermission("tickets.write");
+  const { user, error } = await requireActionPermission("tickets.write");
   if (error) return error;
 
-  const cleaned = Array.from(new Set(tags.map((t) => t.trim()).filter(Boolean))).slice(0, 20);
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    select: { ticketNumber: true, subject: true },
+  });
+  if (!ticket) return fail("Ticket not found");
+
+  const cleaned = Array.from(new Set(tags.map((t) => t.trim().toLowerCase()).filter(Boolean))).slice(0, 20);
   await prisma.supportTicket.update({
     where: { id: ticketId },
     data: { tags: cleaned },
   });
+
+  await createAuditLog({
+    actorId: user.id,
+    action: "ticket.tags_update",
+    entityType: "SupportTicket",
+    entityId: ticketId,
+    metadata: { tags: cleaned },
+  });
+
+  void notifyWatchers(ticketId, ticket.ticketNumber, ticket.subject, "Tags updated", user.id);
 
   revalidatePath(`/admin/tickets/${ticketId}`);
   return ok(undefined);
@@ -584,6 +681,20 @@ export async function transferTicketDepartment(
     entityId: ticketId,
     metadata: { department },
   });
+
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    select: { ticketNumber: true, subject: true },
+  });
+  if (ticket) {
+    void notifyWatchers(
+      ticketId,
+      ticket.ticketNumber,
+      ticket.subject,
+      `Transferred to ${department.replace(/_/g, " ")}`,
+      user.id
+    );
+  }
 
   revalidatePath(`/admin/tickets/${ticketId}`);
   return ok(undefined);
@@ -680,4 +791,47 @@ export async function getTicketDashboardStats() {
     resolvedToday,
     avgResponseMinutes,
   });
+}
+
+export async function getTicketActivity(ticketId: string) {
+  const { error } = await requireActionPermission("tickets.read");
+  if (error) return error;
+
+  const logs = await prisma.auditLog.findMany({
+    where: { entityType: "SupportTicket", entityId: ticketId },
+    orderBy: { createdAt: "desc" },
+    take: 40,
+    include: { actor: { select: { username: true, displayName: true } } },
+  });
+
+  return ok(
+    logs.map((log) => ({
+      id: log.id,
+      action: log.action,
+      metadata: log.metadata,
+      createdAt: log.createdAt,
+      actor: log.actor
+        ? log.actor.displayName ?? log.actor.username
+        : "System",
+    }))
+  );
+}
+
+export async function getTicketAttachmentUrl(attachmentId: string) {
+  const { user, error } = await requireActionUser();
+  if (error) return error;
+
+  const attachment = await prisma.ticketAttachment.findUnique({
+    where: { id: attachmentId },
+    include: { ticket: { select: { userId: true } } },
+  });
+  if (!attachment) return fail("Attachment not found");
+
+  const canAccess =
+    attachment.ticket.userId === user.id || hasPermission(user.role, "tickets.read");
+  if (!canAccess) return fail("Forbidden");
+
+  const { getSignedDownloadUrl } = await import("@/lib/r2");
+  const url = await getSignedDownloadUrl(attachment.fileKey, 600);
+  return ok({ url, fileName: attachment.fileName, mimeType: attachment.mimeType });
 }

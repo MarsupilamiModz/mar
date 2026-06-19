@@ -1,21 +1,52 @@
 import { getTicketsAdmin, getTicketDashboardStats } from "@/actions/tickets";
-import { TicketsTable } from "@/components/admin/tickets-table";
-import { TicketDashboardWidgets } from "@/components/admin/ticket-dashboard-widgets";
+import { AdminTicketsPageClient } from "@/components/admin/admin-tickets-page-client";
+import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import type { TicketQueue } from "@/lib/ticket-queues";
 import type { Locale } from "@/i18n/config";
+
+const VALID_QUEUES = new Set<TicketQueue>([
+  "all",
+  "open",
+  "pending",
+  "escalated",
+  "unassigned",
+  "mine",
+  "waiting_user",
+  "solved",
+  "closed",
+]);
 
 export default async function AdminTicketsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: Locale }>;
-  searchParams: { page?: string };
+  searchParams: Promise<{ page?: string; queue?: string }>;
 }) {
   const { locale } = await params;
+  const sp = await searchParams;
+  const user = await getCurrentUser();
+  const queueParam = sp.queue as TicketQueue | undefined;
+  const queue: TicketQueue =
+    queueParam && VALID_QUEUES.has(queueParam) ? queueParam : "all";
 
-  const [result, statsResult] = await Promise.all([
-    getTicketsAdmin({ page: Number(searchParams.page) || 1 }),
+  const [result, statsResult, staffUsers] = await Promise.all([
+    getTicketsAdmin({
+      page: Number(sp.page) || 1,
+      queue,
+      currentUserId: user?.id,
+    }),
     getTicketDashboardStats(),
+    prisma.user.findMany({
+      where: {
+        role: { in: ["OWNER", "ADMIN", "MODERATOR", "SUPPORT"] },
+        deletedAt: null,
+      },
+      select: { id: true, username: true },
+    }),
   ]);
+
   const data = result.success
     ? result.data
     : { tickets: [], pages: 0, page: 1 };
@@ -32,20 +63,15 @@ export default async function AdminTicketsPage({
       };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Support Tickets</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Enterprise support dashboard — assignment, SLA, and escalation</p>
-      </div>
-      <TicketDashboardWidgets stats={stats} />
-      <div>
-        <TicketsTable
-          locale={locale}
-          initialTickets={data.tickets}
-          initialPages={data.pages}
-          initialPage={data.page}
-        />
-      </div>
-    </div>
+    <AdminTicketsPageClient
+      locale={locale}
+      currentUserId={user!.id}
+      initialTickets={data.tickets}
+      initialPages={data.pages}
+      initialPage={data.page}
+      initialQueue={queue}
+      stats={stats}
+      staffUsers={staffUsers}
+    />
   );
 }

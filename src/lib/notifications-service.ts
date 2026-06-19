@@ -158,14 +158,16 @@ export async function notifyTicketAssigned(params: {
   ticketNumber: string;
   subject: string;
   assignedBy: string;
+  locale?: string;
 }) {
+  const loc = params.locale ?? "en";
   return notifyUser({
     userId: params.assigneeId,
     type: "SYSTEM",
     category: "support",
     title: `Ticket assigned: ${params.ticketNumber}`,
     body: `${params.assignedBy} assigned you: ${params.subject}`,
-    link: `/en/admin/tickets/${params.ticketId}`,
+    link: `/${loc}/admin/tickets/${params.ticketId}`,
     metadata: { ticketId: params.ticketId, ticketNumber: params.ticketNumber },
   });
 }
@@ -176,7 +178,9 @@ export async function notifyTicketWatchers(params: {
   subject: string;
   body: string;
   excludeUserId?: string;
+  locale?: string;
 }) {
+  const loc = params.locale ?? "en";
   const watchers = await prisma.ticketWatcher.findMany({
     where: {
       ticketId: params.ticketId,
@@ -193,7 +197,7 @@ export async function notifyTicketWatchers(params: {
         category: "support",
         title: `Update on ${params.ticketNumber}`,
         body: params.body || params.subject,
-        link: `/en/admin/tickets/${params.ticketId}`,
+        link: `/${loc}/admin/tickets/${params.ticketId}`,
         metadata: { ticketId: params.ticketId, ticketNumber: params.ticketNumber },
       })
     )
