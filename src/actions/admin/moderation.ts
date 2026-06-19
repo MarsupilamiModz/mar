@@ -17,6 +17,7 @@ import { banExpiresFromPreset, type BanDurationPreset } from "@/lib/user-moderat
 import type { ModerationAction } from "@/lib/moderation-types";
 import {
   createModerationLogEntry,
+  createUserBanRecord,
   flaggedUsersWhere,
   listModerationUsers,
   listRecentModerationLogs,
@@ -112,29 +113,22 @@ export async function moderateBanUser(input: z.infer<typeof banSchema>): Promise
   const action: ModerationAction =
     parsed.data.duration === "permanent" ? "BAN_PERMANENT" : "BAN_TEMPORARY";
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: parsed.data.userId },
-      data: {
-        isBanned: true,
-        banReason: parsed.data.reason,
-        bannedAt: new Date(),
-        bannedById: actor.id,
-        banExpiresAt: expiresAt,
-        moderationNote: parsed.data.internalNote ?? null,
-      } as Record<string, unknown> as never,
-    }),
-    prisma.userBan.create({
-      data: {
-        userId: parsed.data.userId,
-        reason: parsed.data.reason,
-        bannedById: actor.id,
-        banType,
-        expiresAt,
-        internalNote: parsed.data.internalNote,
-      } as Record<string, unknown> as never,
-    }),
-  ]);
+  await updateUserModerationFields(parsed.data.userId, {
+    isBanned: true,
+    banReason: parsed.data.reason,
+    bannedAt: new Date(),
+    bannedById: actor.id,
+    banExpiresAt: expiresAt,
+    moderationNote: parsed.data.internalNote ?? null,
+  });
+  await createUserBanRecord({
+    userId: parsed.data.userId,
+    reason: parsed.data.reason,
+    bannedById: actor.id,
+    banType,
+    expiresAt,
+    internalNote: parsed.data.internalNote,
+  });
 
   const target = check.data!;
   if (target.supabaseId) invalidateUserSessionCache(target.supabaseId);
@@ -168,22 +162,17 @@ export async function moderateUnbanUser(userId: string, note?: string): Promise<
   const target = await prisma.user.findUnique({ where: { id: userId } });
   if (!target) return fail("User not found");
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
-      data: {
-        isBanned: false,
-        banReason: null,
-        bannedAt: null,
-        bannedById: null,
-        banExpiresAt: null,
-      } as Record<string, unknown> as never,
-    }),
-    prisma.userBan.updateMany({
-      where: { userId, liftedAt: null },
-      data: { liftedAt: new Date() },
-    }),
-  ]);
+  await updateUserModerationFields(userId, {
+    isBanned: false,
+    banReason: null,
+    bannedAt: null,
+    bannedById: null,
+    banExpiresAt: null,
+  });
+  await prisma.userBan.updateMany({
+    where: { userId, liftedAt: null },
+    data: { liftedAt: new Date() },
+  });
 
   if (target.supabaseId) invalidateUserSessionCache(target.supabaseId);
 

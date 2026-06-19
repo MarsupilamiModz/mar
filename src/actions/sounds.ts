@@ -12,6 +12,7 @@ import { getPreviewLimitSeconds, isAudioFileName, MAX_PREVIEW_BYTES } from "@/li
 import { fileSizeNumber } from "@/lib/file-size";
 import { probeAudioFromStorage } from "@/lib/audio-probe";
 import { mimeFromFileName } from "@/lib/sound-storage";
+import { pickPrismaModelFields } from "@/lib/prisma-schema";
 import { z } from "zod";
 
 const soundProfileSchema = z.object({
@@ -120,36 +121,40 @@ export async function attachSoundPreviewFromSession(
 
   await registerMediaFromSession(session, "SOUND_PREVIEW", user.id, modId);
 
-  const soundExtras = {
+  const soundExtras = pickPrismaModelFields("SoundProfile", {
     previewFileId: soundFileId,
     previewMimeType: audioMeta.mimeType || mimeType,
     previewBitrateKbps: audioMeta.bitrateKbps ?? undefined,
     uploadedById: user.id,
-  };
+  });
+
+  const createData = pickPrismaModelFields("SoundProfile", {
+    modId,
+    previewFileKey: session.fileKey,
+    previewFileName: session.fileName,
+    previewFileSize: session.fileSize,
+    previewDurationSeconds: durationSeconds,
+    durationSeconds: durationSeconds,
+    previewScanStatus: "PENDING",
+    waveformPeaks: meta?.waveformPeaks as Prisma.InputJsonValue,
+    ...soundExtras,
+  });
+
+  const updateData = pickPrismaModelFields("SoundProfile", {
+    previewFileKey: session.fileKey,
+    previewFileName: session.fileName,
+    previewFileSize: session.fileSize,
+    previewDurationSeconds: durationSeconds,
+    durationSeconds: durationSeconds ?? undefined,
+    previewScanStatus: "PENDING",
+    waveformPeaks: meta?.waveformPeaks as Prisma.InputJsonValue,
+    ...soundExtras,
+  });
 
   await prisma.soundProfile.upsert({
     where: { modId },
-    create: {
-      modId,
-      previewFileKey: session.fileKey,
-      previewFileName: session.fileName,
-      previewFileSize: session.fileSize,
-      previewDurationSeconds: durationSeconds,
-      durationSeconds: durationSeconds,
-      previewScanStatus: "PENDING",
-      waveformPeaks: meta?.waveformPeaks as Prisma.InputJsonValue,
-      ...soundExtras,
-    } as Prisma.SoundProfileUncheckedCreateInput,
-    update: {
-      previewFileKey: session.fileKey,
-      previewFileName: session.fileName,
-      previewFileSize: session.fileSize,
-      previewDurationSeconds: durationSeconds,
-      durationSeconds: durationSeconds ?? undefined,
-      previewScanStatus: "PENDING",
-      waveformPeaks: meta?.waveformPeaks as Prisma.InputJsonValue,
-      ...soundExtras,
-    } as Prisma.SoundProfileUncheckedUpdateInput,
+    create: createData as Prisma.SoundProfileUncheckedCreateInput,
+    update: updateData as Prisma.SoundProfileUncheckedUpdateInput,
   });
 
   revalidatePath(`/mods/${mod.slug}`);

@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { ModerationAction } from "@/lib/moderation-types";
+import { buildPrismaSelect, pickPrismaModelFields, prismaModelExists } from "@/lib/prisma-schema";
 
 export type ModerationLogRow = {
   id: string;
@@ -18,6 +19,7 @@ type ModerationLogDelegate = {
 };
 
 function moderationLogDelegate(): ModerationLogDelegate | null {
+  if (!prismaModelExists("UserModerationLog")) return null;
   return (prisma as unknown as { userModerationLog?: ModerationLogDelegate }).userModerationLog ?? null;
 }
 
@@ -110,18 +112,21 @@ export async function listRecentModerationLogs(limit = 30): Promise<ModerationLo
   return rows;
 }
 
-/** Core User fields — valid on all deployed Prisma clients. */
-const CORE_USER_LIST_SELECT = {
+const CORE_USER_LIST_SELECT = buildPrismaSelect("User", {
   id: true,
   username: true,
   email: true,
   displayName: true,
   role: true,
   isBanned: true,
+  isSuspended: true,
+  isMuted: true,
+  warningCount: true,
   banReason: true,
+  banExpiresAt: true,
   bannedAt: true,
   createdAt: true,
-} as const;
+});
 
 export type ModerationUserRow = {
   id: string;
@@ -181,14 +186,17 @@ export async function updateUserModerationFields(
   userId: string,
   data: Record<string, unknown>
 ) {
+  const safe = pickPrismaModelFields("User", data);
+  if (Object.keys(safe).length === 0) return;
   await prisma.user.update({
     where: { id: userId },
-    data: data as Prisma.UserUpdateInput,
+    data: safe as Prisma.UserUpdateInput,
   });
 }
 
 export async function createUserBanRecord(data: Record<string, unknown>) {
+  const safe = pickPrismaModelFields("UserBan", data);
   await prisma.userBan.create({
-    data: data as Prisma.UserBanCreateInput,
+    data: safe as Prisma.UserBanCreateInput,
   });
 }

@@ -5,6 +5,7 @@ import type { Prisma } from "@prisma/client";
 import { getObjectBufferFromR2 } from "@/lib/r2";
 import { parseAudioMetadata, mimeFromAudioFileName } from "@/lib/audio-metadata";
 import { estimateBitrateKbps } from "@/lib/sound-storage";
+import { pickPrismaModelFields } from "@/lib/prisma-schema";
 
 const MAX_PROBE_BYTES = 8 * 1024 * 1024;
 
@@ -78,13 +79,16 @@ export async function ensureSoundProfileMetadata(modId: string) {
 
   if (!durationSeconds && !meta.mimeType) return profile;
 
+  const data = pickPrismaModelFields("SoundProfile", {
+    previewDurationSeconds: durationSeconds ?? undefined,
+    durationSeconds: durationSeconds ?? profile.durationSeconds ?? undefined,
+    previewMimeType: meta.mimeType,
+    previewBitrateKbps: meta.bitrateKbps ?? undefined,
+  });
+  if (Object.keys(data).length === 0) return profile;
+
   return prisma.soundProfile.update({
     where: { modId },
-    data: {
-      previewDurationSeconds: durationSeconds ?? undefined,
-      durationSeconds: durationSeconds ?? profile.durationSeconds ?? undefined,
-      previewMimeType: meta.mimeType,
-      previewBitrateKbps: meta.bitrateKbps ?? undefined,
-    } as Prisma.SoundProfileUncheckedUpdateInput,
+    data: data as Prisma.SoundProfileUncheckedUpdateInput,
   });
 }

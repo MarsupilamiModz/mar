@@ -1,14 +1,18 @@
 import { prisma } from "@/lib/db";
+import { buildPrismaSelect } from "@/lib/prisma-schema";
 
 export type BanDurationPreset = "1d" | "3d" | "7d" | "30d" | "permanent";
 
-/** Fields present on all deployed User schemas — safe at Prisma runtime. */
-const CORE_BAN_SELECT = {
+const BAN_STATE_SELECT = buildPrismaSelect("User", {
   id: true,
   isBanned: true,
   banReason: true,
   bannedAt: true,
-} as const;
+  banExpiresAt: true,
+  isSuspended: true,
+  isMuted: true,
+  warningCount: true,
+});
 
 export type BanStateRow = {
   id: string;
@@ -38,26 +42,10 @@ function normalizeBanState(raw: Record<string, unknown> | null): BanStateRow | n
 export async function fetchBanState(userId: string): Promise<BanStateRow | null> {
   const row = await prisma.user.findUnique({
     where: { id: userId },
-    select: CORE_BAN_SELECT,
+    select: BAN_STATE_SELECT,
   });
   if (!row) return null;
-
-  let banExpiresAt: Date | null = null;
-  try {
-    const userBanDelegate = prisma.userBan as unknown as {
-      findFirst: (args: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
-    };
-    const activeBan = await userBanDelegate.findFirst({
-      where: { userId, liftedAt: null },
-      orderBy: { createdAt: "desc" },
-      select: { expiresAt: true, createdAt: true },
-    });
-    banExpiresAt = (activeBan?.expiresAt as Date | null | undefined) ?? null;
-  } catch {
-    /* UserBan.expiresAt column may not exist pre-migration */
-  }
-
-  return normalizeBanState({ ...row, banExpiresAt });
+  return normalizeBanState(row as Record<string, unknown>);
 }
 
 export function banExpiresFromPreset(preset: BanDurationPreset): Date | null {
