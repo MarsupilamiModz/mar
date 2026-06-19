@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleString } from "@/lib/i18n/safe-locale";
 import { useTransition } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "@/hooks/use-toast";

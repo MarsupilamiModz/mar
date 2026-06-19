@@ -1,5 +1,5 @@
 import { setRequestLocale } from "next-intl/server";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleDateString } from "@/lib/i18n/safe-locale";
 import { requireAuth } from "@/lib/auth";
 import { getMyCreatorApplication } from "@/actions/applications";
 import { CreatorApplicationForm } from "@/components/applications/creator-application-form";

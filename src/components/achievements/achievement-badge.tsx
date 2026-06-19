@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleDateString } from "@/lib/i18n/safe-locale";
 import { RARITY_STYLES } from "@/lib/achievements";
 import type { AchievementRarity } from "@prisma/client";
 

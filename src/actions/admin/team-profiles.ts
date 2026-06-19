@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { TeamVisibility } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionPermission } from "@/lib/action-utils";
+import { ok, requireActionPermission } from "@/lib/action-utils";
 import { createAuditLog } from "@/lib/audit";
 
 export async function listTeamDepartmentsAdmin() {

@@ -13,7 +13,6 @@ import {
   notifyStaffNewTicket,
   notifyTicketAssigned,
   notifyTicketReply,
-  notifyTicketWatchers,
 } from "@/lib/notifications-service";
 import { computeSlaDueDates, isSlaOverdue } from "@/lib/sla";
 import { categoryToDepartment } from "@/lib/ticket-labels";

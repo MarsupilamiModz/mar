@@ -200,7 +200,7 @@ export function SoundWaveformPlayer({
     if (ws?.setTime && duration > 0) {
       ws.setTime(progress);
     }
-  }, [progress, duration, global?.current?.id, modId, useGlobalPlayer]);
+  }, [progress, duration, global, modId, useGlobalPlayer]);
 
   const displayDuration =
     previewLimitSeconds && previewLimitSeconds < duration

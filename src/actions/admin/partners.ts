@@ -128,7 +128,7 @@ export async function createPartnerProfile(input: z.infer<typeof profileSchema>)
   const target = await prisma.user.findUnique({ where: { id: parsed.data.userId } });
   if (!target) return fail("User not found");
 
-  let resolved = resolveSlug({
+  const resolved = resolveSlug({
     name: target.displayName ?? target.username,
     slug: parsed.data.slug,
     fallbackPrefix: target.username,

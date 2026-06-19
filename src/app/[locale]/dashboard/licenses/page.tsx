@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleDateString } from "@/lib/i18n/safe-locale";
 import { useTranslations } from "next-intl";
 import { redeemLicense, getUserLicenses } from "@/actions/licenses";
 import { Button } from "@/components/ui/button";

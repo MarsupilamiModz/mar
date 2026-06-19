@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleDateString } from "@/lib/i18n/safe-locale";
 import { ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SecurityBadge } from "@/components/security/security-badge";

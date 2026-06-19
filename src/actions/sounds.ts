@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { Prisma, SoundAudioCategory, SoundPreviewType } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { fail, ok, requireActionUser } from "@/lib/action-utils";
 import { hasPermission } from "@/lib/permissions";
@@ -9,7 +9,7 @@ import { getSignedDownloadUrl } from "@/lib/r2";
 import { resolveAssetUrl } from "@/lib/assets";
 import { registerMediaFromSession } from "@/lib/media-files";
 import { getPreviewLimitSeconds, isAudioFileName, MAX_PREVIEW_BYTES } from "@/lib/sound";
-import { fileSizeBigInt, fileSizeNumber } from "@/lib/file-size";
+import { fileSizeNumber } from "@/lib/file-size";
 import { z } from "zod";
 
 const soundProfileSchema = z.object({
@@ -243,6 +243,3 @@ export async function getCreatorSoundAnalytics(userId: string) {
     })),
   };
 }
-
-export type SoundProfileInput = z.infer<typeof soundProfileSchema>;
-export { soundProfileSchema };

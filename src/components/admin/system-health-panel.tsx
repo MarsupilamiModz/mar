@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleString } from "@/lib/i18n/safe-locale";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -41,7 +41,7 @@ export function SystemHealthPanel({
   metrics = null,
   translationAudit = { referenceLocale: "en", totalReferenceKeys: 0, locales: [], summary: "" },
   platformAudit,
-  lazyAudit = false,
+  lazyAudit: _lazyAudit = false,
 }: {
   locale: string;
   logs: PlatformErrorEntry[];

@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db";
 import {
   extractStoragePathFromUrl,
   isLikelyStorageKey,
-  mediaUrlForEntity,
   normalizeStoragePath,
   registerMediaFile,
   resolveMediaPublicUrl,

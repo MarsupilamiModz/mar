@@ -1,7 +1,7 @@
 "use client";
 
 import { Card } from "@/components/ui/card";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleString } from "@/lib/i18n/safe-locale";
 import { Badge } from "@/components/ui/badge";
 import { formatRoleLabel } from "@/lib/role-display";
 

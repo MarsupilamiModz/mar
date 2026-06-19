@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleString } from "@/lib/i18n/safe-locale";
 import type { ShopProductCategory } from "@prisma/client";
 
 export const DEFAULT_CREDIT_PACKS = [

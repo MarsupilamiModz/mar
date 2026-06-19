@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleString } from "@/lib/i18n/safe-locale";
 import { SafeImage } from "@/components/ui/safe-image";
 import type { PublisherLevel } from "@prisma/client";
 import { Card } from "@/components/ui/card";

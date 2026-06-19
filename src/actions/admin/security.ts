@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { FileScanStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionPermission, requireActionUser } from "@/lib/action-utils";
+import { fail, ok, requireActionPermission } from "@/lib/action-utils";
 import {
   getMalwareScannerSettings,
   getMalwareScannerSettingsRaw,

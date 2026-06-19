@@ -4,7 +4,7 @@ import { StudioProfileUpload } from "@/components/studio/studio-profile-upload";
 import type { Locale } from "@/i18n/config";
 
 export default async function DesignerSettingsPage({ params }: { params: Promise<{ locale: Locale }> }) {
-  const { locale } = await params;
+  const { locale: _locale } = await params;
 
   const user = await requireDesigner();
   const profile = await prisma.designerProfile.findUnique({ where: { userId: user.id } });

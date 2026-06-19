@@ -1,6 +1,6 @@
 "use client";
 
-import { classifyFetchError, formatUploadErrorMessage, UploadError } from "@/lib/upload-errors";
+import { classifyFetchError, UploadError } from "@/lib/upload-errors";
 import { uploadFetch, uploadFetchJson } from "@/lib/upload-fetch";
 import { logUploadDiagnostic, MAX_UPLOAD_BYTES, MULTIPART_PART_SIZE } from "@/lib/upload-limits";
 
@@ -169,7 +169,7 @@ export async function performMultipartUpload(input: MultipartUploadInput): Promi
 
   const existing = getStoredResumeState();
   let init: MultipartInitResponse;
-  let completedParts = new Map<number, string>();
+  const completedParts = new Map<number, string>();
 
   if (
     existing &&

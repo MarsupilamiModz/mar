@@ -348,8 +348,8 @@ export async function duplicateShopProduct(id: string) {
 
     const {
       id: _id,
-      createdAt,
-      updatedAt,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
       formFields,
       media,
       tags,

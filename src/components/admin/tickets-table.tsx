@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleDateString } from "@/lib/i18n/safe-locale";
 import { useState, useTransition } from "react";
 import { TicketCategory, TicketPriority, TicketStatus } from "@prisma/client";
 import { getTicketsAdmin } from "@/actions/tickets";

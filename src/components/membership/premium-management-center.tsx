@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { getIntlLocale } from "@/lib/i18n/safe-locale";
 import Link from "next/link";
 import { ExternalLink, CreditCard, Calendar, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";

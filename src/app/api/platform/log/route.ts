@@ -9,7 +9,10 @@ export async function POST(req: Request) {
     const digest = typeof body.digest === "string" ? body.digest : undefined;
     const route = typeof body.route === "string" ? body.route : undefined;
 
-    await logPlatformError(`${context}${route ? `:${route}` : ""}`, new Error(message));
+    await logPlatformError(
+      `${context}${route ? `:${route}` : ""}${digest ? `:${digest}` : ""}`,
+      new Error(message)
+    );
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ ok: false }, { status: 500 });

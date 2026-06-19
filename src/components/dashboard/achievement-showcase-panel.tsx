@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleString, safeToLocaleDateString } from "@/lib/i18n/safe-locale";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Star, StarOff, RefreshCw, ChevronUp, ChevronDown, GripVertical } from "lucide-react";

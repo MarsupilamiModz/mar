@@ -16,7 +16,7 @@ import { fail, ok, requireActionUser, requireActionPermission } from "@/lib/acti
 import { hasPermission } from "@/lib/permissions";
 import { modCreateSchema } from "@/lib/validations";
 import { modFileKey, uploadToR2, copyObjectInR2, deleteFromR2, hashObjectFromR2 } from "@/lib/r2";
-import { getMalwareScannerSettings, getMalwareScannerSettingsRaw } from "@/lib/malware-settings";
+import { getMalwareScannerSettingsRaw } from "@/lib/malware-settings";
 import { serializeModForEdit } from "@/lib/media-serialize";
 import { enqueueScan, getCreatorScanPriority } from "@/lib/security/scan-queue";
 import { logSecurityEvent } from "@/lib/security/audit";

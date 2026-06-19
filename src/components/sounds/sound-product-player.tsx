@@ -60,7 +60,7 @@ export function SoundProductPlayer({ modId, slug, title, sound }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [modId, sound.waveformPeaks]);
+  }, [modId, sound.waveformPeaks, sound.previewDurationSeconds, sound.durationSeconds]);
 
   const coverUrl = sound.coverImageKey ? resolveAssetUrl(sound.coverImageKey) : null;
   const limit = getPreviewLimitSeconds(

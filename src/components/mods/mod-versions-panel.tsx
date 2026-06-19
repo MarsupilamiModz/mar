@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleString } from "@/lib/i18n/safe-locale";
 import { formatDistanceToNow } from "date-fns";
 import { Download, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";

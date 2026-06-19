@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { buildAssetPublicUrl } from "@/lib/assets";
 import { revalidatePath } from "next/cache";
-import { mediaUrlForEntity, registerMediaFromSession } from "@/lib/media-files";
+import { registerMediaFromSession } from "@/lib/media-files";
 import {
   getBrandingAssetSettings,
   saveBrandingAssetSettings,

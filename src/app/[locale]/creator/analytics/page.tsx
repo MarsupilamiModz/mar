@@ -1,5 +1,5 @@
 import { requireAuth } from "@/lib/auth";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleString } from "@/lib/i18n/safe-locale";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   getCreatorAnalytics,

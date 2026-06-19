@@ -181,9 +181,6 @@ export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlanData, "id">[] = [
   },
 ];
 
-const activePurchaseWhere = {
-  OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-};
 
 export function parsePlanFeatures(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === "string");

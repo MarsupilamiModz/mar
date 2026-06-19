@@ -56,7 +56,7 @@ export async function claimNextScanJobs(limit = 3) {
     take: limit * 2,
   });
 
-  const eligible = jobs.filter((j) => j.attempts < j.maxAttempts).slice(0, limit);
+  const _eligible = jobs.filter((j) => j.attempts < j.maxAttempts).slice(0, limit);
 
   const claimed = [];
   for (const job of jobs) {

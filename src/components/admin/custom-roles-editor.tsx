@@ -7,7 +7,6 @@ import {
   ArrowUp,
   Copy,
   Plus,
-  Search,
   Shield,
   Trash2,
 } from "lucide-react";

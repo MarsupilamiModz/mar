@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleDateString } from "@/lib/i18n/safe-locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PartnerApplication } from "@prisma/client";
 

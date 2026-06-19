@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { safeToLocaleString, safeToLocaleDateString, getIntlLocale } from "@/lib/i18n/safe-locale";
+import { safeToLocaleDateString } from "@/lib/i18n/safe-locale";
 import { UserRole } from "@prisma/client";
 import {
   banUser,

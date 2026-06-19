@@ -11,7 +11,6 @@ import {
 } from "@/lib/membership";
 import { sendPaymentNotification, sendPremiumActivationEmail } from "@/lib/email/send";
 import { notifyPremiumActivated } from "@/lib/notifications-service";
-import { createAuditLog } from "@/lib/audit";
 import { logStripeServer } from "@/lib/stripe-config";
 import { upsertUserMembership, planSlugToTier, syncUserRoleFromMembership } from "@/lib/user-membership";
 import type Stripe from "stripe";

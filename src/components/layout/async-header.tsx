@@ -9,7 +9,6 @@ import {
   type NavLabels,
 } from "@/components/layout/nav-labels";
 import type { NavUser } from "@/components/layout/user-nav";
-import type { Locale } from "@/i18n/config";
 import { getCachedPublicBranding } from "@/lib/branding-data";
 import { getSafeLocale } from "@/lib/i18n/safe-locale";
 

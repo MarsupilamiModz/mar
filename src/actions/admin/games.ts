@@ -218,7 +218,7 @@ export async function createGameCategory(
   const { error } = await requireActionPermission("games.write");
   if (error) return error;
 
-  let resolved = resolveSlug({ name: input.name, slug: input.slug });
+  const resolved = resolveSlug({ name: input.name, slug: input.slug });
   let slug = resolved.slug;
   if (input.parentId) {
     const parent = await prisma.gameCategory.findUnique({ where: { id: input.parentId } });
