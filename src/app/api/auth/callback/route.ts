@@ -8,7 +8,7 @@ import { syncDiscordRoles } from "@/lib/discord";
 import { hasPremiumAccess } from "@/lib/auth";
 import { logAuthEvent } from "@/lib/auth-log";
 import { warmDbConnection, withDbRetry } from "@/lib/db";
-import { getCachedUserBySupabaseId } from "@/lib/auth-cache";
+import { findAppUserBySupabaseId } from "@/lib/user-sync";
 import { persistAuthAudit } from "@/lib/auth-audit";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
       void persistAuthAudit("auth.callback_sync_failed", { userId: data.user.id });
 
       dbUser = await withDbRetry(
-        () => getCachedUserBySupabaseId(data.user.id),
+        () => findAppUserBySupabaseId(data.user.id),
         { retries: 2, label: "auth:callback-fallback" }
       );
 

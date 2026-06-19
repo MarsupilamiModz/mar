@@ -1,7 +1,8 @@
 import type { User } from "@supabase/supabase-js";
+import { Prisma } from "@prisma/client";
 import { prisma, withDbRetry } from "@/lib/db";
 import { logPlatformError } from "@/lib/platform-log";
-import { getCachedUserBySupabaseId, invalidateUserSessionCache } from "@/lib/auth-cache";
+import { invalidateUserSessionCache } from "@/lib/auth-cache";
 import { isValidEmail } from "@/lib/email/address";
 
 const userInclude = {
@@ -13,11 +14,20 @@ const userInclude = {
 
 export type PrismaAppUser = Awaited<ReturnType<typeof findUserBySupabaseId>>;
 
+function isUniqueConstraintError(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
+}
+
 async function findUserBySupabaseId(supabaseId: string) {
   return prisma.user.findUnique({
     where: { supabaseId },
     include: userInclude,
   });
+}
+
+/** Direct DB lookup — use in auth recovery paths (never cached). */
+export async function findAppUserBySupabaseId(supabaseId: string) {
+  return withDbRetry(() => findUserBySupabaseId(supabaseId), { label: "user:find-supabase-direct" });
 }
 
 function sessionEmail(session: User): string {
@@ -40,12 +50,12 @@ function sessionUsernameBase(session: User): string {
 }
 
 async function uniqueUsername(base: string) {
-  let uniqueUsername = base;
+  let candidate = base;
   let i = 0;
-  while (await prisma.user.findUnique({ where: { username: uniqueUsername } })) {
-    uniqueUsername = `${base}${++i}`;
+  while (await prisma.user.findUnique({ where: { username: candidate } })) {
+    candidate = `${base}${++i}`;
   }
-  return uniqueUsername;
+  return candidate;
 }
 
 function discordFromSession(session: User) {
@@ -64,7 +74,10 @@ function discordFromSession(session: User) {
   };
 }
 
-function buildSessionSyncData(session: User, existing: NonNullable<Awaited<ReturnType<typeof getCachedUserBySupabaseId>>>) {
+function buildSessionSyncData(
+  session: User,
+  existing: NonNullable<Awaited<ReturnType<typeof findUserBySupabaseId>>>
+) {
   const email = sessionEmail(session);
   const sessionVerified = !!session.email_confirmed_at;
   const { discordId, discordUsername } = discordFromSession(session);
@@ -76,7 +89,12 @@ function buildSessionSyncData(session: User, existing: NonNullable<Awaited<Retur
     discordId?: string;
     discordUsername?: string;
     avatarUrl?: string;
+    supabaseId?: string;
   } = {};
+
+  if (existing.supabaseId !== session.id) {
+    data.supabaseId = session.id;
+  }
 
   if (isValidEmail(email) && email !== existing.email) {
     data.email = email;
@@ -102,141 +120,134 @@ function buildSessionSyncData(session: User, existing: NonNullable<Awaited<Retur
   return data;
 }
 
+async function syncExistingUser(session: User, existing: NonNullable<Awaited<ReturnType<typeof findUserBySupabaseId>>>) {
+  const syncData = buildSessionSyncData(session, existing);
+  if (Object.keys(syncData).length === 0) return existing;
+
+  if (syncData.email) {
+    const conflict = await prisma.user.findFirst({
+      where: {
+        email: syncData.email,
+        id: { not: existing.id },
+        deletedAt: null,
+      },
+    });
+    if (conflict) {
+      delete syncData.email;
+      delete syncData.emailVerified;
+      delete syncData.emailVerifiedAt;
+    }
+  }
+
+  if (Object.keys(syncData).length === 0) return existing;
+
+  try {
+    const updated = await prisma.user.update({
+      where: { id: existing.id },
+      data: syncData,
+      include: userInclude,
+    });
+    invalidateUserSessionCache(session.id);
+    if (existing.supabaseId && existing.supabaseId !== session.id) {
+      invalidateUserSessionCache(existing.supabaseId);
+    }
+    return updated;
+  } catch (err) {
+    if (isUniqueConstraintError(err)) {
+      const bySupabase = await findUserBySupabaseId(session.id);
+      if (bySupabase && !bySupabase.deletedAt) return bySupabase;
+    }
+    throw err;
+  }
+}
+
+async function resolveExistingAccount(session: User) {
+  const bySupabase = await findUserBySupabaseId(session.id);
+  if (bySupabase) return bySupabase;
+
+  const email = sessionEmail(session);
+  let linkedId: string | null = null;
+
+  if (isValidEmail(email)) {
+    const byEmail = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, deletedAt: true },
+    });
+    if (byEmail && !byEmail.deletedAt) linkedId = byEmail.id;
+  }
+
+  if (!linkedId) {
+    const { discordId } = discordFromSession(session);
+    if (discordId) {
+      const byDiscord = await prisma.user.findUnique({
+        where: { discordId },
+        select: { id: true, deletedAt: true },
+      });
+      if (byDiscord && !byDiscord.deletedAt) linkedId = byDiscord.id;
+    }
+  }
+
+  if (!linkedId) return null;
+
+  return prisma.user.findUnique({
+    where: { id: linkedId },
+    include: userInclude,
+  });
+}
+
+async function createAppUser(session: User) {
+  const email = sessionEmail(session);
+  const { discordId, discordUsername } = discordFromSession(session);
+  const username = await uniqueUsername(sessionUsernameBase(session));
+
+  return prisma.user.create({
+    data: {
+      supabaseId: session.id,
+      email,
+      username,
+      displayName:
+        (session.user_metadata?.full_name as string | undefined) ??
+        (session.user_metadata?.name as string | undefined) ??
+        username,
+      avatarUrl: session.user_metadata?.avatar_url as string | undefined,
+      emailVerified: !!session.email_confirmed_at,
+      emailVerifiedAt: session.email_confirmed_at
+        ? new Date(session.email_confirmed_at)
+        : null,
+      discordId,
+      discordUsername,
+    },
+    include: userInclude,
+  });
+}
+
 /** Upsert app user row from Supabase auth session — safe for OAuth callback + getCurrentUser. */
 export async function ensurePrismaUser(session: User) {
   const existing = await withDbRetry(
-    () => getCachedUserBySupabaseId(session.id),
-    { label: "user:find-supabase" }
+    () => resolveExistingAccount(session),
+    { label: "user:resolve-account" }
   );
 
   if (existing?.deletedAt) return null;
 
-  const { discordId, discordUsername } = discordFromSession(session);
-
   if (existing) {
-    const syncData = buildSessionSyncData(session, existing);
-    if (Object.keys(syncData).length > 0) {
-      if (syncData.email) {
-        const conflict = await withDbRetry(
-          () =>
-            prisma.user.findFirst({
-              where: {
-                email: syncData.email,
-                id: { not: existing.id },
-                deletedAt: null,
-              },
-            }),
-          { label: "user:email-conflict" }
-        );
-        if (conflict) {
-          delete syncData.email;
-          delete syncData.emailVerified;
-          delete syncData.emailVerifiedAt;
-        }
-      }
-
-      if (Object.keys(syncData).length > 0) {
-        const updated = await withDbRetry(
-          () =>
-            prisma.user.update({
-              where: { id: existing.id },
-              data: syncData,
-              include: userInclude,
-            }),
-          { label: "user:sync-session" }
-        );
-        invalidateUserSessionCache(session.id);
-        return updated;
-      }
-    }
-    return existing;
+    return withDbRetry(() => syncExistingUser(session, existing), { label: "user:sync-session" });
   }
-
-  const email = sessionEmail(session);
-  const byEmail = await withDbRetry(
-    () => prisma.user.findUnique({ where: { email } }),
-    { label: "user:find-email" }
-  );
-
-  if (byEmail && !byEmail.deletedAt) {
-    return withDbRetry(
-      () =>
-        prisma.user.update({
-          where: { id: byEmail.id },
-          data: {
-            supabaseId: session.id,
-            ...(discordId ? { discordId } : {}),
-            ...(discordUsername ? { discordUsername } : {}),
-            avatarUrl: (session.user_metadata?.avatar_url as string | undefined) ?? byEmail.avatarUrl,
-            emailVerified: byEmail.emailVerified || !!session.email_confirmed_at,
-            ...(session.email_confirmed_at
-              ? { emailVerifiedAt: new Date(session.email_confirmed_at) }
-              : {}),
-          },
-          include: userInclude,
-        }),
-      { label: "user:link-email" }
-    );
-  }
-
-  if (discordId) {
-    const byDiscord = await withDbRetry(
-      () => prisma.user.findUnique({ where: { discordId } }),
-      { label: "user:find-discord" }
-    );
-    if (byDiscord && !byDiscord.deletedAt) {
-      return withDbRetry(
-        () =>
-          prisma.user.update({
-            where: { id: byDiscord.id },
-            data: {
-              supabaseId: session.id,
-              discordUsername: discordUsername ?? byDiscord.discordUsername,
-              avatarUrl: (session.user_metadata?.avatar_url as string | undefined) ?? byDiscord.avatarUrl,
-              emailVerified: byDiscord.emailVerified || !!session.email_confirmed_at,
-            },
-            include: userInclude,
-          }),
-        { label: "user:link-discord" }
-      );
-    }
-  }
-
-  const username = await withDbRetry(
-    () => uniqueUsername(sessionUsernameBase(session)),
-    { label: "user:unique-name" }
-  );
 
   try {
-    return await withDbRetry(
-      () =>
-        prisma.user.create({
-          data: {
-            supabaseId: session.id,
-            email,
-            username,
-            displayName:
-              (session.user_metadata?.full_name as string | undefined) ??
-              (session.user_metadata?.name as string | undefined) ??
-              username,
-            avatarUrl: session.user_metadata?.avatar_url as string | undefined,
-            emailVerified: !!session.email_confirmed_at,
-            emailVerifiedAt: session.email_confirmed_at
-              ? new Date(session.email_confirmed_at)
-              : null,
-            discordId,
-            discordUsername,
-          },
-          include: userInclude,
-        }),
-      { label: "user:create" }
-    );
+    const created = await withDbRetry(() => createAppUser(session), { label: "user:create" });
+    invalidateUserSessionCache(session.id);
+    return created;
   } catch (err) {
-    const raced = await withDbRetry(
-      () => findUserBySupabaseId(session.id),
-      { label: "user:race-find" }
-    );
-    if (raced) return raced;
+    if (isUniqueConstraintError(err)) {
+      const raced = await withDbRetry(
+        () => findUserBySupabaseId(session.id),
+        { label: "user:race-find" }
+      );
+      if (raced && !raced.deletedAt) {
+        return syncExistingUser(session, raced);
+      }
+    }
     void logPlatformError("auth:ensure-user", err);
     throw err;
   }
