@@ -24,6 +24,11 @@ export function useTeamChatRealtime({
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const roomRef = useRef<RealtimeChannel | null>(null);
+  const onNewMessageRef = useRef(onNewMessage);
+
+  useEffect(() => {
+    onNewMessageRef.current = onNewMessage;
+  }, [onNewMessage]);
 
   const clearTyping = useCallback((userId: string) => {
     setTypingUsers((prev) => prev.filter((user) => user.id !== userId));
@@ -47,7 +52,7 @@ export function useTeamChatRealtime({
           table: "ChatMessage",
           filter: `channelId=eq.${channelId}`,
         },
-        () => onNewMessage()
+        () => onNewMessageRef.current()
       )
       .on("broadcast", { event: "typing" }, ({ payload }) => {
         const userId = String(payload?.userId ?? "");
@@ -82,7 +87,7 @@ export function useTeamChatRealtime({
         }
       });
 
-    const poll = window.setInterval(() => onNewMessage(), 15000);
+    const poll = window.setInterval(() => onNewMessageRef.current(), 15000);
 
     return () => {
       window.clearInterval(poll);
@@ -91,7 +96,7 @@ export function useTeamChatRealtime({
       void supabase.removeChannel(room);
       roomRef.current = null;
     };
-  }, [channelId, clearTyping, currentUser.id, currentUser.name, currentUser.role, onNewMessage]);
+  }, [channelId, clearTyping, currentUser.id, currentUser.name, currentUser.role]);
 
   const sendTyping = useCallback(
     (isTyping: boolean) => {

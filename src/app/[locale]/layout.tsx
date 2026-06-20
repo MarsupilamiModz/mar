@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
-import { defaultLocale, isValidLocale, locales, type Locale } from "@/i18n/config";
+import { isValidLocale, locales, type Locale } from "@/i18n/config";
 import { getSafeLocale } from "@/lib/i18n/safe-locale";
 import { IntlProvider } from "@/components/i18n/intl-provider";
 import { AsyncHeader } from "@/components/layout/async-header";
@@ -67,7 +67,7 @@ export default async function LocaleLayout({
   const { locale: rawLocale } = await params;
   const locale = getSafeLocale(rawLocale);
   if (!isValidLocale(rawLocale)) {
-    redirect(`/${defaultLocale}`);
+    redirect(`/${locale}`);
   }
   setRequestLocale(locale);
   let messages;

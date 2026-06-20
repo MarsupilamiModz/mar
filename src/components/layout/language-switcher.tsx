@@ -28,7 +28,6 @@ export function LanguageSwitcher({ locale }: { locale: string }) {
     }
     void persistUserLocale(next);
     router.push(segments.join("/") || `/${next}`);
-    router.refresh();
   }
 
   return (

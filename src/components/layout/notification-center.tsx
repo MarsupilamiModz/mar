@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Bell, Check, Trash2 } from "lucide-react";
@@ -67,6 +67,11 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId?
     if (listRes.success) setItems(listRes.data as NotificationRow[]);
   }, [debouncedSearch, category]);
 
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -74,7 +79,7 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId?
   useEffect(() => {
     if (!open) return;
     void refresh();
-    const interval = setInterval(() => void refresh(), 5000);
+    const interval = setInterval(() => void refreshRef.current(), 5000);
     return () => clearInterval(interval);
   }, [open, refresh]);
 
@@ -91,14 +96,14 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId?
           table: "Notification",
           filter: `userId=eq.${userId}`,
         },
-        () => void refresh()
+        () => void refreshRef.current()
       )
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [userId, refresh]);
+  }, [userId]);
 
   if (!userId) return null;
 

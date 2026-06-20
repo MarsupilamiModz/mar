@@ -4,17 +4,30 @@ import { createClient } from "@/lib/supabase/client";
 
 let recoveryPromise: Promise<boolean> | null = null;
 
+type MeResponse = {
+  id?: string;
+  sessionActive?: boolean;
+  prismaLinked?: boolean;
+} | null;
+
+async function fetchMe(): Promise<MeResponse> {
+  const meRes = await fetch("/api/auth/me", {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!meRes.ok) return null;
+  return (await meRes.json()) as MeResponse;
+}
+
+function isHealthySession(data: MeResponse): boolean {
+  return Boolean(data?.id);
+}
+
 async function runSessionRecovery(): Promise<boolean> {
   try {
-    const meRes = await fetch("/api/auth/me", {
-      credentials: "include",
-      cache: "no-store",
-    });
-    if (meRes.ok) {
-      const data = (await meRes.json()) as { id?: string; sessionActive?: boolean; prismaLinked?: boolean } | null;
-      if (data?.id) return true;
-      if (data === null) return false;
-    }
+    const initial = await fetchMe();
+    if (isHealthySession(initial)) return false;
+    if (initial === null) return false;
   } catch {
     /* continue to refresh */
   }
@@ -24,13 +37,8 @@ async function runSessionRecovery(): Promise<boolean> {
     const { data, error } = await supabase.auth.refreshSession();
     if (error || !data.session) return false;
 
-    const meRes = await fetch("/api/auth/me", {
-      credentials: "include",
-      cache: "no-store",
-    });
-    if (!meRes.ok) return false;
-    const dataMe = (await meRes.json()) as { id?: string } | null;
-    return Boolean(dataMe?.id);
+    const after = await fetchMe();
+    return isHealthySession(after);
   } catch {
     return false;
   }

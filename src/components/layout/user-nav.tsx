@@ -53,7 +53,6 @@ export function UserNav({ locale, user }: { locale: string; user: NavUser }) {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push(`/${locale}`);
-    router.refresh();
   }
 
   return (

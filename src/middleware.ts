@@ -7,7 +7,8 @@ const intlMiddleware = createMiddleware({
   locales: [...locales],
   defaultLocale,
   localePrefix: "always",
-  localeDetection: true,
+  // URL locale is authoritative — prevents Accept-Language redirect loops on /de/… paths.
+  localeDetection: false,
 });
 
 const protectedPrefixes = [
