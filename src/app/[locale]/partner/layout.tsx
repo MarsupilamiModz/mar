@@ -6,6 +6,8 @@ import { StudioNav } from "@/components/studio/studio-nav";
 import { isPartner } from "@/lib/permissions";
 import type { Locale } from "@/i18n/config";
 
+export const dynamic = "force-dynamic";
+
 export default async function PartnerLayout({
   children,
   params,
@@ -17,7 +19,7 @@ export default async function PartnerLayout({
 
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/partner`);
   await redirectIfMfaRequired(user);
   const profile = await prisma.partnerProfile.findUnique({ where: { userId: user.id } });
 

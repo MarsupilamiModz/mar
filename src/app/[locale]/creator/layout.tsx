@@ -8,6 +8,8 @@ import { StudioNav } from "@/components/studio/studio-nav";
 import { isCreatorOrPartner } from "@/lib/permissions";
 import type { Locale } from "@/i18n/config";
 
+export const dynamic = "force-dynamic";
+
 export default async function CreatorLayout({
   children,
   params,
@@ -19,7 +21,7 @@ export default async function CreatorLayout({
 
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/creator`);
   await redirectIfMfaRequired(user);
   const profile = await prisma.creatorProfile.findUnique({ where: { userId: user.id } });
 

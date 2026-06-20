@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { CollectionVisibility } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { fail, ok, requireActionUser, requireActionPermission } from "@/lib/action-utils";
+import { isAdmin } from "@/lib/permissions";
 import { slugify } from "@/lib/utils";
 
 async function uniqueCollectionSlug(base: string) {
@@ -59,7 +60,7 @@ export async function updateCollection(
 
   const collection = await prisma.modCollection.findUnique({ where: { id: collectionId } });
   if (!collection) return fail("Not found");
-  if (collection.ownerId !== user.id && user.role !== "ADMIN") return fail("Forbidden");
+  if (collection.ownerId !== user.id && !isAdmin(user.role)) return fail("Forbidden");
 
   const updated = await prisma.modCollection.update({
     where: { id: collectionId },
@@ -76,7 +77,7 @@ export async function deleteCollection(collectionId: string) {
 
   const collection = await prisma.modCollection.findUnique({ where: { id: collectionId } });
   if (!collection) return fail("Not found");
-  if (collection.ownerId !== user.id && user.role !== "ADMIN") return fail("Forbidden");
+  if (collection.ownerId !== user.id && !isAdmin(user.role)) return fail("Forbidden");
 
   await prisma.modCollection.delete({ where: { id: collectionId } });
   revalidatePath("/collections");
@@ -89,7 +90,7 @@ export async function addModToCollection(collectionId: string, modId: string, no
 
   const collection = await prisma.modCollection.findUnique({ where: { id: collectionId } });
   if (!collection) return fail("Not found");
-  if (collection.ownerId !== user.id && user.role !== "ADMIN") return fail("Forbidden");
+  if (collection.ownerId !== user.id && !isAdmin(user.role)) return fail("Forbidden");
 
   const maxOrder = await prisma.modCollectionItem.aggregate({
     where: { collectionId },
@@ -112,7 +113,7 @@ export async function removeModFromCollection(collectionId: string, modId: strin
 
   const collection = await prisma.modCollection.findUnique({ where: { id: collectionId } });
   if (!collection) return fail("Not found");
-  if (collection.ownerId !== user.id && user.role !== "ADMIN") return fail("Forbidden");
+  if (collection.ownerId !== user.id && !isAdmin(user.role)) return fail("Forbidden");
 
   await prisma.modCollectionItem.deleteMany({ where: { collectionId, modId } });
   revalidatePath(`/collections/${collection.slug}`);
@@ -125,7 +126,7 @@ export async function reorderCollectionMods(collectionId: string, modIds: string
 
   const collection = await prisma.modCollection.findUnique({ where: { id: collectionId } });
   if (!collection) return fail("Not found");
-  if (collection.ownerId !== user.id && user.role !== "ADMIN") return fail("Forbidden");
+  if (collection.ownerId !== user.id && !isAdmin(user.role)) return fail("Forbidden");
 
   await prisma.$transaction(
     modIds.map((modId, index) =>
@@ -216,9 +217,19 @@ export async function featureCollectionAdmin(collectionId: string, featured: boo
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
+  const collection = await prisma.modCollection.findUnique({ where: { id: collectionId } });
+  if (!collection) return fail("Not found");
+
   await prisma.modCollection.update({
     where: { id: collectionId },
-    data: { isFeatured: featured, visibility: featured ? "FEATURED" : "PUBLIC" },
+    data: {
+      isFeatured: featured,
+      visibility: featured
+        ? "FEATURED"
+        : collection.visibility === "FEATURED"
+          ? "PUBLIC"
+          : collection.visibility,
+    },
   });
 
   revalidatePath("/collections");

@@ -1,8 +1,8 @@
 import { requirePagePermission } from "@/lib/auth";
 import { listTeamMembersAdmin } from "@/actions/admin/team";
 import { listTeamDepartmentsAdmin, listTeamProfilesAdmin } from "@/actions/admin/team-profiles";
+import { TeamManagementPanel } from "@/components/admin/team-management-panel";
 import { TeamAdminPanel } from "@/components/admin/team-admin-panel";
-import { TeamProfilesAdmin } from "@/components/admin/team-profiles-admin";
 import { setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/config";
 
@@ -36,13 +36,13 @@ export default async function AdminTeamPage({
       <div>
         <h1 className="text-2xl font-bold">Team Management</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Public team profiles, departments, staff roles, and permissions
+          Manage public team profiles, roles, media, and internal staff accounts
         </p>
       </div>
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">Public team page</h2>
-        <TeamProfilesAdmin departments={departments} profiles={profiles} />
+        <TeamManagementPanel departments={departments} profiles={profiles} />
       </section>
 
       <section className="space-y-4 border-t border-border/30 pt-8">

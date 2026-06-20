@@ -23,6 +23,7 @@ type StaffRow = {
   displayName: string | null;
   avatarUrl: string | null;
   role: string;
+  teamDepartment?: string | null;
 };
 
 function channelIcon(type: ChatChannelType) {
@@ -38,6 +39,7 @@ export function ChatSidebar({
   onSelect,
   onStartDm,
   pending,
+  onlineUserIds,
 }: {
   locale: string;
   channels: ChannelRow[];
@@ -46,6 +48,7 @@ export function ChatSidebar({
   onSelect: (channelId: string) => void;
   onStartDm: (userId: string) => void;
   pending: boolean;
+  onlineUserIds: string[];
 }) {
   const t = useTranslations("chat");
 
@@ -114,7 +117,12 @@ export function ChatSidebar({
               className="w-full justify-start gap-2 h-8 px-2 font-normal"
               onClick={() => onStartDm(s.id)}
             >
-              <UserAvatar src={s.avatarUrl} name={formatDisplayName(s)} className="h-5 w-5" />
+              <div className="relative">
+                <UserAvatar src={s.avatarUrl} name={formatDisplayName(s)} className="h-5 w-5" />
+                {onlineUserIds.includes(s.id) && (
+                  <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" />
+                )}
+              </div>
               <span className="truncate text-xs">@{s.username}</span>
             </Button>
           ))}

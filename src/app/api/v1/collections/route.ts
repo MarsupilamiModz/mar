@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateApiKey, hasScope } from "@/lib/api-auth";
 import { listPublicCollections } from "@/lib/collections-data";
+import { jsonCached, CACHE_PUBLIC_MEDIUM } from "@/lib/http-cache";
 
 export async function GET(req: Request) {
   const auth = await validateApiKey(req.headers.get("authorization"));
@@ -15,8 +16,11 @@ export async function GET(req: Request) {
   const page = Math.max(1, Number(searchParams.get("page") ?? 1));
   const result = await listPublicCollections(page);
 
-  return NextResponse.json({
-    data: result.items,
-    meta: { page: result.page, pages: result.pages, total: result.total },
-  });
+  return jsonCached(
+    {
+      data: result.items,
+      meta: { page: result.page, pages: result.pages, total: result.total },
+    },
+    CACHE_PUBLIC_MEDIUM
+  );
 }

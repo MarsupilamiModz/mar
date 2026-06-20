@@ -1,6 +1,6 @@
 import { listChatChannelsForUser } from "@/actions/team-chat";
 import { AdminChatPageClient } from "@/components/chat/admin-chat-page-client";
-import { requirePagePermission, getCurrentUser } from "@/lib/auth";
+import { requirePagePermission } from "@/lib/auth";
 import type { Locale } from "@/i18n/config";
 
 export const dynamic = "force-dynamic";
@@ -15,13 +15,12 @@ export default async function AdminChatPage({
   const { locale } = await params;
   const sp = await searchParams;
 
-  await requirePagePermission("team.chat");
-  const user = await getCurrentUser();
+  const user = await requirePagePermission("team.chat");
   const result = await listChatChannelsForUser();
 
   const data = result.success
     ? result.data
-    : { channels: [], staff: [] };
+    : { channels: [], teammates: [] };
 
   return (
     <div className="space-y-4">
@@ -33,9 +32,11 @@ export default async function AdminChatPage({
       </div>
       <AdminChatPageClient
         locale={locale}
-        userId={user!.id}
+        userId={user.id}
+        currentUserName={user.displayName ?? user.username}
+        currentUserRole={user.role}
         initialChannels={data.channels}
-        initialStaff={data.staff}
+        initialStaff={data.teammates}
         initialChannelId={sp.channel}
       />
     </div>

@@ -8,12 +8,15 @@ import { getSafeLocale } from "@/lib/i18n/safe-locale";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin, isStaff, isDesigner, canAccessStudio } from "@/lib/permissions";
 import { userHasPermission } from "@/lib/permission-store";
-import { ensurePrismaUser } from "@/lib/user-sync";
+import { ensurePrismaUser, findAppUserBySupabaseId } from "@/lib/user-sync";
 import { logPlatformError } from "@/lib/platform-log";
 import { resolveActiveBan } from "@/lib/user-moderation";
 import { sanitizeAuthReturnPath } from "@/lib/auth-redirect";
 import { requiresMfa } from "@/lib/user-security";
+import { withDbRetry } from "@/lib/db";
 import type { PermissionKey } from "@/lib/permissions";
+import type { AppUser, CurrentAppUser } from "@/lib/auth-cache";
+import type { User } from "@supabase/supabase-js";
 
 export const getSession = cache(async () => {
   try {
@@ -36,32 +39,59 @@ export const getSession = cache(async () => {
   }
 });
 
-export const getCurrentUser = cache(async () => {
+async function applyBanState(user: AppUser): Promise<CurrentAppUser> {
+  try {
+    const banState = await resolveActiveBan(user.id);
+    if (banState?.isBanned) {
+      return {
+        ...user,
+        isBanned: true,
+        banReason: banState.banReason ?? user.banReason,
+      };
+    }
+  } catch (banErr) {
+    console.warn("[getCurrentUser] ban check skipped", banErr);
+  }
+  return user;
+}
+
+async function recoverPrismaUserFromSession(session: User): Promise<AppUser | null> {
+  const direct = await withDbRetry(
+    () => findAppUserBySupabaseId(session.id),
+    { retries: 2, label: "auth:recover-direct" }
+  );
+  if (!direct || direct.deletedAt) return null;
+
+  try {
+    return await withDbRetry(() => ensurePrismaUser(session), { label: "auth:recover-sync" });
+  } catch {
+    return direct;
+  }
+}
+
+export const getCurrentUser = cache(async (): Promise<CurrentAppUser | null> => {
   const session = await getSession();
   if (!session) return null;
 
   try {
-    const user = await ensurePrismaUser(session);
+    let user = await ensurePrismaUser(session);
+
+    if (!user) {
+      user = await recoverPrismaUserFromSession(session);
+    }
+
     if (user?.deletedAt) return null;
     if (!user) return null;
 
-    try {
-      const banState = await resolveActiveBan(user.id);
-      if (banState?.isBanned) {
-        return {
-          ...user,
-          isBanned: true,
-          banReason: banState.banReason ?? user.banReason,
-        };
-      }
-    } catch (banErr) {
-      console.warn("[getCurrentUser] ban check skipped", banErr);
-    }
-
-    return user;
+    return applyBanState(user);
   } catch (err) {
     void logPlatformError("auth:get-current-user", err);
     console.error("[getCurrentUser]", err);
+
+    const recovered = await recoverPrismaUserFromSession(session);
+    if (recovered && !recovered.deletedAt) {
+      return applyBanState(recovered);
+    }
     return null;
   }
 });
@@ -74,17 +104,46 @@ async function resolveAuthLocale(): Promise<string> {
   }
 }
 
+async function resolveAuthReturnPath(returnPath?: string): Promise<string | undefined> {
+  if (returnPath && !returnPath.includes("/login") && !returnPath.includes("/register")) {
+    return returnPath;
+  }
+  try {
+    const pathname = (await headers()).get("x-pathname");
+    if (pathname && !pathname.includes("/login") && !pathname.includes("/register")) {
+      return pathname;
+    }
+  } catch {
+    /* headers unavailable */
+  }
+  return returnPath;
+}
+
 export async function requireAuth(returnPath?: string) {
   const locale = await resolveAuthLocale();
-  const destination = sanitizeAuthReturnPath(locale, returnPath);
-  const loginPath = `/${locale}/login?redirect=${encodeURIComponent(destination)}`;
-  const user = await getCurrentUser();
-  if (!user) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn("[auth:requireAuth] no user — redirecting to login", { destination });
-    }
+  const rawReturn = await resolveAuthReturnPath(returnPath);
+  const loginPath = `/${locale}/login?redirect=${encodeURIComponent(
+    sanitizeAuthReturnPath(locale, rawReturn)
+  )}`;
+
+  const session = await getSession();
+  if (!session) {
     redirect(loginPath);
   }
+
+  let user = await getCurrentUser();
+  if (!user) {
+    user = await recoverPrismaUserFromSession(session);
+    if (user && !user.deletedAt) {
+      user = await applyBanState(user);
+    }
+  }
+
+  if (!user) {
+    const destination = sanitizeAuthReturnPath(locale, rawReturn);
+    redirect(`/${locale}/auth/sync-error?redirect=${encodeURIComponent(destination)}`);
+  }
+
   if (user.isBanned) redirect(`/${locale}/banned`);
   return user;
 }
@@ -162,9 +221,14 @@ export async function requireStudio() {
 }
 
 export async function requireAuthApi() {
-  const user = await getCurrentUser();
-  if (!user) return null;
-  if (user.isBanned) return null;
+  const session = await getSession();
+  if (!session) return null;
+
+  let user = await getCurrentUser();
+  if (!user) {
+    user = await recoverPrismaUserFromSession(session);
+  }
+  if (!user || user.isBanned) return null;
   return user;
 }
 

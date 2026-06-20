@@ -39,6 +39,9 @@ import { SoundProductPlayer } from "@/components/sounds/sound-product-player";
 import { resolveSoundScanStatus } from "@/lib/sound-security";
 import { formatCreditsFromCents } from "@/lib/credits";
 import type { Locale } from "@/i18n/config";
+import { REVALIDATE } from "@/lib/cache";
+
+export const revalidate = REVALIDATE.modDetail;
 import { serializeModVersions } from "@/lib/file-size";
 import { formatModRating, hasModRatings } from "@/lib/rating-display";
 

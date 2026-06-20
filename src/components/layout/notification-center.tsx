@@ -49,17 +49,23 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId?
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
   const refresh = useCallback(async () => {
     const [countRes, listRes] = await Promise.all([
       getUnreadNotificationsCount(),
-      getNotifications({ search: search || undefined, category, limit: 30 }),
+      getNotifications({ search: debouncedSearch || undefined, category, limit: 30 }),
     ]);
     if (countRes.success) setUnread(countRes.data);
     if (listRes.success) setItems(listRes.data as NotificationRow[]);
-  }, [search, category]);
+  }, [debouncedSearch, category]);
 
   useEffect(() => {
     void refresh();

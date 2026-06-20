@@ -13,7 +13,7 @@ export default async function TicketDetailPage({
 }) {
   const { locale, id } = await params;
 
-  await requireAuth(`/${locale}/login`);
+  await requireAuth(`/${locale}/dashboard/support/${id}`);
   const result = await getTicketDetail(id);
   if (!result.success) notFound();
 

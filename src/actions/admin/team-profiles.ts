@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { TeamVisibility } from "@prisma/client";
+import { TeamRoleGroup, TeamVisibility, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { ok, requireActionPermission } from "@/lib/action-utils";
 import { createAuditLog } from "@/lib/audit";
@@ -77,14 +77,53 @@ export async function listTeamProfilesAdmin() {
 
   const members = await prisma.teamMember.findMany({
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    include: { department: { select: { id: true, name: true, slug: true } } },
+    include: {
+      department: { select: { id: true, name: true, slug: true } },
+      user: { select: { id: true, username: true, displayName: true, email: true } },
+    },
   });
   return ok(members);
+}
+
+export async function searchUsersForTeamProfile(query: string, excludeMemberId?: string) {
+  const { error } = await requireActionPermission("users.read");
+  if (error) return error;
+
+  const linked = await prisma.teamMember.findMany({
+    where: excludeMemberId ? { id: { not: excludeMemberId }, userId: { not: null } } : { userId: { not: null } },
+    select: { userId: true },
+  });
+  const linkedIds = linked.map((m) => m.userId).filter(Boolean) as string[];
+
+  const users = await prisma.user.findMany({
+    where: {
+      deletedAt: null,
+      ...(linkedIds.length ? { id: { notIn: linkedIds } } : {}),
+      OR: [
+        { username: { contains: query, mode: "insensitive" } },
+        { email: { contains: query, mode: "insensitive" } },
+        { displayName: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    take: 10,
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      displayName: true,
+      avatarUrl: true,
+    },
+  });
+
+  return ok(users);
 }
 
 export async function upsertTeamProfile(input: {
   id?: string;
   name: string;
+  roleGroup?: TeamRoleGroup;
+  roleBadge?: string;
+  roleColor?: string;
   position: string;
   description?: string;
   email?: string;
@@ -109,6 +148,9 @@ export async function upsertTeamProfile(input: {
 
   const data = {
     name: input.name.trim(),
+    roleGroup: input.roleGroup ?? "SUPPORT",
+    roleBadge: input.roleBadge?.trim() || null,
+    roleColor: input.roleColor?.trim() || null,
     position: input.position.trim(),
     description: input.description?.trim() || null,
     email: input.email?.trim() || null,
@@ -121,7 +163,12 @@ export async function upsertTeamProfile(input: {
     instagramUrl: input.instagramUrl?.trim() || null,
     xUrl: input.xUrl?.trim() || null,
     websiteUrl: input.websiteUrl?.trim() || null,
-    customLinks: input.customLinks?.length ? input.customLinks : undefined,
+    ...(input.customLinks !== undefined && {
+      customLinks:
+        input.customLinks.length > 0
+          ? input.customLinks
+          : Prisma.JsonNull,
+    }),
     departmentId: input.departmentId || null,
     visibility: input.visibility ?? "PUBLIC",
     sortOrder: input.sortOrder ?? 0,

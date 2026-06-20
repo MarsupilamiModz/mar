@@ -7,7 +7,8 @@ import { hasPremiumAccess } from "@/lib/auth";
 import { logAuthEvent } from "@/lib/auth-log";
 import { logPlatformError } from "@/lib/platform-log";
 import { getAppUrl } from "@/lib/app-url";
-import { ensurePrismaUser } from "@/lib/user-sync";
+import { invalidateUserSessionCache } from "@/lib/auth-cache";
+import { findAppUserBySupabaseId, ensurePrismaUser } from "@/lib/user-sync";
 import { persistAuthAudit } from "@/lib/auth-audit";
 
 const DISCORD_TOKEN = "https://discord.com/api/oauth2/token";
@@ -80,8 +81,10 @@ export async function GET(req: Request) {
     } = await supabase.auth.getUser();
 
     if (sessionUser) {
+      invalidateUserSessionCache(sessionUser.id);
+
       let dbUser = await withDbRetry(
-        () => prisma.user.findUnique({ where: { supabaseId: sessionUser.id } }),
+        () => findAppUserBySupabaseId(sessionUser.id),
         { label: "discord:link-find" }
       );
       if (!dbUser) {

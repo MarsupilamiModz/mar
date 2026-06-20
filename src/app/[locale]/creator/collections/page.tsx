@@ -17,7 +17,7 @@ export default async function CreatorCollectionsPage({
   const { locale } = await params;
 
   setRequestLocale(locale);
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/creator/collections`);
 
   const collections = await prisma.modCollection.findMany({
     where: { ownerId: user.id },

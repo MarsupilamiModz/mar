@@ -6,7 +6,7 @@ import type { Locale } from "@/i18n/config";
 export default async function PartnerSettingsPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
 
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/partner/settings`);
   const profile = await prisma.partnerProfile.findUnique({ where: { userId: user.id } });
   if (!profile) {
     return <p className="text-muted-foreground">No partner profile found.</p>;

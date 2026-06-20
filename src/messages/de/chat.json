@@ -9,6 +9,12 @@
     "emptyChannel": "Noch keine Nachrichten — sag Hallo!",
     "messagePlaceholder": "Nachricht an das Team… (@username zum Erwähnen)",
     "mentionHint": "Enter senden · Shift+Enter für neue Zeile",
-    "send": "Senden"
+    "send": "Senden",
+    "online": "online",
+    "members": "Mitglieder",
+    "typing": "tippt…",
+    "readBy": "Gelesen von",
+    "attach": "Anhängen",
+    "uploading": "Lädt hoch"
   }
 }

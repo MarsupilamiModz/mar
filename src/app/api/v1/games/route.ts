@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateApiKey, hasScope } from "@/lib/api-auth";
-import { prisma } from "@/lib/db";
+import { getAllGames } from "@/lib/data";
+import { jsonCached, CACHE_PUBLIC_MEDIUM } from "@/lib/http-cache";
 
 export async function GET(req: Request) {
   const auth = await validateApiKey(req.headers.get("authorization"));
@@ -11,18 +12,19 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Insufficient scope" }, { status: 403 });
   }
 
-  const games = await prisma.game.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: "asc" },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      description: true,
-      iconUrl: true,
-      _count: { select: { mods: { where: { status: "PUBLISHED" } } } },
-    },
-  });
+  const games = await getAllGames();
 
-  return NextResponse.json({ data: games });
+  return jsonCached(
+    {
+      data: games.map((g) => ({
+        id: g.id,
+        slug: g.slug,
+        name: g.name,
+        description: g.description,
+        iconUrl: g.iconUrl,
+        modCount: g._count.mods,
+      })),
+    },
+    CACHE_PUBLIC_MEDIUM
+  );
 }

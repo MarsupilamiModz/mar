@@ -69,7 +69,7 @@ export function classifyFetchError(err: unknown, context: string): UploadError {
 }
 
 export async function parseApiErrorResponse(res: Response, fallback: string): Promise<UploadError> {
-  let body: { error?: string; code?: string; message?: string } | null = null;
+  let body: { error?: string; code?: string; message?: string; recoveryHint?: string; category?: string } | null = null;
   try {
     body = (await res.json()) as { error?: string; code?: string; message?: string };
   } catch {
@@ -78,9 +78,10 @@ export async function parseApiErrorResponse(res: Response, fallback: string): Pr
 
   const raw = body?.error ?? body?.message ?? fallback;
   const code = mapStatusToCode(res.status, body?.code);
+  const hint = body?.recoveryHint ? ` ${body.recoveryHint}` : "";
 
   if (res.status === 401) {
-    return new UploadError("Upload failed: missing or expired authentication. Sign in and try again.", "AUTH", 401, raw);
+    return new UploadError(`Upload failed: missing or expired authentication. Sign in and try again.${hint}`, "AUTH", 401, raw);
   }
   if (res.status === 403) {
     return new UploadError(`Upload failed: permission denied${raw ? ` — ${raw}` : ""}`, "FORBIDDEN", 403, raw);

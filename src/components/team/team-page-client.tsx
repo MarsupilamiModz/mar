@@ -10,11 +10,12 @@ import {
   Twitter,
   Youtube,
 } from "lucide-react";
-import { SafeImage } from "@/components/ui/safe-image";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SafeImage } from "@/components/ui/safe-image";
 import { cn } from "@/lib/utils";
 import type { PublicTeamMember } from "@/lib/team-profiles";
+import { TEAM_ROLE_GROUPS, teamRoleColor, teamRoleTitle } from "@/lib/team-page";
 
 type Dept = { id: string; name: string; slug: string; description: string | null };
 
@@ -24,14 +25,17 @@ type Props = {
   contactTicketHref?: string;
 };
 
-export function TeamPageClient({ departments, members, contactTicketHref }: Props) {
-  const [filter, setFilter] = useState<string>("all");
+export function TeamPageClient({ members, contactTicketHref }: Props) {
   const [selected, setSelected] = useState<PublicTeamMember | null>(null);
 
-  const filtered = useMemo(() => {
-    if (filter === "all") return members;
-    return members.filter((m) => m.department?.slug === filter);
-  }, [filter, members]);
+  const grouped = useMemo(
+    () =>
+      TEAM_ROLE_GROUPS.map((group) => ({
+        ...group,
+        members: members.filter((member) => member.roleGroup === group.key),
+      })).filter((group) => group.members.length > 0),
+    [members]
+  );
 
   return (
     <div className="relative min-h-screen">
@@ -41,130 +45,178 @@ export function TeamPageClient({ departments, members, contactTicketHref }: Prop
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <header className="text-center mb-12 space-y-4">
+        <header className="mb-16 space-y-4 text-center">
           <p className="text-sm uppercase tracking-[0.3em] text-neon-purple">Xumari Modz</p>
-          <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-white via-neon-purple to-neon-blue bg-clip-text text-transparent">
+          <h1 className="bg-gradient-to-r from-white via-neon-purple to-neon-blue bg-clip-text text-4xl font-bold text-transparent sm:text-5xl">
             Our Team
           </h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            The people behind the platform — development, design, support, and partnerships.
+          <p className="mx-auto max-w-3xl text-muted-foreground">
+            Meet the people leading the platform, supporting the community, building the product, and creating the content behind Xumari Modz.
           </p>
         </header>
 
-        <div className="flex flex-wrap justify-center gap-2 mb-10">
-          <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
-            All
-          </FilterChip>
-          {departments.map((d) => (
-            <FilterChip key={d.id} active={filter === d.slug} onClick={() => setFilter(d.slug)}>
-              {d.name}
-            </FilterChip>
-          ))}
-        </div>
-
-        {filtered.length === 0 ? (
-          <p className="text-center text-muted-foreground py-20">Team profiles coming soon.</p>
+        {grouped.length === 0 ? (
+          <p className="py-20 text-center text-muted-foreground">Team profiles coming soon.</p>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((member) => (
-              <button
-                key={member.id}
-                type="button"
-                onClick={() => setSelected(member)}
-                className="group text-left glass rounded-2xl border border-white/10 overflow-hidden transition-all duration-300 hover:border-neon-purple/50 hover:shadow-[0_0_40px_-12px_rgba(168,85,247,0.45)] hover:-translate-y-1"
-              >
-                <div className="relative h-24 bg-gradient-to-br from-neon-purple/30 to-transparent">
-                  {member.bannerUrl && (
-                    <SafeImage src={member.bannerUrl} alt="" fill className="object-cover opacity-60" sizes="400px" />
-                  )}
-                  <div className="absolute -bottom-8 left-4 h-16 w-16 rounded-full border-2 border-neon-purple/50 overflow-hidden bg-background">
-                    {member.avatarUrl ? (
-                      <SafeImage src={member.avatarUrl} alt={member.name} fill className="object-cover" sizes="64px" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-xl font-bold text-neon-purple">
-                        {member.name.charAt(0)}
-                      </div>
-                    )}
+          <div className="space-y-14">
+            {grouped.map((group) => (
+              <section key={group.key} className="space-y-6">
+                <div className="space-y-3">
+                  <div className="h-px w-full bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                  <div className="flex items-center justify-center gap-4">
+                    <span className="h-px flex-1 bg-white/10" />
+                    <h2 className="text-center text-xl font-bold tracking-[0.28em] text-white sm:text-2xl">
+                      {teamRoleTitle(group.key)}
+                    </h2>
+                    <span className="h-px flex-1 bg-white/10" />
                   </div>
+                  <div className="h-px w-full bg-gradient-to-r from-transparent via-white/30 to-transparent" />
                 </div>
-                <div className="pt-10 p-4 space-y-1">
-                  <p className="font-semibold group-hover:text-neon-purple transition-colors">{member.name}</p>
-                  <p className="text-sm text-neon-purple/80">{member.position}</p>
-                  {member.department && (
-                    <p className="text-xs text-muted-foreground">{member.department.name}</p>
-                  )}
+
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {group.members.map((member) => (
+                    <button
+                      key={member.id}
+                      type="button"
+                      onClick={() => setSelected(member)}
+                      className="group overflow-hidden rounded-2xl border border-white/10 bg-background/40 text-left transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_0_40px_-12px_rgba(168,85,247,0.45)]"
+                      style={{ boxShadow: `0 0 0 1px ${teamRoleColor(member.roleGroup, member.roleColor)}20 inset` }}
+                    >
+                      <div
+                        className="relative h-24"
+                        style={{ background: `linear-gradient(135deg, ${teamRoleColor(member.roleGroup, member.roleColor)}66, transparent)` }}
+                      >
+                        {member.bannerUrl && (
+                          <SafeImage src={member.bannerUrl} alt="" fill className="object-cover opacity-60" sizes="400px" />
+                        )}
+                        <div className="absolute -bottom-8 left-4 h-16 w-16 overflow-hidden rounded-full border-2 bg-background" style={{ borderColor: teamRoleColor(member.roleGroup, member.roleColor) }}>
+                          {member.avatarUrl ? (
+                            <SafeImage src={member.avatarUrl} alt={member.name} fill className="object-cover" sizes="64px" />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-xl font-bold" style={{ color: teamRoleColor(member.roleGroup, member.roleColor) }}>
+                              {member.name.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-2 p-4 pt-10">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold transition-colors group-hover:text-white">{member.name}</p>
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                            style={{ backgroundColor: teamRoleColor(member.roleGroup, member.roleColor) }}
+                          >
+                            {member.roleBadge || teamRoleTitle(member.roleGroup).replace(/S$/, "")}
+                          </span>
+                        </div>
+                        <p className="text-sm" style={{ color: teamRoleColor(member.roleGroup, member.roleColor) }}>
+                          {member.position}
+                        </p>
+                        {member.description && (
+                          <p className="line-clamp-3 text-sm text-muted-foreground">{member.description}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {member.discordUrl && (
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={member.discordUrl} target="_blank" rel="noopener noreferrer">
+                                <MessageCircle className="mr-1 h-4 w-4" /> Discord
+                              </a>
+                            </Button>
+                          )}
+                          {member.email && (
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={`mailto:${member.email}`}>
+                                <Mail className="mr-1 h-4 w-4" /> Email
+                              </a>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-              </button>
+              </section>
             ))}
           </div>
         )}
       </div>
 
-      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="glass border-neon-purple/30 max-w-lg">
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="glass max-w-2xl border-neon-purple/30 overflow-hidden p-0">
           {selected && (
             <>
-              <DialogHeader>
-                <DialogTitle className="text-xl">{selected.name}</DialogTitle>
-                <p className="text-sm text-neon-purple">{selected.position}</p>
-              </DialogHeader>
-              {selected.description && (
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{selected.description}</p>
-              )}
-              <div className="flex flex-wrap gap-2 pt-2">
-                <SocialLinks member={selected} />
+              <div
+                className="relative h-40"
+                style={{ background: `linear-gradient(135deg, ${teamRoleColor(selected.roleGroup, selected.roleColor)}88, transparent)` }}
+              >
+                {selected.bannerUrl && (
+                  <SafeImage src={selected.bannerUrl} alt="" fill className="object-cover opacity-60" sizes="800px" />
+                )}
               </div>
-              <div className="flex flex-wrap gap-2 pt-4 border-t border-border/30">
-                {selected.email && (
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={`mailto:${selected.email}`}>
-                      <Mail className="h-4 w-4 mr-1" /> Email
-                    </a>
-                  </Button>
+              <div className="relative p-6">
+                <div className="-mt-20 mb-4 flex items-end gap-4">
+                  <div className="relative h-24 w-24 overflow-hidden rounded-full border-4 bg-background" style={{ borderColor: teamRoleColor(selected.roleGroup, selected.roleColor) }}>
+                    {selected.avatarUrl ? (
+                      <SafeImage src={selected.avatarUrl} alt={selected.name} fill className="object-cover" sizes="96px" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-3xl font-bold" style={{ color: teamRoleColor(selected.roleGroup, selected.roleColor) }}>
+                        {selected.name.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="pb-2">
+                    <DialogHeader className="space-y-2 text-left">
+                      <DialogTitle className="text-2xl">{selected.name}</DialogTitle>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm" style={{ color: teamRoleColor(selected.roleGroup, selected.roleColor) }}>
+                          {selected.position}
+                        </span>
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                          style={{ backgroundColor: teamRoleColor(selected.roleGroup, selected.roleColor) }}
+                        >
+                          {selected.roleBadge || teamRoleTitle(selected.roleGroup).replace(/S$/, "")}
+                        </span>
+                      </div>
+                    </DialogHeader>
+                  </div>
+                </div>
+
+                {selected.description && (
+                  <p className="mb-5 whitespace-pre-wrap text-sm text-muted-foreground">{selected.description}</p>
                 )}
-                {selected.discordUrl && (
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={selected.discordUrl} target="_blank" rel="noopener noreferrer">
-                      <MessageCircle className="h-4 w-4 mr-1" /> Discord
-                    </a>
-                  </Button>
-                )}
-                {contactTicketHref && (
-                  <Button variant="neon" size="sm" asChild>
-                    <a href={contactTicketHref}>Open support ticket</a>
-                  </Button>
-                )}
+
+                <div className="mb-5 flex flex-wrap gap-2">
+                  <SocialLinks member={selected} />
+                </div>
+
+                <div className="flex flex-wrap gap-2 border-t border-border/30 pt-4">
+                  {selected.email && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={`mailto:${selected.email}`}>
+                        <Mail className="mr-1 h-4 w-4" /> Email
+                      </a>
+                    </Button>
+                  )}
+                  {selected.discordUrl && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={selected.discordUrl} target="_blank" rel="noopener noreferrer">
+                        <MessageCircle className="mr-1 h-4 w-4" /> Discord
+                      </a>
+                    </Button>
+                  )}
+                  {contactTicketHref && (
+                    <Button variant="neon" size="sm" asChild>
+                      <a href={contactTicketHref}>Open support ticket</a>
+                    </Button>
+                  )}
+                </div>
               </div>
             </>
           )}
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function FilterChip({
-  children,
-  active,
-  onClick,
-}: {
-  children: React.ReactNode;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-full px-4 py-1.5 text-sm transition-all",
-        active
-          ? "bg-neon-purple text-white shadow-[0_0_20px_-4px_rgba(168,85,247,0.8)]"
-          : "glass border border-white/10 text-muted-foreground hover:border-neon-purple/40"
-      )}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -175,7 +227,7 @@ function SocialLinks({ member }: { member: PublicTeamMember }) {
     { url: member.twitchUrl, icon: Twitch, label: "Twitch" },
     { url: member.instagramUrl, icon: Instagram, label: "Instagram" },
     { url: member.xUrl, icon: Twitter, label: "X" },
-  ].filter((l) => l.url);
+  ].filter((link) => link.url);
 
   return (
     <>
@@ -185,7 +237,9 @@ function SocialLinks({ member }: { member: PublicTeamMember }) {
           href={url!}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/40 hover:border-neon-purple/50 hover:text-neon-purple transition-colors"
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-lg border border-border/40 transition-colors hover:border-neon-purple/50 hover:text-neon-purple"
+          )}
           aria-label={label}
         >
           <Icon className="h-4 w-4" />
@@ -197,7 +251,7 @@ function SocialLinks({ member }: { member: PublicTeamMember }) {
           href={link.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs px-3 py-1.5 rounded-lg border border-border/40 hover:border-neon-purple/50"
+          className="rounded-lg border border-border/40 px-3 py-1.5 text-xs hover:border-neon-purple/50"
         >
           {link.label}
         </a>

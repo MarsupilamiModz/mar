@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "validate:platform": "tsx scripts/platform-validation.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.750.0",

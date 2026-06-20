@@ -10,7 +10,7 @@ import type { Locale } from "@/i18n/config";
 export default async function SettingsPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
 
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/dashboard/settings`);
   await evaluateUserAchievements(user.id);
 
   const [creatorProfile, achievements, progress, emailLogsResult] = await Promise.all([

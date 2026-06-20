@@ -15,7 +15,7 @@ export default async function FollowingPage({ params }: { params: Promise<{ loca
 
   setRequestLocale(locale);
   const t = await getTranslations("dashboard");
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/dashboard/following`);
   const followed = await getFollowedCreators(user.id);
   const badgeMap = await getInlineBadgesForUsers(
     followed.map((c) => c.id),

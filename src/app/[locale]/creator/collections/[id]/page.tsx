@@ -15,7 +15,7 @@ export default async function EditCollectionPage({
   const { locale, id } = await params;
 
   setRequestLocale(locale);
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/creator/collections/${id}`);
 
   const collection = await prisma.modCollection.findUnique({
     where: { id },

@@ -10,7 +10,7 @@ import type { Locale } from "@/i18n/config";
 export default async function OrdersPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
 
-  await requireAuth(`/${locale}/login`);
+  await requireAuth(`/${locale}/dashboard/orders`);
   const result = await getUserOrders();
   const orders = result.success ? result.data : [];
 

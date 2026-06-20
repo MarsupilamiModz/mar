@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateApiKey, hasScope } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { jsonCached, CACHE_PUBLIC_SHORT } from "@/lib/http-cache";
 
 export async function GET(req: Request) {
   const auth = await validateApiKey(req.headers.get("authorization"));
@@ -63,21 +64,24 @@ export async function GET(req: Request) {
   }
 
   const v = mod.versions[0];
-  return NextResponse.json({
-    data: {
-      modId: mod.id,
-      modSlug: mod.slug,
-      modTitle: mod.title,
-      pricing: mod.pricing,
-      version: v,
-      downloadUrl: `/api/mods/${mod.id}/download${versionId ? `?versionId=${v.id}` : ""}`,
-      clientInstall: {
+  return jsonCached(
+    {
+      data: {
         modId: mod.id,
-        versionId: v.id,
-        fileName: v.fileName,
-        sha256: v.sha256,
-        gameVersion: v.gameVersion,
+        modSlug: mod.slug,
+        modTitle: mod.title,
+        pricing: mod.pricing,
+        version: v,
+        downloadUrl: `/api/mods/${mod.id}/download${versionId ? `?versionId=${v.id}` : ""}`,
+        clientInstall: {
+          modId: mod.id,
+          versionId: v.id,
+          fileName: v.fileName,
+          sha256: v.sha256,
+          gameVersion: v.gameVersion,
+        },
       },
     },
-  });
+    CACHE_PUBLIC_SHORT
+  );
 }

@@ -9,7 +9,7 @@ import type { Locale } from "@/i18n/config";
 export default async function FavoritesPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
 
-  await requireAuth(`/${locale}/login`);
+  await requireAuth(`/${locale}/dashboard/favorites`);
   const result = await getUserFavorites();
   const favorites = result.success ? result.data : [];
 

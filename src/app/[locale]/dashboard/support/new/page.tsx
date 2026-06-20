@@ -7,7 +7,7 @@ import type { Locale } from "@/i18n/config";
 export default async function NewTicketPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
 
-  await requireAuth(`/${locale}/login`);
+  await requireAuth(`/${locale}/dashboard/support/new`);
 
   return (
     <div className="max-w-xl">

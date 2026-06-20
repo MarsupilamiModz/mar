@@ -11,7 +11,7 @@ import type { Locale } from "@/i18n/config";
 export default async function SupportPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
 
-  await requireAuth(`/${locale}/login`);
+  await requireAuth(`/${locale}/dashboard/support`);
   const result = await getTicketsForUser();
   const tickets = result.success ? result.data.tickets : [];
 

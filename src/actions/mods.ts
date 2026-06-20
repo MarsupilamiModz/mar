@@ -28,9 +28,11 @@ import { fileSizeBigInt, fileSizeNumber } from "@/lib/file-size";
 import { isWithinUploadLimit, uploadLimitLabel } from "@/lib/upload-limits";
 import { z } from "zod";
 
-function invalidateModCaches() {
+function invalidateModCaches(slug?: string) {
   revalidateTag(CACHE_TAGS.mods);
   revalidateTag(CACHE_TAGS.featured);
+  revalidateTag(CACHE_TAGS.discovery);
+  if (slug) revalidateTag(CACHE_TAGS.mod(slug));
 }
 
 async function canEditMod(userId: string, role: UserRole, modAuthorId: string) {
@@ -116,7 +118,7 @@ export async function createMod(input: z.infer<typeof modCreateSchema> & { autho
     entityId: mod.id,
   });
 
-  invalidateModCaches();
+  invalidateModCaches(mod.slug);
   revalidatePath("/mods");
   revalidatePath("/creator");
   revalidatePath("/designer");
@@ -239,7 +241,7 @@ export async function updateMod(
       entityId: modId,
     });
 
-    invalidateModCaches();
+    invalidateModCaches(updated.slug);
     revalidatePath(`/mods/${updated.slug}`);
     revalidatePath("/admin/mods");
     return ok(updated);

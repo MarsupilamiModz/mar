@@ -4,7 +4,7 @@
     "deleted": "Deleted successfully",
     "created": "Created successfully",
     "updated": "Updated successfully",
-    "error": "Something went wrong",
+    "error": "Action failed",
     "copied": "Copied to clipboard",
     "uploaded": "Upload complete",
     "loading": "Please wait…"

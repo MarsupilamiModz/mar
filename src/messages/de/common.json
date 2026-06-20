@@ -51,6 +51,24 @@
     "notFoundHint": "Die gesuchte Seite existiert nicht oder wurde verschoben.",
     "backHome": "Zur Startseite",
     "retry": "Erneut versuchen",
-    "back": "Zurück"
+    "back": "Zurück",
+    "recovery": {
+      "titleNetwork": "Verbindungsproblem",
+      "titleAuth": "Sitzungsproblem",
+      "titleDatabase": "Datenbank vorübergehend nicht erreichbar",
+      "titleUpload": "Upload unterbrochen",
+      "titlePermission": "Zugriff verweigert",
+      "titleValidation": "Ungültige Anfrage",
+      "retry": "Erneut versuchen",
+      "reload": "Seite neu laden",
+      "signIn": "Erneut anmelden",
+      "home": "Zur Startseite",
+      "copyDetails": "Details kopieren",
+      "copied": "Kopiert",
+      "detailsLabel": "Technische Details",
+      "codeLabel": "Code",
+      "referenceLabel": "Referenz",
+      "categoryLabel": "Kategorie"
+    }
   }
 }

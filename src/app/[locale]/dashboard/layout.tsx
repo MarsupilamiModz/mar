@@ -14,9 +14,12 @@ import {
   BookOpen,
   Trophy,
   Users,
+  Shield,
 } from "lucide-react";
 import { formatRoleLabel } from "@/lib/role-display";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
+
+export const dynamic = "force-dynamic";
 
 const navDefs = [
   { href: "", icon: LayoutDashboard, labelKey: "overview" },
@@ -30,6 +33,7 @@ const navDefs = [
   { href: "/subscription", icon: CreditCard, labelKey: "membership" },
   { href: "/licenses", icon: Key, labelKey: "licenses" },
   { href: "/notifications", icon: Bell, labelKey: "notifications" },
+  { href: "/security", icon: Shield, labelKey: "security" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
 ] as const;
 
@@ -44,7 +48,7 @@ export default async function DashboardLayout({
 
   setRequestLocale(locale);
   const [user, t] = await Promise.all([
-    requireAuth(`/${locale}/login`),
+    requireAuth(`/${locale}/dashboard`),
     getTranslations("dashboard"),
   ]);
 

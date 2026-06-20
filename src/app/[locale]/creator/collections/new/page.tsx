@@ -7,6 +7,6 @@ export default async function NewCollectionPage({ params }: { params: Promise<{ 
   const { locale } = await params;
 
   setRequestLocale(locale);
-  await requireAuth(`/${locale}/login`);
+  await requireAuth(`/${locale}/creator/collections/new`);
   return <CollectionCreateForm locale={locale} />;
 }

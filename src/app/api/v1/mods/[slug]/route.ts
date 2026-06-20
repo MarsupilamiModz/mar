@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { validateApiKey, hasScope } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { getModDependencies } from "@/lib/mod-dependencies";
+import { jsonCached, CACHE_PUBLIC_SHORT } from "@/lib/http-cache";
 
 export async function GET(
   req: Request,
@@ -65,15 +66,18 @@ export async function GET(
 
   const dependencies = await getModDependencies(mod.id);
 
-  return NextResponse.json({
-    data: {
-      ...mod,
-      dependencies: dependencies.map((d) => ({
-        isRequired: d.isRequired,
-        minVersion: d.minVersion,
-        notes: d.notes,
-        mod: d.dependency,
-      })),
+  return jsonCached(
+    {
+      data: {
+        ...mod,
+        dependencies: dependencies.map((d) => ({
+          isRequired: d.isRequired,
+          minVersion: d.minVersion,
+          notes: d.notes,
+          mod: d.dependency,
+        })),
+      },
     },
-  });
+    CACHE_PUBLIC_SHORT
+  );
 }

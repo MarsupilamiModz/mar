@@ -9,7 +9,7 @@ import type { Locale } from "@/i18n/config";
 export default async function CreatorExclusivePage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
 
-  await requireAuth(`/${locale}/login`);
+  await requireAuth(`/${locale}/creator/exclusive`);
   const result = await getCreatorExclusivePrograms();
   const programs = result.success ? result.data : [];
 

@@ -1,7 +1,6 @@
 import type { ZodError } from "zod";
 import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
-import { prismaErrorMessage } from "@/lib/errors";
 import { isAdmin, isStaff, type PermissionKey } from "@/lib/permissions";
 import { userHasPermission } from "@/lib/permission-store";
 
@@ -24,6 +23,8 @@ export function formatZodError(error: ZodError): string {
   return path ? `${path}: ${first.message}` : first.message;
 }
 
+import { formatActionError } from "@/lib/error-diagnostics";
+
 export { prismaErrorMessage } from "@/lib/errors";
 
 export async function actionTry<T>(
@@ -37,7 +38,7 @@ export async function actionTry<T>(
       const { logPlatformError } = await import("@/lib/platform-log");
       void logPlatformError(context, err);
     }
-    return fail(prismaErrorMessage(err));
+    return fail(formatActionError(err, context));
   }
 }
 

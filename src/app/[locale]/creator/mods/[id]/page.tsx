@@ -22,7 +22,7 @@ export default async function ManageModPage({
 }) {
   const { locale, id } = await params;
 
-  await requireAuth(`/${locale}/login`);
+  await requireAuth(`/${locale}/creator/mods/${id}`);
   const [result, mediaSettings, dependencies] = await Promise.all([
     getModForEdit(id),
     getMediaSettings(),

@@ -15,7 +15,7 @@ export default async function BecomeCreatorPage({
   const { locale } = await params;
 
   setRequestLocale(locale);
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/become-creator`);
   const existing = await getMyCreatorApplication(user.id);
 
   if (existing && existing.status !== "REJECTED") {

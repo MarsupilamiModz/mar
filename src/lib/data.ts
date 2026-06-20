@@ -264,6 +264,44 @@ export async function getMods(filters: {
 }) {
   const page = filters.page ?? 1;
   const limit = filters.limit ?? 24;
+  const cacheable =
+    page === 1 &&
+    limit === 24 &&
+    !filters.search &&
+    !filters.categorySlug &&
+    !filters.audioCategory &&
+    !filters.genre &&
+    (!filters.productType || filters.productType === "ALL");
+
+  if (cacheable) {
+    return unstable_cache(
+      () => queryMods(filters),
+      [
+        "mods-catalog",
+        filters.gameSlug ?? "all",
+        filters.pricing ?? "all",
+        filters.productType ?? "ALL",
+      ],
+      { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.mods] }
+    )();
+  }
+
+  return queryMods(filters);
+}
+
+async function queryMods(filters: {
+  gameSlug?: string;
+  pricing?: string;
+  search?: string;
+  categorySlug?: string;
+  productType?: string;
+  audioCategory?: string;
+  genre?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 24;
   const skip = (page - 1) * limit;
 
   if (filters.categorySlug && !filters.gameSlug) {
@@ -315,7 +353,7 @@ export async function getMods(filters: {
   return { mods, total, pages: Math.ceil(total / limit) };
 }
 
-export async function getModBySlug(slug: string) {
+async function fetchModBySlug(slug: string) {
   const found = await prisma.mod.findUnique({ where: { slug }, select: { id: true } });
   if (found) await ensureModMediaSynced(found.id).catch(() => undefined);
 
@@ -340,6 +378,14 @@ export async function getModBySlug(slug: string) {
       return null;
     }
   }
+}
+
+export function getModBySlug(slug: string) {
+  return unstable_cache(
+    () => fetchModBySlug(slug),
+    ["mod-by-slug", slug],
+    { revalidate: REVALIDATE.modDetail, tags: [CACHE_TAGS.mods, CACHE_TAGS.mod(slug)] }
+  )();
 }
 
 export async function getGameBySlug(slug: string) {

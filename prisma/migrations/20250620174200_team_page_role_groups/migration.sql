@@ -1,0 +1,18 @@
+DO $$ BEGIN
+  CREATE TYPE "TeamRoleGroup" AS ENUM (
+    'OWNER',
+    'ADMINISTRATOR',
+    'MANAGER',
+    'SUPPORT',
+    'MODERATOR',
+    'DESIGNER',
+    'CREATOR'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE "TeamMember"
+ADD COLUMN IF NOT EXISTS "roleGroup" "TeamRoleGroup" NOT NULL DEFAULT 'SUPPORT',
+ADD COLUMN IF NOT EXISTS "roleBadge" TEXT,
+ADD COLUMN IF NOT EXISTS "roleColor" TEXT;

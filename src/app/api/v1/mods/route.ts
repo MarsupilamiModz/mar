@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateApiKey, hasScope } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { jsonCached, CACHE_PUBLIC_SHORT } from "@/lib/http-cache";
 
 export async function GET(req: Request) {
   const auth = await validateApiKey(req.headers.get("authorization"));
@@ -62,8 +63,11 @@ export async function GET(req: Request) {
     prisma.mod.count({ where }),
   ]);
 
-  return NextResponse.json({
-    data: mods,
-    meta: { page, limit, total, pages: Math.ceil(total / limit) },
-  });
+  return jsonCached(
+    {
+      data: mods,
+      meta: { page, limit, total, pages: Math.ceil(total / limit) },
+    },
+    CACHE_PUBLIC_SHORT
+  );
 }

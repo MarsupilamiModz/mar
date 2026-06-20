@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { buildAssetPublicUrl } from "@/lib/assets";
 import { revalidatePath } from "next/cache";
 import { registerMediaFromSession } from "@/lib/media-files";
+import { isAdmin, hasPermission } from "@/lib/permissions";
 import {
   getBrandingAssetSettings,
   saveBrandingAssetSettings,
@@ -27,7 +28,10 @@ export type UploadPurpose =
   | "designer-banner"
   | "game-asset"
   | "ticket-attachment"
-  | "branding-asset";
+  | "chat-attachment"
+  | "branding-asset"
+  | "team-avatar"
+  | "team-banner";
 
 export async function finalizeUploadSession(sessionId: string, userId: string) {
   const session = await prisma.storageUploadSession.findUnique({
@@ -74,6 +78,19 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
     case "collection-cover": {
       const collectionId = meta.collectionId;
       if (collectionId) {
+        const [collection, actor] = await Promise.all([
+          prisma.modCollection.findUnique({
+            where: { id: collectionId },
+            select: { ownerId: true },
+          }),
+          prisma.user.findUnique({ where: { id: userId }, select: { role: true } }),
+        ]);
+        if (!collection || !actor) {
+          throw new Error("Collection not found");
+        }
+        if (collection.ownerId !== userId && !isAdmin(actor.role)) {
+          throw new Error("Permission denied for this collection");
+        }
         await prisma.modCollection.update({
           where: { id: collectionId },
           data: { coverUrl: publicUrl },
@@ -172,10 +189,29 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
       revalidatePath("/", "layout");
       break;
     }
+    case "team-avatar":
+    case "team-banner": {
+      const teamMemberId = meta.teamMemberId;
+      if (teamMemberId) {
+        const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+        if (!actor || (!isAdmin(actor.role) && !hasPermission(actor.role, "users.write"))) {
+          throw new Error("Permission denied for team media upload");
+        }
+        const field = session.purpose === "team-banner" ? "bannerUrl" : "avatarUrl";
+        await prisma.teamMember.update({
+          where: { id: teamMemberId },
+          data: { [field]: publicUrl },
+        });
+        revalidatePath("/admin/team");
+        revalidatePath("/team");
+      }
+      break;
+    }
     case "creator-portfolio":
     case "creator-banner":
     case "creator-avatar":
     case "ticket-attachment":
+    case "chat-attachment":
     default:
       break;
   }

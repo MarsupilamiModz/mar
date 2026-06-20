@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ export function LoginForm() {
   const t = useTranslations("auth");
   const params = useParams();
   const locale = params.locale as string;
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,11 +45,12 @@ export function LoginForm() {
       setError(err.message);
       return;
     }
-    router.push(resolveLoginRedirect(locale, {
-      redirect: searchParams.get("redirect"),
-      next: searchParams.get("next"),
-    }));
-    router.refresh();
+    window.location.assign(
+      resolveLoginRedirect(locale, {
+        redirect: searchParams.get("redirect"),
+        next: searchParams.get("next"),
+      })
+    );
   }
 
   async function loginWithDiscord() {

@@ -14,7 +14,7 @@ export default async function PremiumSubscriptionPage({
   params: Promise<{ locale: Locale }>;
 }) {
   const { locale } = await params;
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/dashboard/subscription`);
 
   const [billing, tier] = await Promise.all([
     getPremiumBillingData(user.id, user.email),

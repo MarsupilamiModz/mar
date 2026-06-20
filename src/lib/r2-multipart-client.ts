@@ -21,7 +21,10 @@ export type MultipartPurpose =
   | "designer-banner"
   | "game-asset"
   | "ticket-attachment"
-  | "branding-asset";
+  | "chat-attachment"
+  | "branding-asset"
+  | "team-avatar"
+  | "team-banner";
 
 export type CompletedPart = { PartNumber: number; ETag: string };
 

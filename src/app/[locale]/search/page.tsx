@@ -1,8 +1,11 @@
 import { getPopularTags } from "@/lib/discovery";
 import { getVelocityTrendingMods } from "@/lib/recommendations";
+import { getAllGames } from "@/lib/data";
 import { SearchPageClient } from "@/components/search/search-page-client";
-import { prisma } from "@/lib/db";
+import { REVALIDATE } from "@/lib/cache";
 import type { Locale } from "@/i18n/config";
+
+export const revalidate = REVALIDATE.search;
 
 export default async function SearchPage({
   params,
@@ -16,11 +19,7 @@ export default async function SearchPage({
 
   const [tags, games, trending] = await Promise.all([
     getPopularTags(30),
-    prisma.game.findMany({
-      where: { isActive: true },
-      select: { slug: true, name: true },
-      orderBy: { sortOrder: "asc" },
-    }),
+    getAllGames(),
     getVelocityTrendingMods(8),
   ]);
 
@@ -32,7 +31,7 @@ export default async function SearchPage({
       initialGame={sp.game}
       initialSort={(sp.sort as "downloads" | "trending" | "rating" | "newest" | "updated" | "likes") ?? "downloads"}
       popularTags={tags}
-      games={games}
+      games={games.map((g) => ({ slug: g.slug, name: g.name }))}
       trendingMods={trending}
     />
   );

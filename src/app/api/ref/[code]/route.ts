@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { trackAffiliateClick } from "@/actions/affiliate";
+import { safeSameOriginPath } from "@/lib/api-auth";
 
 export async function GET(
   req: Request,
@@ -8,7 +9,7 @@ export async function GET(
   const { code } = await params;
 
   const result = await trackAffiliateClick(code);
-  const redirectTo = new URL(req.url).searchParams.get("redirect") ?? "/";
+  const redirectTo = safeSameOriginPath(new URL(req.url).searchParams.get("redirect"), "/");
 
   const res = NextResponse.redirect(new URL(redirectTo, req.url));
   if (result.success) {

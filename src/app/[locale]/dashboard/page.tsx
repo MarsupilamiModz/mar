@@ -10,6 +10,8 @@ import { getUserMembershipState } from "@/lib/user-membership";
 import Link from "next/link";
 import { DashboardRecommendations } from "@/components/mods/mod-recommendations";
 
+export const dynamic = "force-dynamic";
+
 async function DashboardStats({
   userId,
   isPremium,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateApiKey, hasScope } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { jsonCached, CACHE_PUBLIC_MEDIUM } from "@/lib/http-cache";
 
 export async function GET(
   _req: Request,
@@ -40,16 +41,19 @@ export async function GET(
     orderBy: { downloadCount: "desc" },
   });
 
-  return NextResponse.json({
-    data: {
-      slug: creator.slug,
-      displayName: creator.user.displayName ?? creator.user.username,
-      bio: creator.description,
-      isVerified: creator.isVerified,
-      followerCount: creator.followerCount,
-      modCount: mods.length,
-      user: creator.user,
-      mods,
+  return jsonCached(
+    {
+      data: {
+        slug: creator.slug,
+        displayName: creator.user.displayName ?? creator.user.username,
+        bio: creator.description,
+        isVerified: creator.isVerified,
+        followerCount: creator.followerCount,
+        modCount: mods.length,
+        user: creator.user,
+        mods,
+      },
     },
-  });
+    CACHE_PUBLIC_MEDIUM
+  );
 }

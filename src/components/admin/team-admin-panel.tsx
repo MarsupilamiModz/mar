@@ -133,6 +133,7 @@ function TeamAdminPanelInner({
                     defaultValue={m.role}
                     onChange={(e) => saveMember(m.id, { role: e.target.value as UserRole })}
                   >
+                    <option value="OWNER">Owner</option>
                     <option value="ADMIN">Admin</option>
                     <option value="MODERATOR">Moderator</option>
                     <option value="SUPPORT">Support</option>

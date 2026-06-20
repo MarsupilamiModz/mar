@@ -17,7 +17,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppToast } from "@/hooks/use-app-toast";
-import type { TeamVisibility } from "@prisma/client";
+import type { TeamRoleGroup, TeamVisibility } from "@prisma/client";
 
 type Department = {
   id: string;
@@ -32,6 +32,9 @@ type Department = {
 type Profile = {
   id: string;
   name: string;
+  roleGroup: TeamRoleGroup;
+  roleBadge: string | null;
+  roleColor: string | null;
   position: string;
   description: string | null;
   email: string | null;
@@ -85,6 +88,9 @@ export function TeamProfilesAdmin({
       const r = await upsertTeamProfile({
         id: editing?.id,
         name: String(form.get("name") ?? ""),
+        roleGroup: (form.get("roleGroup") as TeamRoleGroup) || "SUPPORT",
+        roleBadge: String(form.get("roleBadge") ?? "") || undefined,
+        roleColor: String(form.get("roleColor") ?? "") || undefined,
         position: String(form.get("position") ?? ""),
         description: String(form.get("description") ?? "") || undefined,
         email: String(form.get("email") ?? "") || undefined,
@@ -170,7 +176,22 @@ export function TeamProfilesAdmin({
           <h3 className="font-medium mb-3">{editing ? "Edit member" : "Add team member"}</h3>
           <form action={saveProfile} className="grid gap-3 sm:grid-cols-2">
             <Input name="name" placeholder="Name" required defaultValue={editing?.name} />
+            <select
+              name="roleGroup"
+              className="flex h-10 rounded-md border border-input bg-background/50 px-3 text-sm"
+              defaultValue={editing?.roleGroup ?? "SUPPORT"}
+            >
+              <option value="OWNER">Owner</option>
+              <option value="ADMINISTRATOR">Administrator</option>
+              <option value="MANAGER">Manager</option>
+              <option value="SUPPORT">Support</option>
+              <option value="MODERATOR">Moderator</option>
+              <option value="DESIGNER">Designer</option>
+              <option value="CREATOR">Creator</option>
+            </select>
             <Input name="position" placeholder="Position" required defaultValue={editing?.position} />
+            <Input name="roleBadge" placeholder="Role badge" defaultValue={editing?.roleBadge ?? ""} />
+            <Input name="roleColor" type="color" placeholder="Role color" defaultValue={editing?.roleColor ?? "#a855f7"} />
             <Textarea
               name="description"
               placeholder="Bio"
@@ -226,10 +247,12 @@ export function TeamProfilesAdmin({
               <div className="flex-1 min-w-0">
                 <p className="font-medium">{p.name}</p>
                 <p className="text-sm text-muted-foreground">
+                  {p.roleGroup} ·{" "}
                   {p.position}
                   {p.department && ` · ${p.department.name}`}
                 </p>
               </div>
+              {p.roleBadge && <Badge>{p.roleBadge}</Badge>}
               <Badge variant="outline">{p.visibility}</Badge>
               <div className="flex gap-1">
                 <Button size="icon" variant="ghost" disabled={pending || i === 0} onClick={() => moveProfile(p.id, -1)}>

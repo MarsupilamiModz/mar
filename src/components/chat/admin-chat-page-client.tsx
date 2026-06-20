@@ -31,6 +31,7 @@ type StaffRow = {
   displayName: string | null;
   avatarUrl: string | null;
   role: string;
+  teamDepartment?: string | null;
 };
 
 type MessageRow = {
@@ -49,17 +50,45 @@ type MessageRow = {
     content: string;
     sender: { username: string; displayName: string | null };
   } | null;
+  attachments: Array<{
+    url: string;
+    key: string;
+    fileName: string;
+    mimeType: string;
+    fileSize: number;
+  }>;
 };
+
+function normalizeMessageRows(rows: unknown[]): MessageRow[] {
+  return rows.map((row) => {
+    const value = row as MessageRow & { attachments?: unknown };
+    return {
+      ...value,
+      attachments: Array.isArray(value.attachments)
+        ? (value.attachments as MessageRow["attachments"]).filter(
+            (attachment) =>
+              typeof attachment?.url === "string" &&
+              typeof attachment?.key === "string" &&
+              typeof attachment?.fileName === "string"
+          )
+        : [],
+    };
+  });
+}
 
 export function AdminChatPageClient({
   locale,
   userId,
+  currentUserName,
+  currentUserRole,
   initialChannels,
   initialStaff,
   initialChannelId,
 }: {
   locale: string;
   userId: string;
+  currentUserName: string;
+  currentUserRole: string;
   initialChannels: ChannelRow[];
   initialStaff: StaffRow[];
   initialChannelId?: string;
@@ -71,7 +100,22 @@ export function AdminChatPageClient({
     initialChannelId ?? initialChannels.find((c) => c.slug === "general")?.id ?? initialChannels[0]?.id ?? null
   );
   const [messages, setMessages] = useState<MessageRow[]>([]);
-  const [channelMeta, setChannelMeta] = useState<{ name: string; type: ChatChannelType } | null>(null);
+  const [channelMeta, setChannelMeta] = useState<{
+    name: string;
+    type: ChatChannelType;
+    description?: string | null;
+  } | null>(null);
+  const [participants, setParticipants] = useState<
+    Array<{
+      id: string;
+      username: string;
+      displayName: string | null;
+      avatarUrl: string | null;
+      role: string;
+      lastReadAt: Date | null;
+    }>
+  >([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [pending, startTransition] = useTransition();
   const loadingRef = useRef(false);
 
@@ -83,11 +127,18 @@ export function AdminChatPageClient({
   const loadMessages = useCallback(async (channelId: string) => {
     if (loadingRef.current) return;
     loadingRef.current = true;
+    setLoadingMessages(true);
     const result = await getChatMessages(channelId);
     loadingRef.current = false;
+    setLoadingMessages(false);
     if (result.success) {
-      setMessages(result.data.messages as MessageRow[]);
-      setChannelMeta({ name: result.data.channel.name, type: result.data.channel.type });
+      setMessages(normalizeMessageRows(result.data.messages as unknown[]));
+      setChannelMeta({
+        name: result.data.channel.name,
+        type: result.data.channel.type,
+        description: result.data.channel.description,
+      });
+      setParticipants(result.data.participants as typeof participants);
       void refreshChannels();
     }
   }, [refreshChannels]);
@@ -96,8 +147,14 @@ export function AdminChatPageClient({
     if (activeChannelId) void loadMessages(activeChannelId);
   }, [activeChannelId, loadMessages]);
 
-  useTeamChatRealtime(activeChannelId, () => {
+  const onRealtimeMessage = useCallback(() => {
     if (activeChannelId) void loadMessages(activeChannelId);
+  }, [activeChannelId, loadMessages]);
+
+  const { onlineUserIds, typingUsers, sendTyping } = useTeamChatRealtime({
+    channelId: activeChannelId,
+    currentUser: { id: userId, name: currentUserName, role: currentUserRole },
+    onNewMessage: onRealtimeMessage,
   });
 
   function selectChannel(channelId: string) {
@@ -114,14 +171,20 @@ export function AdminChatPageClient({
     });
   }
 
-  function handleSend(content: string) {
-    if (!activeChannelId || !content.trim()) return;
-    startTransition(async () => {
-      const result = await sendChatMessage({ channelId: activeChannelId, content });
-      if (result.success) {
-        setMessages((prev) => [...prev, result.data.message as MessageRow]);
-        void refreshChannels();
-      }
+  async function handleSend(
+    content: string,
+    attachments: Array<{ url: string; key: string; fileName: string; mimeType: string; fileSize: number }>
+  ) {
+    if (!activeChannelId || (!content.trim() && attachments.length === 0)) return;
+    await new Promise<void>((resolve) => {
+      startTransition(async () => {
+        const result = await sendChatMessage({ channelId: activeChannelId, content, attachments });
+        if (result.success) {
+          setMessages((prev) => [...prev, result.data.message as MessageRow]);
+          void refreshChannels();
+        }
+        resolve();
+      });
     });
   }
 
@@ -137,23 +200,44 @@ export function AdminChatPageClient({
         onSelect={selectChannel}
         onStartDm={startDm}
         pending={pending}
+        onlineUserIds={onlineUserIds}
       />
       <div className="flex-1 min-w-0 glass rounded-xl flex flex-col overflow-hidden">
-        {activeChannel && channelMeta ? (
+        {activeChannel && (channelMeta || loadingMessages) ? (
           <>
             <div className="border-b border-border/40 px-4 py-3">
-              <h2 className="font-semibold">{activeChannel.name}</h2>
-              {activeChannel.description && (
-                <p className="text-xs text-muted-foreground mt-0.5">{activeChannel.description}</p>
-              )}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="font-semibold">{channelMeta?.name ?? activeChannel.name}</h2>
+                  {(channelMeta?.description ?? activeChannel.description) && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {channelMeta?.description ?? activeChannel.description}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right text-xs text-muted-foreground">
+                  <p>{onlineUserIds.length} {t("online")}</p>
+                  <p>{participants.length} {t("members")}</p>
+                </div>
+              </div>
             </div>
-            <ChatThread
-              locale={locale}
-              userId={userId}
-              messages={messages}
-              pending={pending}
-              onSend={handleSend}
-            />
+            {channelMeta ? (
+              <ChatThread
+                locale={locale}
+                userId={userId}
+                messages={messages}
+                participants={participants}
+                typingUsers={typingUsers}
+                onlineUserIds={onlineUserIds}
+                pending={pending}
+                onSend={handleSend}
+                onTyping={sendTyping}
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                Loading…
+              </div>
+            )}
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">

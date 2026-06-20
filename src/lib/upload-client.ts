@@ -20,7 +20,9 @@ export type UploadPurpose =
   | "designer-banner"
   | "game-asset"
   | "ticket-attachment"
-  | "branding-asset";
+  | "branding-asset"
+  | "team-avatar"
+  | "team-banner";
 
 export type UploadApiResult = {
   url: string;
@@ -38,6 +40,7 @@ export type UploadApiOptions = {
   gameId?: string;
   assetType?: "icon" | "banner" | "cover";
   brandingAssetType?: string;
+  teamMemberId?: string;
   onProgress?: UploadProgressHandler;
   signal?: AbortSignal;
 };
@@ -51,6 +54,7 @@ function buildMetadata(options: UploadApiOptions): Record<string, string> | unde
   if (options.gameId) meta.gameId = options.gameId;
   if (options.assetType) meta.assetType = options.assetType;
   if (options.brandingAssetType) meta.assetType = options.brandingAssetType;
+  if (options.teamMemberId) meta.teamMemberId = options.teamMemberId;
   return Object.keys(meta).length ? meta : undefined;
 }
 

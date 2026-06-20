@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateApiKey, hasScope } from "@/lib/api-auth";
 import { getCollectionBySlug } from "@/lib/collections-data";
+import { jsonCached, CACHE_PUBLIC_MEDIUM } from "@/lib/http-cache";
 
 export async function GET(
   _req: Request,
@@ -21,5 +22,5 @@ export async function GET(
     return NextResponse.json({ error: "Collection not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ data: collection });
+  return jsonCached({ data: collection }, CACHE_PUBLIC_MEDIUM);
 }

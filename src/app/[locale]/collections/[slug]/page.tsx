@@ -7,6 +7,7 @@ import { CollectionActions } from "@/components/collections/collection-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
+import { isAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import type { Locale } from "@/i18n/config";
 
@@ -22,11 +23,16 @@ export default async function CollectionDetailPage({
   setRequestLocale(locale);
   const collection = await getCollectionBySlug(slug);
   if (!collection) notFound();
-  if (collection.visibility === "PRIVATE") notFound();
-
-  void incrementCollectionView(collection.id);
 
   const user = await getCurrentUser();
+  if (
+    collection.visibility === "PRIVATE" &&
+    (!user || (collection.ownerId !== user.id && !isAdmin(user.role)))
+  ) {
+    notFound();
+  }
+
+  void incrementCollectionView(collection.id);
   const following = user
     ? await prisma.modCollectionFollow.findUnique({
         where: {

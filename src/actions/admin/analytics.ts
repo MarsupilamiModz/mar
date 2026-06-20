@@ -1,12 +1,11 @@
 "use server";
 
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireActionPermission, ok } from "@/lib/action-utils";
+import { CACHE_TAGS, REVALIDATE } from "@/lib/cache";
 
-export async function getAdminAnalytics() {
-  const { error } = await requireActionPermission("analytics.read");
-  if (error) return error;
-
+async function fetchAdminAnalytics() {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
@@ -57,14 +56,14 @@ export async function getAdminAnalytics() {
       include: { user: { select: { username: true } }, mod: { select: { title: true } } },
     }),
     prisma.user.findMany({
-      where: { deletedAt: null },
       take: 5,
+      where: { deletedAt: null },
       orderBy: { createdAt: "desc" },
       select: { id: true, username: true, email: true, role: true, createdAt: true },
     }),
   ]);
 
-  return ok({
+  return {
     totalUsers,
     premiumUsers,
     activeSubscriptions,
@@ -75,5 +74,18 @@ export async function getAdminAnalytics() {
     recentMods,
     recentPurchases,
     latestUsers,
-  });
+  };
+}
+
+const getCachedAdminAnalytics = unstable_cache(
+  fetchAdminAnalytics,
+  ["admin-analytics-overview"],
+  { revalidate: REVALIDATE.adminStats, tags: [CACHE_TAGS.adminAnalytics] }
+);
+
+export async function getAdminAnalytics() {
+  const { error } = await requireActionPermission("analytics.read");
+  if (error) return error;
+
+  return ok(await getCachedAdminAnalytics());
 }

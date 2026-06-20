@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { memo } from "react";
 import { Download, Play, Star, Music } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,7 +46,7 @@ type ModCardProps = {
   showLike?: boolean;
 };
 
-export function ModCard({ locale, mod, pricingLabel, isFavorited, showLike = true }: ModCardProps) {
+export const ModCard = memo(function ModCard({ locale, mod, pricingLabel, isFavorited, showLike = true }: ModCardProps) {
   const media = mod.media ?? [];
   const cover = getFeaturedMediaUrl(
     media,
@@ -136,4 +137,4 @@ export function ModCard({ locale, mod, pricingLabel, isFavorited, showLike = tru
       </Card>
     </Link>
   );
-}
+});

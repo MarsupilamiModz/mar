@@ -69,12 +69,18 @@ export async function updateCollectionAdmin(
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
+  const existing = await prisma.modCollection.findUnique({ where: { id } });
+  if (!existing) return fail("Not found");
+
   const updated = await prisma.modCollection.update({
     where: { id },
     data: {
       ...input,
       ...(input.isFeatured !== undefined && {
-        visibility: input.isFeatured ? "FEATURED" : input.visibility ?? "PUBLIC",
+        visibility: input.isFeatured
+          ? "FEATURED"
+          : input.visibility ??
+            (existing.visibility === "FEATURED" ? "PUBLIC" : existing.visibility),
       }),
     },
   });

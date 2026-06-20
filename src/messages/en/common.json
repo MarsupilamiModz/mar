@@ -51,6 +51,24 @@
     "notFoundHint": "The page you are looking for does not exist or was moved.",
     "backHome": "Back to home",
     "retry": "Try again",
-    "back": "Back"
+    "back": "Back",
+    "recovery": {
+      "titleNetwork": "Connection problem",
+      "titleAuth": "Session issue",
+      "titleDatabase": "Database temporarily unavailable",
+      "titleUpload": "Upload interrupted",
+      "titlePermission": "Access denied",
+      "titleValidation": "Invalid request",
+      "retry": "Try again",
+      "reload": "Reload page",
+      "signIn": "Sign in again",
+      "home": "Back to home",
+      "copyDetails": "Copy details",
+      "copied": "Copied",
+      "detailsLabel": "Technical details",
+      "codeLabel": "Code",
+      "referenceLabel": "Reference",
+      "categoryLabel": "Category"
+    }
   }
 }

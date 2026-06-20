@@ -200,6 +200,7 @@ export function OwnerControlCenter({ data }: { data: OwnerData }) {
       <section>
         <h2 className="text-lg font-semibold mb-3">Quick links</h2>
         <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm"><Link href="/admin/owner/health">Health monitor</Link></Button>
           <Button asChild variant="outline" size="sm"><Link href="/admin/system">System health</Link></Button>
           <Button asChild variant="outline" size="sm"><Link href="/admin/trust">Trust & Security</Link></Button>
           <Button asChild variant="outline" size="sm"><Link href="/admin/discovery">Discovery</Link></Button>

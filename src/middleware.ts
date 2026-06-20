@@ -1,5 +1,5 @@
 import createMiddleware from "next-intl/middleware";
-import { type NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { locales, defaultLocale, localeRegex } from "@/i18n/config";
 
@@ -16,10 +16,9 @@ const protectedPrefixes = [
   "/creator",
   "/designer",
   "/partner",
+  "/team-chat",
   "/banned",
 ];
-
-const authEntryPaths = ["/login", "/register"];
 
 const SESSION_COOKIE_HINTS = ["sb-", "auth-token"];
 
@@ -49,6 +48,12 @@ function mergeSessionCookies(target: NextResponse, sessionResponse: NextResponse
   });
 }
 
+function withPathnameHeader(request: NextRequest, pathname: string) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
+  return new NextRequest(request.url, { headers: requestHeaders });
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
@@ -63,7 +68,6 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Server Actions: refresh session only — skip intl rewrites that break action forwarding.
   if (isServerAction(request)) {
     if (!hasSessionCookies(request)) return NextResponse.next();
     const { response } = await updateSession(request);
@@ -74,39 +78,29 @@ export async function middleware(request: NextRequest) {
 
   const localeMatch = pathname.match(localeRegex);
   const locale = localeMatch?.[1] ?? defaultLocale;
-  const pathWithoutLocale = pathname.replace(localeRegex, "") || "/";
+  let pathWithoutLocale = pathname.replace(localeRegex, "") || "/";
+  if (!pathWithoutLocale.startsWith("/")) {
+    pathWithoutLocale = `/${pathWithoutLocale}`;
+  }
 
   const isProtected = protectedPrefixes.some((p) => pathWithoutLocale.startsWith(p));
-  const isAuthEntry = authEntryPaths.some((p) => pathWithoutLocale === p || pathWithoutLocale.startsWith(`${p}/`));
 
-  const shouldRefreshSession = cookieHint && (isProtected || isAuthEntry);
-  const sessionResult = shouldRefreshSession ? await updateSession(request) : null;
+  const sessionResult = cookieHint ? await updateSession(request) : null;
   const authenticated = Boolean(sessionResult?.userId);
 
-  if (isAuthEntry && authenticated) {
-    const authError = request.nextUrl.searchParams.get("error");
-    const recoverableErrors = new Set([
-      "db_sync",
-      "auth_exchange",
-      "auth_callback",
-      "auth_missing_code",
-      "discord",
-      "discord_token",
-      "discord_user",
-    ]);
-    if (!authError || !recoverableErrors.has(authError)) {
-      const dashboard = new URL(`/${locale}/dashboard`, request.url);
-      return NextResponse.redirect(dashboard);
-    }
-  }
+  // Auth entry redirect handled in login/register page SSR (avoids Supabase/Prisma mismatch loops).
 
-  if (isProtected && !authenticated) {
+  // Only redirect to login when there are no session cookies at all.
+  // If cookies exist but getUser() failed, defer to SSR requireAuth (with Prisma recovery).
+  if (isProtected && !authenticated && !cookieHint) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
     loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+    const redirect = NextResponse.redirect(loginUrl);
+    mergeSessionCookies(redirect, sessionResult?.response ?? null);
+    return redirect;
   }
 
-  const intlResponse = intlMiddleware(request);
+  const intlResponse = intlMiddleware(withPathnameHeader(request, pathname));
   mergeSessionCookies(intlResponse, sessionResult?.response ?? null);
   return intlResponse;
 }

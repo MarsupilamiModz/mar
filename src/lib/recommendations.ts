@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { findModsListing } from "@/lib/data";
+import { CACHE_TAGS, REVALIDATE } from "@/lib/cache";
 
 async function fetchSimilarMods(modId: string, gameId: string, limit: number) {
   const mod = await prisma.mod.findUnique({
@@ -116,7 +117,15 @@ export function getUsersAlsoDownloaded(modId: string, limit = 4) {
   )();
 }
 
-export async function getVelocityTrendingMods(limit = 12, gameId?: string) {
+export function getVelocityTrendingMods(limit = 12, gameId?: string) {
+  return unstable_cache(
+    async () => fetchVelocityTrendingMods(limit, gameId),
+    ["velocity-trending", String(limit), gameId ?? "all"],
+    { revalidate: REVALIDATE.search, tags: [CACHE_TAGS.mods, CACHE_TAGS.discovery] }
+  )();
+}
+
+async function fetchVelocityTrendingMods(limit = 12, gameId?: string) {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const grouped = await prisma.download.groupBy({
     by: ["modId"],

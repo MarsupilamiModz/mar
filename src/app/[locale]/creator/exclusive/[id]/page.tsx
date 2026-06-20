@@ -13,7 +13,7 @@ export default async function CreatorExclusiveDetailPage({
 }) {
   const { locale, id } = await params;
 
-  await requireAuth(`/${locale}/login`);
+  await requireAuth(`/${locale}/creator/exclusive/${id}`);
   const result = await getCreatorExclusiveProgram(id);
   if (!result.success) notFound();
 

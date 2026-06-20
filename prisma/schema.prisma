@@ -815,6 +815,10 @@ model Mod {
   platformEvents PlatformEvent[]
 
   @@index([status, visibility, downloadCount])
+  @@index([status, visibility, updatedAt(sort: Desc)])
+  @@index([status, visibility, favoriteCount(sort: Desc)])
+  @@index([status, visibility, averageRating(sort: Desc)])
+  @@index([categoryId, status])
   @@index([gameId, status])
   @@index([isFeatured, status])
   @@index([authorId])
@@ -955,6 +959,7 @@ model ModTag {
   name  String
 
   @@unique([modId, name])
+  @@index([name])
 }
 
 model ModDependency {
@@ -1036,6 +1041,10 @@ model Download {
   ipHash       String?
   userAgent    String?
   createdAt    DateTime    @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([modId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
 }
 
 model Subscription {
@@ -2462,6 +2471,16 @@ enum TeamVisibility {
   HIDDEN
 }
 
+enum TeamRoleGroup {
+  OWNER
+  ADMINISTRATOR
+  MANAGER
+  SUPPORT
+  MODERATOR
+  DESIGNER
+  CREATOR
+}
+
 model TeamDepartment {
   id           String       @id @default(cuid())
   slug         String       @unique
@@ -2481,6 +2500,9 @@ model TeamDepartment {
 model TeamMember {
   id           String          @id @default(cuid())
   name         String
+  roleGroup    TeamRoleGroup   @default(SUPPORT)
+  roleBadge    String?
+  roleColor    String?
   position     String
   description  String?         @db.Text
   email        String?
@@ -2553,6 +2575,7 @@ model ChatMessage {
   senderId  String
   sender    User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
   content   String       @db.Text
+  attachments Json?
   replyToId String?
   replyTo   ChatMessage? @relation("ChatReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies   ChatMessage[] @relation("ChatReplies")

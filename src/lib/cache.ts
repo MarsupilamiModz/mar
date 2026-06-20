@@ -7,6 +7,9 @@ export const CACHE_TAGS = {
   partners: "partners",
   collections: "collections",
   permissions: "permissions",
+  discovery: "discovery",
+  adminAnalytics: "admin-analytics",
+  mod: (slug: string) => `mod-${slug}`,
   user: (userId: string) => `user-${userId}`,
   userSession: (supabaseId: string) => `session-${supabaseId}`,
   achievements: (userId: string) => `achievements-${userId}`,
@@ -21,4 +24,6 @@ export const REVALIDATE = {
   permissions: 120,
   branding: 60,
   static: 3600,
+  search: 60,
+  adminStats: 60,
 } as const;

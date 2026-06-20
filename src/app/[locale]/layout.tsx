@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { defaultLocale, isValidLocale, locales, type Locale } from "@/i18n/config";
@@ -10,13 +11,23 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthSync } from "@/components/auth/auth-sync";
 import { LocaleHtmlLang } from "@/components/layout/locale-html-lang";
 import { ScrollRestoration } from "@/components/layout/scroll-restoration";
-import { SnakeEasterEgg } from "@/components/easter-egg/snake-game";
-import { PlatformAudioShell } from "@/components/audio/platform-audio-shell";
 import { AdProviderScripts } from "@/components/ads/ad-provider-scripts";
 import { AdPopupSlot } from "@/components/ads/ad-popup-slot";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import { getCmsSeo } from "@/lib/page-content";
 import { PlatformVisitTracker } from "@/components/analytics/platform-visit-tracker";
+
+const SnakeEasterEgg = dynamic(
+  () => import("@/components/easter-egg/snake-game").then((m) => ({ default: m.SnakeEasterEgg })),
+  { ssr: false }
+);
+
+const PlatformAudioShell = dynamic(
+  () =>
+    import("@/components/audio/platform-audio-shell").then((m) => ({
+      default: m.PlatformAudioShell,
+    }))
+);
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));

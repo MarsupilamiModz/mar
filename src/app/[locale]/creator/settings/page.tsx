@@ -11,7 +11,7 @@ export default async function CreatorSettingsPage({ params }: { params: Promise<
 
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/creator/settings`);
 
   const profile = await prisma.creatorProfile.findUnique({
     where: { userId: user.id },

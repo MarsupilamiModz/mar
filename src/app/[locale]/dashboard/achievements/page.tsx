@@ -9,7 +9,7 @@ export default async function AchievementsPage({ params }: { params: Promise<{ l
 
   setRequestLocale(locale);
   const t = await getTranslations("dashboard");
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/dashboard/achievements`);
   void evaluateUserAchievements(user.id).catch(() => undefined);
 
   const [achievements, progress] = await Promise.all([

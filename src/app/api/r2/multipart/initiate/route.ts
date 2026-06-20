@@ -13,6 +13,7 @@ import { storageKey } from "@/lib/storage";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 import { fileSizeBigInt } from "@/lib/file-size";
 import { getMediaSettings } from "@/lib/media-settings";
+import { assertCollectionCoverAccess } from "@/lib/api-auth";
 import { isAudioFileName, MAX_PREVIEW_BYTES } from "@/lib/sound";
 import { createSoundFileId, mimeFromFileName, soundPreviewStorageKey } from "@/lib/sound-storage";
 
@@ -33,7 +34,10 @@ const purposeSchema = z.enum([
   "designer-banner",
   "game-asset",
   "ticket-attachment",
+  "chat-attachment",
   "branding-asset",
+  "team-avatar",
+  "team-banner",
 ]);
 
 const initiateSchema = z.object({
@@ -125,8 +129,27 @@ export async function POST(req: Request) {
       }
     }
 
-    if (purpose === "collection-cover" && !metadata?.collectionId) {
-      return jsonError("collectionId required in metadata", 400, "VALIDATION");
+    if (purpose === "collection-cover") {
+      if (!metadata?.collectionId) {
+        return jsonError("collectionId required in metadata", 400, "VALIDATION");
+      }
+      const access = await assertCollectionCoverAccess(user, metadata.collectionId);
+      if (!access.ok) {
+        return jsonError(access.message, access.status, "AUTH");
+      }
+    }
+
+    if (purpose === "team-avatar" || purpose === "team-banner") {
+      if (!hasPermission(user.role, "users.write")) {
+        return jsonError("Permission denied for team media uploads", 403, "AUTH");
+      }
+      if (metadata?.teamMemberId) {
+        const member = await prisma.teamMember.findUnique({
+          where: { id: metadata.teamMemberId },
+          select: { id: true },
+        });
+        if (!member) return jsonError("Team member not found", 404, "VALIDATION");
+      }
     }
 
     const safeName = fileName.replace(/[^\w.-]/g, "_");

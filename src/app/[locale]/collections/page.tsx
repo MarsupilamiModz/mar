@@ -4,8 +4,9 @@ import { listPublicCollections } from "@/lib/collections-data";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Locale } from "@/i18n/config";
+import { REVALIDATE } from "@/lib/cache";
 
-export const dynamic = "force-dynamic";
+export const revalidate = REVALIDATE.collections;
 
 export default async function CollectionsPage({
   params,

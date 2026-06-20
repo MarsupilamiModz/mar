@@ -61,9 +61,13 @@ export function SearchPageClient({
   }
 
   useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
+
+  useEffect(() => {
     runSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tag, gameSlug, sort, verifiedOnly]);
+  }, [tag, gameSlug, sort, verifiedOnly, initialQuery]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 space-y-8">

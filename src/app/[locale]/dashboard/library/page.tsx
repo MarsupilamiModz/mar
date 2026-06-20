@@ -11,7 +11,7 @@ import type { Locale } from "@/i18n/config";
 export default async function LibraryPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
 
-  const user = await requireAuth(`/${locale}/login`);
+  const user = await requireAuth(`/${locale}/dashboard/library`);
   const { modPurchases, shopPurchases } = await getUserLibrary(user.id);
 
   return (

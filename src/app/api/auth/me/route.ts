@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getSession, getCurrentUser } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { getNavUser } from "@/lib/nav-user";
-import { ensurePrismaUser } from "@/lib/user-sync";
+import { ensurePrismaUser, findAppUserBySupabaseId } from "@/lib/user-sync";
+import { invalidateUserSessionCache } from "@/lib/auth-cache";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,25 +15,33 @@ export async function GET() {
     const session = await getSession();
     if (!session) return NextResponse.json(null);
 
-    await ensurePrismaUser(session);
+    invalidateUserSessionCache(session.id);
+
+    let dbUser = await findAppUserBySupabaseId(session.id);
+    if (!dbUser) {
+      dbUser = await ensurePrismaUser(session);
+    }
+
+    if (!dbUser) return NextResponse.json({ sessionActive: true, prismaLinked: false });
+
     user = await getNavUser();
     return NextResponse.json(user);
   } catch (error) {
     console.error("[api/auth/me]", error);
 
     const session = await getSession();
-    if (session) {
-      const dbUser = await getCurrentUser();
+    if (!session) return NextResponse.json(null);
+
+    try {
+      const dbUser = await findAppUserBySupabaseId(session.id);
       if (dbUser) {
-        try {
-          const user = await getNavUser();
-          if (user) return NextResponse.json(user);
-        } catch {
-          /* fall through */
-        }
+        const user = await getNavUser();
+        if (user) return NextResponse.json(user);
       }
+    } catch {
+      /* fall through */
     }
 
-    return NextResponse.json(null);
+    return NextResponse.json({ sessionActive: true, prismaLinked: false });
   }
 }

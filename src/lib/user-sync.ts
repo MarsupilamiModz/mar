@@ -2,7 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import { Prisma } from "@prisma/client";
 import { prisma, withDbRetry } from "@/lib/db";
 import { logPlatformError } from "@/lib/platform-log";
-import { invalidateUserSessionCache } from "@/lib/auth-cache";
+import { invalidateUserSessionCache, getCachedUserBySupabaseId, fetchUserBySupabaseIdDirect, type AppUser } from "@/lib/auth-cache";
 import { isValidEmail } from "@/lib/email/address";
 
 const userInclude = {
@@ -12,22 +12,22 @@ const userInclude = {
   subscriptions: { where: { status: "ACTIVE" as const }, select: { status: true } },
 } as const;
 
-export type PrismaAppUser = Awaited<ReturnType<typeof findUserBySupabaseId>>;
+export type PrismaAppUser = AppUser;
 
 function isUniqueConstraintError(err: unknown): boolean {
   return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
 }
 
 async function findUserBySupabaseId(supabaseId: string) {
-  return prisma.user.findUnique({
-    where: { supabaseId },
-    include: userInclude,
-  });
+  return getCachedUserBySupabaseId(supabaseId);
 }
 
 /** Direct DB lookup — use in auth recovery paths (never cached). */
 export async function findAppUserBySupabaseId(supabaseId: string) {
-  return withDbRetry(() => findUserBySupabaseId(supabaseId), { label: "user:find-supabase-direct" });
+  return withDbRetry(
+    () => fetchUserBySupabaseIdDirect(supabaseId),
+    { label: "user:find-supabase-direct" }
+  );
 }
 
 function sessionEmail(session: User): string {
@@ -154,7 +154,7 @@ async function syncExistingUser(session: User, existing: NonNullable<Awaited<Ret
     return updated;
   } catch (err) {
     if (isUniqueConstraintError(err)) {
-      const bySupabase = await findUserBySupabaseId(session.id);
+      const bySupabase = await findAppUserBySupabaseId(session.id);
       if (bySupabase && !bySupabase.deletedAt) return bySupabase;
     }
     throw err;
@@ -241,7 +241,7 @@ export async function ensurePrismaUser(session: User) {
   } catch (err) {
     if (isUniqueConstraintError(err)) {
       const raced = await withDbRetry(
-        () => findUserBySupabaseId(session.id),
+        () => findAppUserBySupabaseId(session.id),
         { label: "user:race-find" }
       );
       if (raced && !raced.deletedAt) {

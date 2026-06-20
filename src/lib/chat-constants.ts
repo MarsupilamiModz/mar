@@ -1,15 +1,6 @@
-import { TEAM_DEPARTMENTS } from "@/lib/team";
+import { TEAM_CHAT_CHANNELS } from "@/lib/team-chat-access";
 
-export const DEFAULT_CHAT_CHANNELS = [
-  { slug: "general", name: "General", type: "PUBLIC" as const, description: "Company-wide announcements and discussion" },
-  ...TEAM_DEPARTMENTS.map((dept) => ({
-    slug: dept.toLowerCase().replace(/\s+/g, "-"),
-    name: dept,
-    type: "DEPARTMENT" as const,
-    department: dept,
-    description: `${dept} team channel`,
-  })),
-];
+export const DEFAULT_CHAT_CHANNELS = TEAM_CHAT_CHANNELS;
 
 export function dmChannelSlug(userIdA: string, userIdB: string) {
   const [a, b] = [userIdA, userIdB].sort();

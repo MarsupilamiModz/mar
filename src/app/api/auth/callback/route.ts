@@ -12,6 +12,8 @@ import { findAppUserBySupabaseId } from "@/lib/user-sync";
 import { persistAuthAudit } from "@/lib/auth-audit";
 import { logSecurityEvent } from "@/lib/user-security";
 import { createHash } from "crypto";
+import { isGenericDashboardPath, resolveRoleHomePath } from "@/lib/auth-redirect";
+import { invalidateUserSessionCache } from "@/lib/auth-cache";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -53,6 +55,8 @@ export async function GET(req: NextRequest) {
     }
 
     logAuthEvent("callback_exchange_ok", { userId: data.user.id });
+
+    invalidateUserSessionCache(data.user.id);
 
     let dbUser = null;
     try {
@@ -101,7 +105,11 @@ export async function GET(req: NextRequest) {
       void syncDiscordRoles(dbUser.discordId, roles);
     }
 
-    return redirectWithCookies(`${origin}${destination}`, getResponse());
+    const finalDestination = isGenericDashboardPath(destination, locale)
+      ? resolveRoleHomePath(locale, dbUser!)
+      : destination;
+
+    return redirectWithCookies(`${origin}${finalDestination}`, getResponse());
   } catch (err) {
     void logPlatformError("auth:callback", err);
     logAuthEvent("callback_fatal", { message: err instanceof Error ? err.message : String(err) }, "error");
