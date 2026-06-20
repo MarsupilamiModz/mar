@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { fail, ok, requireActionUser, requireActionPermission } from "@/lib/action-utils";
 import { hasPermission } from "@/lib/permissions";
@@ -10,6 +10,8 @@ import { getMediaSettings, updateMediaSettings, type MediaSettings } from "@/lib
 import { modImageStoragePath } from "@/lib/mod-media";
 import { extractYouTubeId, youTubeThumbnailUrl } from "@/lib/youtube";
 import { extensionForMime, validateUploadFile } from "@/lib/upload-validation";
+import { CACHE_TAGS } from "@/lib/cache";
+import { locales } from "@/i18n/config";
 import type { UserRole } from "@prisma/client";
 
 async function canEditMod(userId: string, role: UserRole, modAuthorId: string) {
@@ -25,9 +27,12 @@ async function getModForMedia(modId: string) {
 }
 
 function revalidateModPaths(slug: string) {
-  revalidatePath(`/mods/${slug}`);
-  revalidatePath(`/en/mods/${slug}`);
-  revalidatePath(`/de/mods/${slug}`);
+  revalidateTag(CACHE_TAGS.mod(slug));
+  revalidateTag(CACHE_TAGS.mods);
+  revalidateTag(CACHE_TAGS.featured);
+  for (const locale of locales) {
+    revalidatePath(`/${locale}/mods/${slug}`);
+  }
 }
 
 export async function uploadModMediaImages(modId: string, formData: FormData) {

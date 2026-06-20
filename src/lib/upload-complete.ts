@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
 import { buildAssetPublicUrl } from "@/lib/assets";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { registerMediaFromSession } from "@/lib/media-files";
 import { isAdmin, hasPermission } from "@/lib/permissions";
+import { CACHE_TAGS } from "@/lib/cache";
+import { locales } from "@/i18n/config";
 import {
   getBrandingAssetSettings,
   saveBrandingAssetSettings,
@@ -72,7 +74,13 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
       });
       mediaId = media.id;
       const mod = await prisma.mod.findUnique({ where: { id: session.modId }, select: { slug: true } });
-      if (mod) revalidatePath(`/mods/${mod.slug}`);
+      if (mod) {
+        revalidateTag(CACHE_TAGS.mod(mod.slug));
+        revalidateTag(CACHE_TAGS.mods);
+        for (const locale of locales) {
+          revalidatePath(`/${locale}/mods/${mod.slug}`);
+        }
+      }
       break;
     }
     case "collection-cover": {

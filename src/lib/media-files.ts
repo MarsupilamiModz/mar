@@ -1,6 +1,7 @@
 import type { MediaEntityType } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { buildAssetPublicUrl, resolveAssetUrl } from "@/lib/assets";
+import { buildAssetPublicUrl } from "@/lib/assets";
+import { getScreenshotUrl } from "@/lib/screenshot-url";
 import { STORAGE, storageKey } from "@/lib/storage";
 import { fileSizeBigInt } from "@/lib/file-size";
 
@@ -21,14 +22,11 @@ export function normalizeStoragePath(value: string): string {
   return storageKey(trimmed);
 }
 
+export { getScreenshotUrl };
+
 /** Resolve any stored value (key, partial path, or URL) to a public URL. */
 export function resolveMediaPublicUrl(stored: string | null | undefined): string | null {
-  if (!stored?.trim()) return null;
-  const value = stored.trim();
-  if (value.startsWith("http://") || value.startsWith("https://")) {
-    return resolveAssetUrl(value);
-  }
-  return buildAssetPublicUrl(normalizeStoragePath(value));
+  return getScreenshotUrl(stored);
 }
 
 /** Normalize stored DB value to canonical public URL for display. */

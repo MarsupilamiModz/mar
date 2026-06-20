@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveAssetUrl } from "@/lib/assets";
+import { getScreenshotUrl, getScreenshotProxyFallback } from "@/lib/screenshot-url";
 
 type SafeImageProps = {
   src: string | null | undefined;
@@ -17,10 +17,17 @@ type SafeImageProps = {
   sizes?: string;
   priority?: boolean;
   loading?: "lazy" | "eager";
+  fallbackLabel?: string;
 };
 
 function isLocalPreview(url: string) {
   return url.startsWith("blob:") || url.startsWith("data:");
+}
+
+function shouldUseUnoptimized(url: string): boolean {
+  if (isLocalPreview(url)) return true;
+  // External/CDN URLs — bypass Next Image optimizer (avoids remotePatterns 403 loops).
+  return url.startsWith("http://") || url.startsWith("https://");
 }
 
 export function SafeImage({
@@ -34,15 +41,20 @@ export function SafeImage({
   sizes,
   priority,
   loading = "lazy",
+  fallbackLabel = "No screenshot available",
 }: SafeImageProps) {
   const [failed, setFailed] = useState(false);
-  const resolved = resolveAssetUrl(src);
+  const [useProxy, setUseProxy] = useState(false);
+
+  const primary = getScreenshotUrl(src);
+  const proxy = useProxy ? getScreenshotProxyFallback(src) : null;
+  const resolved = proxy ?? primary;
 
   if (!resolved || failed) {
     return (
       <div
         className={cn(
-          "flex items-center justify-center bg-muted/30 text-muted-foreground",
+          "flex flex-col items-center justify-center gap-1 bg-muted/30 text-muted-foreground",
           fill && "absolute inset-0",
           className
         )}
@@ -50,11 +62,25 @@ export function SafeImage({
         aria-hidden={!alt}
       >
         <ImageOff className="h-8 w-8 opacity-40" />
+        {fallbackLabel && (
+          <span className="text-[10px] opacity-60 px-2 text-center">{fallbackLabel}</span>
+        )}
       </div>
     );
   }
 
-  const unoptimized = isLocalPreview(resolved);
+  const unoptimized = shouldUseUnoptimized(resolved);
+
+  const handleError = () => {
+    if (!useProxy && getScreenshotProxyFallback(src)) {
+      setUseProxy(true);
+      return;
+    }
+    setFailed(true);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[SafeImage] failed to load", { src, resolved });
+    }
+  };
 
   if (fill) {
     return (
@@ -69,7 +95,7 @@ export function SafeImage({
         loading={priority ? undefined : loading}
         placeholder="empty"
         unoptimized={unoptimized}
-        onError={() => setFailed(true)}
+        onError={handleError}
       />
     );
   }
@@ -86,7 +112,7 @@ export function SafeImage({
       loading={priority ? undefined : loading}
       placeholder="empty"
       unoptimized={unoptimized}
-      onError={() => setFailed(true)}
+      onError={handleError}
     />
   );
 }

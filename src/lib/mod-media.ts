@@ -1,7 +1,7 @@
 import type { ModMediaType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { extractYouTubeId, youTubeThumbnailUrl } from "@/lib/youtube";
-import { resolveAssetUrl } from "@/lib/assets";
+import { getScreenshotUrl } from "@/lib/screenshot-url";
 import { normalizeStoredMediaUrl } from "@/lib/media-files";
 import { storageKey } from "@/lib/storage";
 
@@ -20,7 +20,7 @@ export function modImageStoragePath(modSlug: string, filename: string) {
 }
 
 export function getMediaDisplayUrl(item: Pick<ModMediaItem, "mediaType" | "imageUrl" | "youtubeVideoId">) {
-  if (item.mediaType === "IMAGE" && item.imageUrl) return resolveAssetUrl(item.imageUrl);
+  if (item.mediaType === "IMAGE" && item.imageUrl) return getScreenshotUrl(item.imageUrl);
   if (item.mediaType === "YOUTUBE" && item.youtubeVideoId) {
     return youTubeThumbnailUrl(item.youtubeVideoId, "hq");
   }
@@ -32,18 +32,20 @@ export function getFeaturedMediaUrl(
   legacyScreenshots?: { url: string; sortOrder: number }[]
 ) {
   const featured = media.find((m) => m.isFeatured && m.mediaType === "IMAGE" && m.imageUrl);
-  if (featured?.imageUrl) return resolveAssetUrl(featured.imageUrl);
+  if (featured?.imageUrl) return getScreenshotUrl(featured.imageUrl);
 
   const featuredYt = media.find((m) => m.isFeatured && m.mediaType === "YOUTUBE" && m.youtubeVideoId);
   if (featuredYt?.youtubeVideoId) return youTubeThumbnailUrl(featuredYt.youtubeVideoId, "hq");
 
   const firstImage = media.find((m) => m.mediaType === "IMAGE" && m.imageUrl);
-  if (firstImage?.imageUrl) return resolveAssetUrl(firstImage.imageUrl);
+  if (firstImage?.imageUrl) return getScreenshotUrl(firstImage.imageUrl);
 
   const firstYt = media.find((m) => m.mediaType === "YOUTUBE" && m.youtubeVideoId);
   if (firstYt?.youtubeVideoId) return youTubeThumbnailUrl(firstYt.youtubeVideoId, "hq");
 
-  return resolveAssetUrl(legacyScreenshots?.sort((a, b) => a.sortOrder - b.sortOrder)[0]?.url ?? null);
+  return getScreenshotUrl(
+    legacyScreenshots?.sort((a, b) => a.sortOrder - b.sortOrder)[0]?.url ?? null
+  );
 }
 
 export function getGalleryImages(media: ModMediaItem[]) {
@@ -51,7 +53,7 @@ export function getGalleryImages(media: ModMediaItem[]) {
     .filter((m) => m.mediaType === "IMAGE" && m.imageUrl)
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .map((m) => {
-      const url = resolveAssetUrl(m.imageUrl!);
+      const url = getScreenshotUrl(m.imageUrl!);
       return url ? { id: m.id, url } : null;
     })
     .filter((item): item is { id: string; url: string } => item !== null);

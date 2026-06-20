@@ -16,6 +16,36 @@ const r2 =
       })
     : null;
 
+async function fetchObject(key: string) {
+  if (!r2) return null;
+  try {
+    const object = await r2.send(
+      new GetObjectCommand({ Bucket: STORAGE.bucket, Key: key })
+    );
+    const body = object.Body;
+    if (!body) return null;
+    const bytes = await body.transformToByteArray();
+    return {
+      bytes: Buffer.from(bytes),
+      contentType: object.ContentType ?? "application/octet-stream",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function candidateKeys(rawKey: string): string[] {
+  const normalized = rawKey.startsWith(STORAGE.prefix) ? rawKey : storageKey(rawKey);
+  const candidates = new Set<string>([normalized, rawKey]);
+  if (rawKey.startsWith(`${STORAGE.prefix}/`)) {
+    candidates.add(rawKey);
+  }
+  if (!rawKey.startsWith(STORAGE.prefix)) {
+    candidates.add(storageKey(rawKey));
+  }
+  return Array.from(candidates);
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ path: string[] }> }
@@ -27,31 +57,26 @@ export async function GET(
     return NextResponse.json({ error: "Invalid path" }, { status: 400 });
   }
 
-  const normalizedKey = key.startsWith(STORAGE.prefix) ? key : storageKey(key);
-
   if (!isStorageConfigured() || !r2) {
     return NextResponse.json({ error: "Storage unavailable" }, { status: 503 });
   }
 
-  try {
-    const object = await r2.send(
-      new GetObjectCommand({ Bucket: STORAGE.bucket, Key: normalizedKey })
-    );
-
-    const body = object.Body;
-    if (!body) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  for (const candidate of candidateKeys(key)) {
+    const result = await fetchObject(candidate);
+    if (result) {
+      return new NextResponse(result.bytes, {
+        status: 200,
+        headers: {
+          "Content-Type": result.contentType,
+          "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+        },
+      });
     }
-
-    const bytes = await body.transformToByteArray();
-    return new NextResponse(Buffer.from(bytes), {
-      status: 200,
-      headers: {
-        "Content-Type": object.ContentType ?? "application/octet-stream",
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
-      },
-    });
-  } catch {
-    return NextResponse.json({ error: "Asset not found" }, { status: 404 });
   }
+
+  if (process.env.NODE_ENV === "development") {
+    console.warn("[api/assets] not found", { key, candidates: candidateKeys(key) });
+  }
+
+  return NextResponse.json({ error: "Asset not found" }, { status: 404 });
 }

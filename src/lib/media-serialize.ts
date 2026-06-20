@@ -1,6 +1,6 @@
 import type { ModVersion, SoundProfile } from "@prisma/client";
 import { fileSizeNumber, serializeModVersions } from "@/lib/file-size";
-import { normalizeStoredMediaUrl } from "@/lib/media-files";
+import { getScreenshotUrl } from "@/lib/screenshot-url";
 
 export type ClientSoundProfile = Omit<SoundProfile, "previewFileSize" | "coverImageKey"> & {
   previewFileSize: number | null;
@@ -63,18 +63,18 @@ export function serializeModForEdit<
               ? fileSizeNumber(mod.soundProfile.previewFileSize)
               : null,
           coverImageKey: mod.soundProfile.coverImageKey
-            ? normalizeStoredMediaUrl(mod.soundProfile.coverImageKey) ??
+            ? getScreenshotUrl(mod.soundProfile.coverImageKey) ??
               mod.soundProfile.coverImageKey
             : null,
         }
       : null,
     media: mod.media?.map((m) => ({
       ...m,
-      imageUrl: m.imageUrl ? normalizeStoredMediaUrl(m.imageUrl) ?? m.imageUrl : m.imageUrl,
+      imageUrl: m.imageUrl ? getScreenshotUrl(m.imageUrl) ?? m.imageUrl : m.imageUrl,
     })),
     screenshots: mod.screenshots?.map((s) => ({
       ...s,
-      url: normalizeStoredMediaUrl(s.url) ?? s.url,
+      url: getScreenshotUrl(s.url) ?? s.url,
     })),
   };
 }
@@ -89,7 +89,7 @@ export function serializeSoundProfileForClient(
     previewFileSize:
       profile.previewFileSize != null ? fileSizeNumber(profile.previewFileSize) : null,
     coverImageKey: profile.coverImageKey
-      ? normalizeStoredMediaUrl(profile.coverImageKey) ?? profile.coverImageKey
+      ? getScreenshotUrl(profile.coverImageKey) ?? profile.coverImageKey
       : null,
   };
 }
@@ -99,6 +99,8 @@ export function serializeModDetailForClient<
   T extends {
     versions: Array<Pick<ModVersion, "fileSize"> & Record<string, unknown>>;
     soundProfile?: SoundProfile | null;
+    media?: ModMediaRow[];
+    screenshots?: { id: string; url: string; sortOrder: number }[];
   },
 >(mod: T) {
   return {
@@ -107,5 +109,13 @@ export function serializeModDetailForClient<
     soundProfile: mod.soundProfile
       ? serializeSoundProfileForClient(mod.soundProfile)
       : null,
+    media: mod.media?.map((m) => ({
+      ...m,
+      imageUrl: m.imageUrl ? getScreenshotUrl(m.imageUrl) ?? m.imageUrl : m.imageUrl,
+    })),
+    screenshots: mod.screenshots?.map((s) => ({
+      ...s,
+      url: getScreenshotUrl(s.url) ?? s.url,
+    })),
   };
 }

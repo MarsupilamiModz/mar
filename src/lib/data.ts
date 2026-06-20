@@ -373,7 +373,16 @@ async function fetchModBySlug(slug: string) {
         include: modDetailIncludeNoMedia,
       });
       if (!mod) return null;
-      return serializeModDetailForClient({ ...mod, media: [] });
+      let media: Awaited<ReturnType<typeof prisma.modMedia.findMany>> = [];
+      try {
+        media = await prisma.modMedia.findMany({
+          where: { modId: mod.id },
+          orderBy: [{ isFeatured: "desc" }, { orderIndex: "asc" }],
+        });
+      } catch {
+        /* mod_media table unavailable */
+      }
+      return serializeModDetailForClient({ ...mod, media });
     } catch (err2) {
       console.error("[getModBySlug] fallback include failed", err2);
       return null;
