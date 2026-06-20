@@ -42,7 +42,7 @@ import type { Locale } from "@/i18n/config";
 import { REVALIDATE } from "@/lib/cache";
 
 export const revalidate = REVALIDATE.modDetail;
-import { serializeModVersions } from "@/lib/file-size";
+import { serializeSoundProfileForClient } from "@/lib/media-serialize";
 import { formatModRating, hasModRatings } from "@/lib/rating-display";
 
 export async function generateMetadata({
@@ -124,6 +124,7 @@ export default async function ModDetailPage({
   const primaryVersion = mod.versions.find((v) => v.isPrimary && !v.isArchived) ?? mod.versions[0];
   const isSound = mod.productType === "SOUND";
   const soundProfile = mod.soundProfile;
+  const clientSound = serializeSoundProfileForClient(soundProfile);
   const securityStatus = isSound && soundProfile
     ? resolveSoundScanStatus({
         approvalStatus: soundProfile.approvalStatus,
@@ -140,24 +141,24 @@ export default async function ModDetailPage({
       <AdLocationSlot location="mod-detail" className="mb-6" />
       <div className="grid gap-8 lg:grid-cols-5">
         <div className="lg:col-span-3 space-y-8">
-          {isSound && soundProfile ? (
+          {isSound && clientSound ? (
             <SoundProductPlayer
               modId={mod.id}
               slug={mod.slug}
               title={localized.title}
               sound={{
-                artist: soundProfile.artist,
-                audioCategory: soundProfile.audioCategory,
-                genre: soundProfile.genre,
-                durationSeconds: soundProfile.durationSeconds,
-                previewDurationSeconds: soundProfile.previewDurationSeconds,
-                previewType: soundProfile.previewType,
-                previewCustomSeconds: soundProfile.previewCustomSeconds,
-                coverImageKey: soundProfile.coverImageKey,
-                waveformPeaks: (soundProfile.waveformPeaks as number[] | null) ?? null,
-                playCount: soundProfile.playCount,
-                previewFileSize: soundProfile.previewFileSize,
-                createdAt: soundProfile.createdAt,
+                artist: clientSound.artist,
+                audioCategory: clientSound.audioCategory,
+                genre: clientSound.genre,
+                durationSeconds: clientSound.durationSeconds,
+                previewDurationSeconds: clientSound.previewDurationSeconds,
+                previewType: clientSound.previewType,
+                previewCustomSeconds: clientSound.previewCustomSeconds,
+                coverImageKey: clientSound.coverImageKey,
+                waveformPeaks: (clientSound.waveformPeaks as number[] | null) ?? null,
+                playCount: clientSound.playCount,
+                previewFileSize: clientSound.previewFileSize,
+                createdAt: clientSound.createdAt,
               }}
             />
           ) : (
@@ -186,7 +187,7 @@ export default async function ModDetailPage({
             </p>
           </div>
 
-          <ModVersionsPanel modId={mod.id} versions={serializeModVersions(mod.versions)} />
+          <ModVersionsPanel modId={mod.id} versions={mod.versions} />
 
           {!isSound && (
             <ModDependenciesPanel

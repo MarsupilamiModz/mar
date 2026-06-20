@@ -4,6 +4,7 @@ import { CACHE_TAGS, REVALIDATE } from "@/lib/cache";
 import { collectDescendantIds, type FlatCategory } from "@/lib/categories";
 
 import { ensureModMediaSynced } from "@/lib/mod-media";
+import { serializeModDetailForClient } from "@/lib/media-serialize";
 
 const modListSelect = {
   id: true,
@@ -363,7 +364,7 @@ async function fetchModBySlug(slug: string) {
       include: modDetailInclude,
     });
     if (!mod) return null;
-    return mod;
+    return serializeModDetailForClient(mod);
   } catch (err) {
     console.error("[getModBySlug] full include failed", err);
     try {
@@ -372,7 +373,7 @@ async function fetchModBySlug(slug: string) {
         include: modDetailIncludeNoMedia,
       });
       if (!mod) return null;
-      return { ...mod, media: [] };
+      return serializeModDetailForClient({ ...mod, media: [] });
     } catch (err2) {
       console.error("[getModBySlug] fallback include failed", err2);
       return null;

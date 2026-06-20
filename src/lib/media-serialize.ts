@@ -1,28 +1,36 @@
+import type { ModVersion, SoundProfile } from "@prisma/client";
 import { fileSizeNumber, serializeModVersions } from "@/lib/file-size";
 import { normalizeStoredMediaUrl } from "@/lib/media-files";
 
-type SoundProfileRow = {
-  id: string;
-  modId: string;
-  artist: string | null;
-  audioCategory: string;
-  durationSeconds: number | null;
-  bpm: number | null;
-  genre: string | null;
-  previewFileKey: string | null;
-  previewFileName: string | null;
-  previewFileSize: bigint | number | null;
-  previewDurationSeconds: number | null;
-  previewType: string;
-  previewCustomSeconds: number | null;
-  waveformPeaks: unknown;
+export type ClientSoundProfile = Omit<SoundProfile, "previewFileSize" | "coverImageKey"> & {
+  previewFileSize: number | null;
   coverImageKey: string | null;
-  playCount: number;
-  createdAt: Date;
-  updatedAt: Date;
 };
 
-type ModVersionRow = { fileSize: bigint | number; [key: string]: unknown };
+type SoundProfileRow = Pick<
+  SoundProfile,
+  | "id"
+  | "modId"
+  | "artist"
+  | "audioCategory"
+  | "durationSeconds"
+  | "bpm"
+  | "genre"
+  | "previewFileKey"
+  | "previewFileName"
+  | "previewDurationSeconds"
+  | "previewType"
+  | "previewCustomSeconds"
+  | "waveformPeaks"
+  | "playCount"
+  | "createdAt"
+  | "updatedAt"
+> & {
+  previewFileSize: bigint | number | null;
+  coverImageKey: string | null;
+};
+
+type ModVersionRow = Pick<ModVersion, "fileSize"> & Record<string, unknown>;
 
 type ModMediaRow = {
   id: string;
@@ -71,8 +79,10 @@ export function serializeModForEdit<
   };
 }
 
-/** Serialize sound profile for public pages. */
-export function serializeSoundProfileForClient(profile: SoundProfileRow | null) {
+/** Serialize sound profile for public pages (full Prisma row or already-serialized client row). */
+export function serializeSoundProfileForClient(
+  profile: SoundProfile | ClientSoundProfile | null
+): ClientSoundProfile | null {
   if (!profile) return null;
   return {
     ...profile,
@@ -80,6 +90,22 @@ export function serializeSoundProfileForClient(profile: SoundProfileRow | null) 
       profile.previewFileSize != null ? fileSizeNumber(profile.previewFileSize) : null,
     coverImageKey: profile.coverImageKey
       ? normalizeStoredMediaUrl(profile.coverImageKey) ?? profile.coverImageKey
+      : null,
+  };
+}
+
+/** Strip BigInt from mod detail before unstable_cache and client boundaries. */
+export function serializeModDetailForClient<
+  T extends {
+    versions: Array<Pick<ModVersion, "fileSize"> & Record<string, unknown>>;
+    soundProfile?: SoundProfile | null;
+  },
+>(mod: T) {
+  return {
+    ...mod,
+    versions: serializeModVersions(mod.versions),
+    soundProfile: mod.soundProfile
+      ? serializeSoundProfileForClient(mod.soundProfile)
       : null,
   };
 }
