@@ -1,6 +1,6 @@
 import type { ModVersion, SoundProfile } from "@prisma/client";
 import { fileSizeNumber, serializeModVersions } from "@/lib/file-size";
-import { getScreenshotUrl } from "@/lib/screenshot-url";
+import { getMediaUrl } from "@/lib/media-url";
 
 export type ClientSoundProfile = Omit<SoundProfile, "previewFileSize" | "coverImageKey"> & {
   previewFileSize: number | null;
@@ -63,18 +63,18 @@ export function serializeModForEdit<
               ? fileSizeNumber(mod.soundProfile.previewFileSize)
               : null,
           coverImageKey: mod.soundProfile.coverImageKey
-            ? getScreenshotUrl(mod.soundProfile.coverImageKey) ??
+            ? getMediaUrl(mod.soundProfile.coverImageKey) ??
               mod.soundProfile.coverImageKey
             : null,
         }
       : null,
     media: mod.media?.map((m) => ({
       ...m,
-      imageUrl: m.imageUrl ? getScreenshotUrl(m.imageUrl) ?? m.imageUrl : m.imageUrl,
+      imageUrl: m.imageUrl ? getMediaUrl(m.imageUrl) ?? m.imageUrl : m.imageUrl,
     })),
     screenshots: mod.screenshots?.map((s) => ({
       ...s,
-      url: getScreenshotUrl(s.url) ?? s.url,
+      url: getMediaUrl(s.url) ?? s.url,
     })),
   };
 }
@@ -89,7 +89,7 @@ export function serializeSoundProfileForClient(
     previewFileSize:
       profile.previewFileSize != null ? fileSizeNumber(profile.previewFileSize) : null,
     coverImageKey: profile.coverImageKey
-      ? getScreenshotUrl(profile.coverImageKey) ?? profile.coverImageKey
+      ? getMediaUrl(profile.coverImageKey) ?? profile.coverImageKey
       : null,
   };
 }
@@ -111,11 +111,11 @@ export function serializeModDetailForClient<
       : null,
     media: mod.media?.map((m) => ({
       ...m,
-      imageUrl: m.imageUrl ? getScreenshotUrl(m.imageUrl) ?? m.imageUrl : m.imageUrl,
+      imageUrl: m.imageUrl ? getMediaUrl(m.imageUrl) ?? m.imageUrl : m.imageUrl,
     })),
     screenshots: mod.screenshots?.map((s) => ({
       ...s,
-      url: getScreenshotUrl(s.url) ?? s.url,
+      url: getMediaUrl(s.url) ?? s.url,
     })),
   };
 }

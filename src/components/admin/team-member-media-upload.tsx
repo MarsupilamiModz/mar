@@ -7,6 +7,7 @@ import { SafeImage } from "@/components/ui/safe-image";
 import { AvatarCropUpload } from "@/components/upload/avatar-crop-upload";
 import { useAppToast } from "@/hooks/use-app-toast";
 import { uploadViaApi } from "@/lib/upload-client";
+import { getMediaUrl } from "@/lib/media-url";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -41,8 +42,9 @@ export function TeamMemberMediaUpload({
         teamMemberId,
         onProgress: setProgress,
       });
-      if (purpose === "team-avatar") onAvatarChange?.(result.url);
-      else onBannerChange?.(result.url);
+      const url = getMediaUrl(result.url) ?? result.url;
+      if (purpose === "team-avatar") onAvatarChange?.(url);
+      else onBannerChange?.(url);
       appToast.uploaded();
     } catch (err) {
       appToast.error(err instanceof Error ? err.message : "Upload failed");

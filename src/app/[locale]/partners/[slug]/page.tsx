@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { safeToLocaleString } from "@/lib/i18n/safe-locale";
 import { SafeImage } from "@/components/ui/safe-image";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { prisma } from "@/lib/db";
 import { SocialLinks } from "@/components/social/social-links";
@@ -54,11 +55,11 @@ export default async function PartnerProfilePage({
         <div className="absolute inset-0 bg-gradient-to-b from-neon-blue/10 to-background" />
         <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6">
           <div className="flex flex-wrap items-start gap-5">
-            {profile.user.avatarUrl && (
-              <div className="relative h-24 w-24 rounded-2xl overflow-hidden border-2 border-neon-blue/40">
-                <SafeImage src={profile.user.avatarUrl} alt="" fill className="object-cover" sizes="96px" />
-              </div>
-            )}
+            <UserAvatar
+              src={profile.user.avatarUrl}
+              name={formatDisplayName(profile.user)}
+              className="h-24 w-24 rounded-2xl border-2 border-neon-blue/40"
+            />
             <div className="flex-1">
               <div className="flex flex-wrap gap-2 mb-2">
                 <CreatorLevelBadge level={profile.level} size="sm" />

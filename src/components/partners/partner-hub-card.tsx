@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreatorLevelBadge } from "@/components/creator/creator-level-badge";
 import { SocialLinks } from "@/components/social/social-links";
 import { formatDisplayName } from "@/lib/display-name";
-import { resolveAssetUrl } from "@/lib/assets";
+import { getMediaUrl } from "@/lib/media-url";
 import type { PublisherLevel, SocialPlatform } from "@prisma/client";
 
 type PartnerCardData = {
@@ -41,8 +41,8 @@ export function PartnerHubCard({
   partner: PartnerCardData;
   t: (key: string) => string;
 }) {
-  const banner = resolveAssetUrl(partner.bannerUrl);
-  const avatar = resolveAssetUrl(partner.user.avatarUrl);
+  const banner = getMediaUrl(partner.bannerUrl);
+  const avatar = getMediaUrl(partner.user.avatarUrl);
 
   return (
     <Link href={`/${locale}/partners/${partner.slug}`}>

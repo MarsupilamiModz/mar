@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { resolveAvatarUrl } from "@/lib/assets";
+import { getMediaUrl, getMediaProxyFallback } from "@/lib/media-url";
 import { cn } from "@/lib/utils";
 
 type UserAvatarProps = {
@@ -19,13 +20,40 @@ function initialsFromName(name?: string | null): string {
 }
 
 export function UserAvatar({ src, name, className, fallbackClassName }: UserAvatarProps) {
-  const resolved = resolveAvatarUrl(src);
+  const [useProxy, setUseProxy] = useState(false);
+  const [broken, setBroken] = useState(false);
+
+  useEffect(() => {
+    setUseProxy(false);
+    setBroken(false);
+  }, [src]);
+
+  const primary = getMediaUrl(src);
+  const resolved = useProxy ? getMediaProxyFallback(src) : primary;
+  const displaySrc = broken ? undefined : resolved ?? undefined;
   const initials = initialsFromName(name);
 
   return (
     <Avatar className={cn("shrink-0", className)}>
-      <AvatarImage src={resolved} alt={name ?? "User avatar"} />
-      <AvatarFallback className={cn("bg-neon-purple/20 text-neon-purple text-xs font-medium", fallbackClassName)}>
+      {displaySrc ? (
+        <AvatarImage
+          src={displaySrc}
+          alt={name ?? "User avatar"}
+          onError={() => {
+            if (!useProxy && getMediaProxyFallback(src)) {
+              setUseProxy(true);
+              return;
+            }
+            setBroken(true);
+          }}
+        />
+      ) : null}
+      <AvatarFallback
+        className={cn(
+          "bg-neon-purple/20 text-neon-purple text-xs font-medium",
+          fallbackClassName
+        )}
+      >
         {initials}
       </AvatarFallback>
     </Avatar>

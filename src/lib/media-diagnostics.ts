@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getScreenshotUrl, getScreenshotProxyFallback } from "@/lib/screenshot-url";
+import { getMediaUrl, getMediaProxyFallback } from "@/lib/media-url";
 import { getR2ConfigStatus } from "@/lib/r2-config";
 import { getStorageProvider, isStorageConfigured } from "@/lib/asset-storage";
 
@@ -82,8 +82,8 @@ export async function diagnoseModScreenshots(limit = 100): Promise<{
 
   for (const item of items) {
     const stored = item.imageUrl;
-    const resolved = stored ? getScreenshotUrl(stored) : null;
-    const proxy = getScreenshotProxyFallback(stored);
+    const resolved = stored ? getMediaUrl(stored) : null;
+    const proxy = getMediaProxyFallback(stored);
     const files = fileByMod.get(item.modId) ?? [];
     const matchedFile =
       files.find((f) => f.publicUrl === stored || f.publicUrl === resolved) ?? files[0] ?? null;

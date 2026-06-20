@@ -127,20 +127,51 @@ export async function repairModMediaUrls(): Promise<MediaRepairResult> {
 export async function repairUserAvatars(): Promise<MediaRepairResult> {
   const result: MediaRepairResult = { scanned: 0, repaired: 0, missing: 0, errors: [], details: [] };
   const users = await prisma.user.findMany({
-    where: { avatarUrl: { not: null } },
-    select: { id: true, avatarUrl: true },
+    where: {
+      OR: [
+        { avatarUrl: { not: null } },
+        { avatarOriginalUrl: { not: null } },
+        { avatar256Url: { not: null } },
+      ],
+    },
+    select: {
+      id: true,
+      avatarUrl: true,
+      avatarOriginalUrl: true,
+      avatar256Url: true,
+      avatar128Url: true,
+      avatar64Url: true,
+    },
   });
 
   for (const user of users) {
-    if (!user.avatarUrl) continue;
+    const source =
+      user.avatarUrl ?? user.avatar256Url ?? user.avatar128Url ?? user.avatarOriginalUrl;
+    if (!source) continue;
     result.scanned++;
-    const fixed = repairStoredUrl(user.avatarUrl);
+    const fixed = repairStoredUrl(source);
     if (!fixed) {
       result.missing++;
       continue;
     }
-    if (user.avatarUrl !== fixed.publicUrl) {
-      await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: fixed.publicUrl } });
+    const needsUpdate =
+      user.avatarUrl !== fixed.publicUrl ||
+      user.avatar256Url !== fixed.publicUrl ||
+      user.avatar128Url !== fixed.publicUrl ||
+      user.avatar64Url !== fixed.publicUrl ||
+      user.avatarOriginalUrl !== fixed.publicUrl;
+
+    if (needsUpdate) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          avatarUrl: fixed.publicUrl,
+          avatar256Url: fixed.publicUrl,
+          avatar128Url: fixed.publicUrl,
+          avatar64Url: fixed.publicUrl,
+          avatarOriginalUrl: fixed.publicUrl,
+        },
+      });
       await upsertMediaRecord(
         fixed.storagePath,
         fixed.publicUrl,
@@ -152,6 +183,163 @@ export async function repairUserAvatars(): Promise<MediaRepairResult> {
       );
       result.repaired++;
       result.details.push({ type: "user_avatar", id: user.id, action: "url_rebuilt" });
+    }
+  }
+
+  return result;
+}
+
+export async function repairCreatorProfiles(): Promise<MediaRepairResult> {
+  const result: MediaRepairResult = { scanned: 0, repaired: 0, missing: 0, errors: [], details: [] };
+  const profiles = await prisma.creatorProfile.findMany({
+    where: { bannerUrl: { not: null } },
+    select: { id: true, userId: true, bannerUrl: true },
+  });
+
+  for (const profile of profiles) {
+    if (!profile.bannerUrl) continue;
+    result.scanned++;
+    const fixed = repairStoredUrl(profile.bannerUrl);
+    if (!fixed) {
+      result.missing++;
+      continue;
+    }
+    if (profile.bannerUrl !== fixed.publicUrl) {
+      await prisma.creatorProfile.update({
+        where: { id: profile.id },
+        data: { bannerUrl: fixed.publicUrl },
+      });
+      result.repaired++;
+      result.details.push({ type: "creator_banner", id: profile.id, action: "url_rebuilt" });
+    }
+  }
+
+  return result;
+}
+
+export async function repairPartnerProfiles(): Promise<MediaRepairResult> {
+  const result: MediaRepairResult = { scanned: 0, repaired: 0, missing: 0, errors: [], details: [] };
+  const profiles = await prisma.partnerProfile.findMany({
+    select: { id: true, userId: true, bannerUrl: true, logoUrl: true },
+  });
+
+  for (const profile of profiles) {
+    for (const [field, value] of [
+      ["bannerUrl", profile.bannerUrl],
+      ["logoUrl", profile.logoUrl],
+    ] as const) {
+      if (!value) continue;
+      result.scanned++;
+      const fixed = repairStoredUrl(value);
+      if (!fixed) {
+        result.missing++;
+        continue;
+      }
+      if (value !== fixed.publicUrl) {
+        await prisma.partnerProfile.update({
+          where: { id: profile.id },
+          data: { [field]: fixed.publicUrl },
+        });
+        result.repaired++;
+        result.details.push({ type: `partner_${field}`, id: profile.id, action: "url_rebuilt" });
+      }
+    }
+  }
+
+  return result;
+}
+
+export async function repairTeamMembers(): Promise<MediaRepairResult> {
+  const result: MediaRepairResult = { scanned: 0, repaired: 0, missing: 0, errors: [], details: [] };
+  const members = await prisma.teamMember.findMany({
+    select: { id: true, avatarUrl: true, bannerUrl: true },
+  });
+
+  for (const member of members) {
+    for (const [field, value] of [
+      ["avatarUrl", member.avatarUrl],
+      ["bannerUrl", member.bannerUrl],
+    ] as const) {
+      if (!value) continue;
+      result.scanned++;
+      const fixed = repairStoredUrl(value);
+      if (!fixed) {
+        result.missing++;
+        continue;
+      }
+      if (value !== fixed.publicUrl) {
+        await prisma.teamMember.update({
+          where: { id: member.id },
+          data: { [field]: fixed.publicUrl },
+        });
+        result.repaired++;
+        result.details.push({ type: `team_${field}`, id: member.id, action: "url_rebuilt" });
+      }
+    }
+  }
+
+  return result;
+}
+
+export async function repairDesignerProfiles(): Promise<MediaRepairResult> {
+  const result: MediaRepairResult = { scanned: 0, repaired: 0, missing: 0, errors: [], details: [] };
+  const profiles = await prisma.designerProfile.findMany({
+    select: { id: true, avatarUrl: true, bannerUrl: true },
+  });
+
+  for (const profile of profiles) {
+    for (const [field, value] of [
+      ["avatarUrl", profile.avatarUrl],
+      ["bannerUrl", profile.bannerUrl],
+    ] as const) {
+      if (!value) continue;
+      result.scanned++;
+      const fixed = repairStoredUrl(value);
+      if (!fixed) {
+        result.missing++;
+        continue;
+      }
+      if (value !== fixed.publicUrl) {
+        await prisma.designerProfile.update({
+          where: { id: profile.id },
+          data: { [field]: fixed.publicUrl },
+        });
+        result.repaired++;
+        result.details.push({ type: `designer_${field}`, id: profile.id, action: "url_rebuilt" });
+      }
+    }
+  }
+
+  return result;
+}
+
+export async function repairGameMedia(): Promise<MediaRepairResult> {
+  const result: MediaRepairResult = { scanned: 0, repaired: 0, missing: 0, errors: [], details: [] };
+  const games = await prisma.game.findMany({
+    select: { id: true, iconUrl: true, bannerUrl: true, coverUrl: true },
+  });
+
+  for (const game of games) {
+    for (const [field, value] of [
+      ["iconUrl", game.iconUrl],
+      ["bannerUrl", game.bannerUrl],
+      ["coverUrl", game.coverUrl],
+    ] as const) {
+      if (!value) continue;
+      result.scanned++;
+      const fixed = repairStoredUrl(value);
+      if (!fixed) {
+        result.missing++;
+        continue;
+      }
+      if (value !== fixed.publicUrl) {
+        await prisma.game.update({
+          where: { id: game.id },
+          data: { [field]: fixed.publicUrl },
+        });
+        result.repaired++;
+        result.details.push({ type: `game_${field}`, id: game.id, action: "url_rebuilt" });
+      }
     }
   }
 
@@ -215,20 +403,63 @@ export async function repairSoundPreviews(): Promise<MediaRepairResult> {
 }
 
 export async function runFullMediaRepair() {
-  const [modMedia, avatars, sounds] = await Promise.all([
+  const [modMedia, avatars, sounds, creators, partners, team, designers, games] = await Promise.all([
     repairModMediaUrls(),
     repairUserAvatars(),
     repairSoundPreviews(),
+    repairCreatorProfiles(),
+    repairPartnerProfiles(),
+    repairTeamMembers(),
+    repairDesignerProfiles(),
+    repairGameMedia(),
   ]);
 
   return {
     modMedia,
     avatars,
     sounds,
-    totalScanned: modMedia.scanned + avatars.scanned + sounds.scanned,
-    totalRepaired: modMedia.repaired + avatars.repaired + sounds.repaired,
-    totalMissing: modMedia.missing + avatars.missing + sounds.missing,
-    errors: [...modMedia.errors, ...avatars.errors, ...sounds.errors],
+    creators,
+    partners,
+    team,
+    designers,
+    games,
+    totalScanned:
+      modMedia.scanned +
+      avatars.scanned +
+      sounds.scanned +
+      creators.scanned +
+      partners.scanned +
+      team.scanned +
+      designers.scanned +
+      games.scanned,
+    totalRepaired:
+      modMedia.repaired +
+      avatars.repaired +
+      sounds.repaired +
+      creators.repaired +
+      partners.repaired +
+      team.repaired +
+      designers.repaired +
+      games.repaired,
+    totalMissing:
+      modMedia.missing +
+      avatars.missing +
+      sounds.missing +
+      creators.missing +
+      partners.missing +
+      team.missing +
+      designers.missing +
+      games.missing,
+    errors: [
+      ...modMedia.errors,
+      ...avatars.errors,
+      ...sounds.errors,
+      ...creators.errors,
+      ...partners.errors,
+      ...team.errors,
+      ...designers.errors,
+      ...games.errors,
+    ],
   };
 }
 

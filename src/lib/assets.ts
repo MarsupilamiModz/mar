@@ -1,24 +1,9 @@
 import { getAppUrl } from "@/lib/app-url";
+import { getMediaUrl } from "@/lib/media-url";
 
 /** Resolve stored asset keys or partial paths into browser-loadable URLs. */
 export function resolveAssetUrl(urlOrKey: string | null | undefined): string | null {
-  if (!urlOrKey?.trim()) return null;
-
-  const value = urlOrKey.trim();
-
-  if (value.startsWith("blob:") || value.startsWith("data:")) return value;
-
-  if (value.startsWith("http://") || value.startsWith("https://")) {
-    return rewriteStaleHostUrl(value);
-  }
-
-  if (value.startsWith("/api/assets/")) return `${appBase()}${value}`;
-
-  const cdn = publicCdnBase();
-  const normalized = stripLeadingSlash(value);
-  if (cdn) return `${cdn}/${normalized}`;
-
-  return `${appBase()}/api/assets/${encodeAssetPath(normalized)}`;
+  return getMediaUrl(urlOrKey);
 }
 
 /** Build a permanent public URL at upload time (stored in the database). */
@@ -50,34 +35,6 @@ function publicCdnBase(): string | null {
     process.env.R2_PUBLIC_URL;
   if (!base?.trim()) return null;
   return base.replace(/\/$/, "");
-}
-
-/** Rewrite legacy localhost/dev URLs stored in DB to current CDN or app proxy. */
-function rewriteStaleHostUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-    const isLocal =
-      parsed.hostname === "localhost" ||
-      parsed.hostname === "127.0.0.1" ||
-      parsed.hostname.endsWith(".local");
-
-    if (!isLocal) return url;
-
-    const path = parsed.pathname;
-    if (path.startsWith("/api/assets/")) {
-      return `${appBase()}${path}${parsed.search}`;
-    }
-
-    const key = decodeURIComponent(path.replace(/^\//, ""));
-    if (key.startsWith("xumari/")) {
-      const cdn = publicCdnBase();
-      if (cdn) return `${cdn}/${key}`;
-      return `${appBase()}/api/assets/${encodeAssetPath(key)}`;
-    }
-  } catch {
-    /* keep original */
-  }
-  return url;
 }
 
 /** Normalize legacy DB values that stored bare keys without CDN base. */
@@ -127,7 +84,7 @@ export function resolveAvatarUrl(
 ): string {
   if (user) {
     const picked = pickAvatarUrl(user, size);
-    if (picked) return resolveAssetUrl(picked) ?? DEFAULT_AVATAR_DATA_URI;
+    if (picked) return getMediaUrl(picked) ?? DEFAULT_AVATAR_DATA_URI;
   }
-  return resolveAssetUrl(urlOrKey) ?? DEFAULT_AVATAR_DATA_URI;
+  return getMediaUrl(urlOrKey) ?? DEFAULT_AVATAR_DATA_URI;
 }

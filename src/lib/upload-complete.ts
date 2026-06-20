@@ -12,6 +12,11 @@ import {
   type BrandingAssetSettings,
 } from "@/lib/branding-cms";
 import { invalidateBrandingCache } from "@/lib/branding-data";
+import {
+  revalidateGameMedia,
+  revalidateProfileMedia,
+  revalidateTeamMemberMedia,
+} from "@/lib/media-revalidate";
 
 export type UploadPurpose =
   | "mod-version"
@@ -120,7 +125,7 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
           avatarOriginalUrl: mediaFile.publicUrl,
         },
       });
-      revalidatePath("/", "layout");
+      await revalidateProfileMedia(userId);
       break;
     }
     case "creator-banner": {
@@ -128,6 +133,7 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
       if (profile) {
         await prisma.creatorProfile.update({ where: { id: profile.id }, data: { bannerUrl: publicUrl } });
       }
+      await revalidateProfileMedia(userId);
       break;
     }
     case "partner-banner": {
@@ -135,6 +141,7 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
       if (profile) {
         await prisma.partnerProfile.update({ where: { id: profile.id }, data: { bannerUrl: publicUrl } });
       }
+      await revalidateProfileMedia(userId);
       break;
     }
     case "partner-logo": {
@@ -142,6 +149,7 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
       if (profile) {
         await prisma.partnerProfile.update({ where: { id: profile.id }, data: { logoUrl: publicUrl } });
       }
+      await revalidateProfileMedia(userId);
       break;
     }
     case "designer-avatar":
@@ -153,12 +161,31 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
         } else {
           const mediaFile = await registerMediaFromSession(session, "USER_AVATAR", userId, userId);
           await prisma.designerProfile.update({ where: { id: profile.id }, data: { avatarUrl: mediaFile.publicUrl } });
-          await prisma.user.update({ where: { id: userId }, data: { avatarUrl: mediaFile.publicUrl } });
+          await prisma.user.update({
+            where: { id: userId },
+            data: {
+              avatarUrl: mediaFile.publicUrl,
+              avatar256Url: mediaFile.publicUrl,
+              avatar128Url: mediaFile.publicUrl,
+              avatar64Url: mediaFile.publicUrl,
+              avatarOriginalUrl: mediaFile.publicUrl,
+            },
+          });
         }
       } else if (session.purpose === "designer-avatar") {
         const mediaFile = await registerMediaFromSession(session, "USER_AVATAR", userId, userId);
-        await prisma.user.update({ where: { id: userId }, data: { avatarUrl: mediaFile.publicUrl } });
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            avatarUrl: mediaFile.publicUrl,
+            avatar256Url: mediaFile.publicUrl,
+            avatar128Url: mediaFile.publicUrl,
+            avatar64Url: mediaFile.publicUrl,
+            avatarOriginalUrl: mediaFile.publicUrl,
+          },
+        });
       }
+      await revalidateProfileMedia(userId);
       break;
     }
     case "game-asset": {
@@ -167,8 +194,7 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
       if (gameId && assetType) {
         const field = assetType === "icon" ? "iconUrl" : assetType === "banner" ? "bannerUrl" : "coverUrl";
         const game = await prisma.game.update({ where: { id: gameId }, data: { [field]: publicUrl } });
-        revalidatePath(`/games/${game.slug}`);
-        revalidatePath("/admin/games");
+        await revalidateGameMedia(game.slug);
       }
       break;
     }
@@ -210,14 +236,11 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
           where: { id: teamMemberId },
           data: { [field]: publicUrl },
         });
-        revalidatePath("/admin/team");
-        revalidatePath("/team");
+        await revalidateTeamMemberMedia(teamMemberId);
       }
       break;
     }
     case "creator-portfolio":
-    case "creator-banner":
-    case "creator-avatar":
     case "ticket-attachment":
     case "chat-attachment":
     default:

@@ -22,7 +22,7 @@ export default async function AdminMediaSettingsPage({
         <MediaSettingsPanel initial={settings} />
         <p className="text-sm text-muted-foreground">
           <Link href={`/${locale}/admin/diagnostics/screenshots`} className="text-neon-purple hover:underline">
-            Open screenshot diagnostics →
+            Open media diagnostics →
           </Link>
         </p>
       </div>

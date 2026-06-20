@@ -17,6 +17,7 @@ const nextConfig = {
       { protocol: "https", hostname: "**.marsupilami-modz.com" },
       { protocol: "https", hostname: "**.marsupilamimodz.com" },
       { protocol: "http", hostname: "localhost" },
+      { protocol: "https", hostname: "127.0.0.1" },
       { protocol: "https", hostname: "img.youtube.com" },
       { protocol: "https", hostname: "i.ytimg.com" },
     ],

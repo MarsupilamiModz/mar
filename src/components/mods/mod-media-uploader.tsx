@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAppToast } from "@/hooks/use-app-toast";
 import { compressImage, validateImageFile } from "@/lib/image-compress";
 import { getMediaDisplayUrl, type ModMediaItem } from "@/lib/mod-media";
-import { getScreenshotUrl } from "@/lib/screenshot-url";
+import { getMediaUrl } from "@/lib/media-url";
 import { cn } from "@/lib/utils";
 import type { MediaSettings } from "@/lib/media-settings";
 
@@ -120,7 +120,7 @@ export function ModMediaUploader({ modId, media: initialMedia, settings }: ModMe
         });
 
         if (result.mediaId && result.url) {
-          const imageUrl = getScreenshotUrl(result.url) ?? result.url;
+          const imageUrl = getMediaUrl(result.url) ?? result.url;
           setMedia((prev) => {
             const hasFeatured = prev.some((m) => m.isFeatured && m.mediaType === "IMAGE");
             return [

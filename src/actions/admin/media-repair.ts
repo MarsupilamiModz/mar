@@ -1,8 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { ok, requireActionPermission } from "@/lib/action-utils";
 import { logPlatformError } from "@/lib/platform-log";
+import { CACHE_TAGS } from "@/lib/cache";
+import { locales } from "@/i18n/config";
 import {
   runFullMediaRepair,
   scanMissingMediaFiles,
@@ -22,8 +24,18 @@ export async function adminRepairAllMedia() {
   if (error) return error;
   try {
     const result = await runFullMediaRepair();
-    revalidatePath("/admin/media");
+    revalidateTag(CACHE_TAGS.mods);
+    revalidateTag(CACHE_TAGS.creators);
+    revalidateTag(CACHE_TAGS.partners);
+    revalidateTag(CACHE_TAGS.games);
     revalidatePath("/", "layout");
+    for (const locale of locales) {
+      revalidatePath(`/${locale}/admin/media`);
+      revalidatePath(`/${locale}/admin/diagnostics/screenshots`);
+      revalidatePath(`/${locale}/creators`);
+      revalidatePath(`/${locale}/partners`);
+      revalidatePath(`/${locale}/team`);
+    }
     return ok(result);
   } catch (err) {
     await logPlatformError("admin/media-repair", err);

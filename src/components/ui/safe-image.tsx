@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getScreenshotUrl, getScreenshotProxyFallback } from "@/lib/screenshot-url";
+import { getMediaUrl, getMediaProxyFallback } from "@/lib/media-url";
 
 type SafeImageProps = {
   src: string | null | undefined;
@@ -41,13 +41,13 @@ export function SafeImage({
   sizes,
   priority,
   loading = "lazy",
-  fallbackLabel = "No screenshot available",
+  fallbackLabel = "No image available",
 }: SafeImageProps) {
   const [failed, setFailed] = useState(false);
   const [useProxy, setUseProxy] = useState(false);
 
-  const primary = getScreenshotUrl(src);
-  const proxy = useProxy ? getScreenshotProxyFallback(src) : null;
+  const primary = getMediaUrl(src);
+  const proxy = useProxy ? getMediaProxyFallback(src) : null;
   const resolved = proxy ?? primary;
 
   if (!resolved || failed) {
@@ -72,7 +72,7 @@ export function SafeImage({
   const unoptimized = shouldUseUnoptimized(resolved);
 
   const handleError = () => {
-    if (!useProxy && getScreenshotProxyFallback(src)) {
+    if (!useProxy && getMediaProxyFallback(src)) {
       setUseProxy(true);
       return;
     }
