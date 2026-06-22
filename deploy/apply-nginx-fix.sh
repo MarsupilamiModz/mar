@@ -35,7 +35,16 @@ fi
 
 echo "==> Patching $TARGET"
 
-cp "$TARGET" "${TARGET}.bak.$(date +%Y%m%d%H%M%S)"
+BACKUP="${TARGET}.bak.$(date +%Y%m%d%H%M%S)"
+cp "$TARGET" "$BACKUP"
+echo "Backup: $BACKUP"
+
+restore_backup() {
+  echo "==> Restoring backup after failed nginx -t"
+  cp "$BACKUP" "$TARGET"
+}
+
+trap 'if [[ $? -ne 0 ]]; then restore_backup 2>/dev/null || true; fi' EXIT
 
 # Broken upstreams seen in production logs
 sed -i \
@@ -44,43 +53,66 @@ sed -i \
   -e 's|proxy_pass http://\[::1\]:3000;|proxy_pass http://127.0.0.1:3000;|g' \
   "$TARGET"
 
-if ! grep -q 'proxy_buffer_size 128k' "$TARGET"; then
-  SNIPPET_FILE="$REPO_DIR/deploy/nginx-proxy-snippet.conf"
-  INSERT=$(cat "$SNIPPET_FILE" | sed 's/^/        /')
-
-  python3 - "$TARGET" "$INSERT" <<'PY'
+python3 - "$TARGET" "$REPO_DIR/deploy/nginx-proxy-snippet.conf" <<'PY'
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
-insert = sys.argv[2]
+snippet_path = Path(sys.argv[2])
 text = path.read_text()
 
-if "proxy_buffer_size 128k" in text:
-    sys.exit(0)
+# Remove invalid directive if a prior run inserted it inside location /
+text = "\n".join(
+    line for line in text.splitlines()
+    if "large_client_header_buffers" not in line or line.strip().startswith("#")
+)
+# If we removed all such lines, re-add at server level below
+if "large_client_header_buffers 8 32k" not in text:
+    marker = "client_max_body_size"
+    idx = text.find(marker)
+    if idx != -1:
+        line_end = text.find("\n", idx)
+        insert_at = line_end + 1 if line_end != -1 else len(text)
+        text = (
+            text[:insert_at]
+            + "    large_client_header_buffers 8 32k;\n"
+            + text[insert_at:]
+        )
+    else:
+        # First server { block
+        needle = "server {"
+        idx = text.find(needle)
+        if idx != -1:
+            brace = text.find("{", idx)
+            text = text[: brace + 1] + "\n    large_client_header_buffers 8 32k;\n" + text[brace + 1 :]
 
-needle = "location / {"
-idx = text.find(needle)
-if idx == -1:
-    print("ERROR: Could not find 'location / {' in nginx config.")
-    print("Add deploy/nginx-proxy-snippet.conf manually inside location / { }")
-    sys.exit(1)
+if "proxy_buffer_size 128k" not in text:
+    insert = snippet_path.read_text()
+    insert = "\n".join("        " + line if line.strip() else line for line in insert.splitlines())
+    needle = "location / {"
+    idx = text.find(needle)
+    if idx == -1:
+        print("ERROR: Could not find 'location / {' in nginx config.")
+        sys.exit(1)
+    brace = text.find("{", idx)
+    text = text[: brace + 1] + "\n" + insert + text[brace + 1 :]
+    print("Inserted proxy buffer settings into location / block")
+else:
+    print("Proxy buffer settings already present")
 
-# Insert after opening brace of location /
-brace = text.find("{", idx)
-if brace == -1:
-    sys.exit(1)
-
-updated = text[: brace + 1] + "\n" + insert + text[brace + 1 :]
-path.write_text(updated)
-print("Inserted proxy buffer settings into location / block")
+path.write_text(text)
 PY
+
+if ! nginx -t; then
+  echo "ERROR: nginx config invalid — backup restored"
+  restore_backup
+  exit 1
 fi
 
-nginx -t
 systemctl reload nginx
+trap - EXIT
 
 echo ""
 echo "==> nginx reloaded. Test:"
 echo "  curl -s -o /dev/null -w 'direct: %{http_code}\n' http://127.0.0.1:3000/de/premium"
-echo "  curl -s -o /dev/null -w 'nginx:  %{http_code}\n' -H 'Host: $SITE_NAME' http://127.0.0.1/de/premium"
+echo "  curl -s -o /dev/null -w 'nginx:  %{http_code}\n' https://$SITE_NAME/de/premium"

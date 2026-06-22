@@ -14,4 +14,5 @@ if [[ "${NODE_ENV:-production}" == "production" && "${NEXT_PUBLIC_APP_URL:-}" ==
   export NEXT_PUBLIC_APP_URL="https://www.xumari-modz.com"
 fi
 
-exec node ./node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+# Do not use -H 127.0.0.1 — Next.js self-proxy resolves localhost to ::1 and 500s.
+exec node ./node_modules/next/dist/bin/next start -p 3000
