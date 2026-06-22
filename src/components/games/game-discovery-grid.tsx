@@ -5,6 +5,7 @@ import type { GameDiscoveryCardData } from "@/lib/game-discovery";
 import { GameDiscoveryCard } from "@/components/games/game-discovery-card";
 import { GameModePickerProvider } from "@/components/games/game-mode-picker-context";
 import { GameModePreloader } from "@/components/games/game-mode-preloader";
+import { GAME_DISCOVERY_GRID_CLASS } from "@/components/games/game-grid-layout";
 
 type Props = {
   locale: string;
@@ -16,12 +17,12 @@ type Props = {
 export const GameDiscoveryGrid = memo(function GameDiscoveryGrid({
   locale,
   games,
-  priorityCount = 4,
-  className,
+  priorityCount = 6,
+  className = GAME_DISCOVERY_GRID_CLASS,
 }: Props) {
   return (
     <GameModePickerProvider>
-      <GameModePreloader games={games} />
+      <GameModePreloader games={games} eager />
       <div className={className}>
         {games.map((game, i) => (
           <GameDiscoveryCard

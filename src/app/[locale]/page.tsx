@@ -105,14 +105,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
         {games.length === 0 ? (
           <Card className="glass p-12 text-center text-muted-foreground">{t("noGamesYet")}</Card>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <GameDiscoveryGrid
-            locale={locale}
-            games={games}
-            priorityCount={4}
-            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          />
-          </div>
+          <GameDiscoveryGrid locale={locale} games={games} priorityCount={6} />
         )}
       </section>
 

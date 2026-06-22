@@ -25,18 +25,13 @@ export default async function GamesPage({ params }: { params: Promise<{ locale: 
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
       <h1 className="text-3xl font-bold text-gradient">{t("title")}</h1>
       <p className="mt-2 text-muted-foreground">{t("subtitle")}</p>
-      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="mt-10">
         {games.length === 0 ? (
-          <Card className="glass col-span-full p-12 text-center text-muted-foreground">
+          <Card className="glass p-12 text-center text-muted-foreground">
             {t("empty")}
           </Card>
         ) : (
-          <GameDiscoveryGrid
-            locale={locale}
-            games={games}
-            priorityCount={8}
-            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          />
+          <GameDiscoveryGrid locale={locale} games={games} priorityCount={9} />
         )}
       </div>
     </div>

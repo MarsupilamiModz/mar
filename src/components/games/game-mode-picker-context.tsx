@@ -29,37 +29,48 @@ type ContextValue = {
 const GameModePickerContext = createContext<ContextValue | null>(null);
 
 export function GameModePickerProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<(GameModePickerPayload & { visible: boolean }) | null>(null);
+  const [payload, setPayload] = useState<GameModePickerPayload | null>(null);
+  const [open, setOpen] = useState(false);
 
   const warm = useCallback((modes: GameModeCardData[]) => {
     prefetchGameModeAssets(modes);
   }, []);
 
-  const open = useCallback((payload: GameModePickerPayload) => {
-    prefetchGameModeAssets(payload.modes);
-    setState({ ...payload, visible: true });
+  const openPicker = useCallback((next: GameModePickerPayload) => {
+    prefetchGameModeAssets(next.modes);
+    setPayload(next);
+    setOpen(true);
   }, []);
 
   const close = useCallback(() => {
-    setState((prev) => (prev ? { ...prev, visible: false } : null));
+    setOpen(false);
   }, []);
 
-  const value = useMemo(() => ({ open, close, warm }), [open, close, warm]);
+  const value = useMemo(
+    () => ({ open: openPicker, close, warm }),
+    [openPicker, close, warm]
+  );
 
   return (
     <GameModePickerContext.Provider value={value}>
       {children}
-      {state && state.modes.length > 0 && (
-        <GameModePickerModal
-          locale={state.locale}
-          gameSlug={state.gameSlug}
-          gameName={state.gameName}
-          modes={state.modes}
-          picker={state.picker}
-          open={state.visible}
-          onClose={close}
-        />
-      )}
+      <GameModePickerModal
+        locale={payload?.locale ?? "en"}
+        gameSlug={payload?.gameSlug ?? ""}
+        gameName={payload?.gameName ?? ""}
+        modes={payload?.modes ?? []}
+        picker={
+          payload?.picker ?? {
+            overlayOpacity: 0.72,
+            blurPx: 0,
+            glowEnabled: true,
+            animation: "fade",
+            panelOpacity: 0.92,
+          }
+        }
+        open={open && Boolean(payload?.modes.length)}
+        onClose={close}
+      />
     </GameModePickerContext.Provider>
   );
 }
@@ -72,7 +83,6 @@ export function useGameModePicker() {
   return ctx;
 }
 
-/** Optional hook — no-op when provider is absent (e.g. storybook). */
 export function useGameModePickerOptional() {
   return useContext(GameModePickerContext);
 }
