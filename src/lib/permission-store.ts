@@ -100,21 +100,23 @@ const loadRolePermissionMap = unstable_cache(
 );
 
 const loadGroupPermissionMap = unstable_cache(
-  async (): Promise<Map<string, string[]>> => {
+  async (): Promise<Record<string, string[]>> => {
     try {
       const groups = await prisma.permissionGroup.findMany({
         where: { isArchived: false, isDisabled: false },
         select: { id: true, permissions: true },
       });
-      return new Map(
-        groups.map((g) => [g.id, parseGroupPermissions(g.permissions)])
-      );
+      const record: Record<string, string[]> = {};
+      for (const g of groups) {
+        record[g.id] = parseGroupPermissions(g.permissions);
+      }
+      return record;
     } catch (err) {
       console.error("[permissions] group map fallback", err);
-      return new Map();
+      return {};
     }
   },
-  ["permission-group-map-v1"],
+  ["permission-group-map-v2"],
   { tags: [PERMISSION_CACHE_TAG], revalidate: 30 }
 );
 
@@ -131,7 +133,7 @@ export async function getEffectivePermissions(user: PermissionUser): Promise<Set
 
   if (user.permissionGroupId) {
     const groups = await loadGroupPermissionMap();
-    const extras = groups.get(user.permissionGroupId) ?? [];
+    const extras = groups[user.permissionGroupId] ?? [];
     for (const p of extras) effective.add(p);
   }
 
