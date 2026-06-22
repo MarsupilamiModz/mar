@@ -6,8 +6,8 @@ import { Crown, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatPlanPrice, getEffectivePlanPrice, getSaleTimeRemaining, type MembershipPlanData } from "@/lib/membership";
-import type { PremiumPageSettings } from "@/lib/membership";
+import { formatPlanPrice, getEffectivePlanPrice, getSaleTimeRemaining, type MembershipPlanData } from "@/lib/membership-pricing";
+import type { PremiumPageSettings } from "@/lib/membership-pricing";
 import { useAppToast } from "@/hooks/use-app-toast";
 
 type Plan = Pick<

@@ -7,7 +7,7 @@ import { ExternalLink, CreditCard, Calendar, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCreditsFromCents } from "@/lib/credits";
-import { formatPlanPrice } from "@/lib/membership";
+import { formatPlanPrice } from "@/lib/membership-pricing";
 import type { UserMembershipStatus } from "@prisma/client";
 import { toast } from "@/hooks/use-toast";
 

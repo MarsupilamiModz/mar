@@ -17,8 +17,8 @@ import {
   reorderMembershipPlans,
 } from "@/actions/admin/memberships";
 import { MembershipPlanPreview } from "@/components/admin/membership-plan-preview";
-import type { MembershipPlanData, MembershipPerks, PremiumPageSettings, PlanCardStyle } from "@/lib/membership";
-import { formatPlanPrice } from "@/lib/membership";
+import type { MembershipPlanData, MembershipPerks, PremiumPageSettings, PlanCardStyle } from "@/lib/membership-pricing";
+import { formatPlanPrice } from "@/lib/membership-pricing";
 import { parseLines, safeFormOptional, safeFormString, safeStripePriceId } from "@/lib/safe-string";
 import { SLUG_AUTO_GENERATED_MESSAGE } from "@/lib/slug";
 

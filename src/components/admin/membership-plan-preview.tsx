@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Crown, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatPlanPrice, getEffectivePlanPrice, getSaleTimeRemaining, type MembershipPlanData } from "@/lib/membership";
+import { formatPlanPrice, getEffectivePlanPrice, getSaleTimeRemaining, type MembershipPlanData } from "@/lib/membership-pricing";
 
 const PLAN_ICONS: Record<string, string> = {
   "premium-lite": "⚡",
