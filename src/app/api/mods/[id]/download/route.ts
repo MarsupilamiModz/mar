@@ -79,7 +79,11 @@ export async function POST(
   }
 
   const { url, token } = await (async () => {
-    const signedUrl = await getSignedDownloadUrl(version.fileKey, 300);
+    const downloadName = version.originalFileName || version.fileName;
+    const signedUrl = await getSignedDownloadUrl(version.fileKey, 300, {
+      fileName: downloadName,
+      contentType: version.mimeType || "application/octet-stream",
+    });
     const issued = await issueSecureDownloadToken({
       modId: mod.id,
       versionId: version.id,
@@ -124,5 +128,5 @@ export async function POST(
     void evaluateUserAchievements(user.id);
   }
 
-  return NextResponse.json({ url, token, versionId: version.id });
+  return NextResponse.json({ url, token, versionId: version.id, fileName: version.originalFileName || version.fileName });
 }

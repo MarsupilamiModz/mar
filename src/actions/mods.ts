@@ -22,6 +22,7 @@ import { enqueueScan, getCreatorScanPriority } from "@/lib/security/scan-queue";
 import { logSecurityEvent } from "@/lib/security/audit";
 import { createHash } from "crypto";
 import { slugify } from "@/lib/utils";
+import { parseUploadFileName } from "@/lib/archive-meta";
 import { CACHE_TAGS } from "@/lib/cache";
 import { ensureModMediaSynced } from "@/lib/mod-media";
 import { fileSizeBigInt, fileSizeNumber } from "@/lib/file-size";
@@ -259,6 +260,9 @@ async function persistModVersion(input: {
   modId: string;
   modSlug: string;
   fileName: string;
+  originalFileName: string;
+  originalExtension: string;
+  mimeType: string;
   fileSize: number;
   productionKey: string;
   version: string;
@@ -290,6 +294,9 @@ async function persistModVersion(input: {
         fileKey: input.productionKey,
         fileSize: fileSizeBigInt(input.fileSize),
         fileName: input.fileName,
+        originalFileName: input.originalFileName,
+        originalExtension: input.originalExtension,
+        mimeType: input.mimeType,
         sha256: input.sha256 || null,
         scanStatus: initialStatus,
         scanReport: settings.enabled
@@ -379,6 +386,9 @@ async function processModVersionFromR2(input: {
   modId: string;
   modSlug: string;
   fileName: string;
+  originalFileName: string;
+  originalExtension: string;
+  mimeType: string;
   fileSize: number;
   contentType: string;
   sourceKey: string;
@@ -389,8 +399,10 @@ async function processModVersionFromR2(input: {
   authorId?: string;
   userId?: string;
 }) {
-  const productionKey = modFileKey(input.modSlug, input.version, input.fileName);
-  await copyObjectInR2(input.sourceKey, productionKey, input.contentType, "private, max-age=86400");
+  const storageName = input.originalFileName || input.fileName;
+  const productionKey = modFileKey(input.modSlug, input.version, storageName);
+  const resolvedMime = input.mimeType || input.contentType;
+  await copyObjectInR2(input.sourceKey, productionKey, resolvedMime, "private, max-age=86400");
   if (input.sourceKey !== productionKey) void deleteFromR2(input.sourceKey);
 
   let sha256: string | undefined;
@@ -404,7 +416,10 @@ async function processModVersionFromR2(input: {
   return persistModVersion({
     modId: input.modId,
     modSlug: input.modSlug,
-    fileName: input.fileName,
+    fileName: storageName,
+    originalFileName: input.originalFileName || storageName,
+    originalExtension: input.originalExtension,
+    mimeType: resolvedMime,
     fileSize: input.fileSize,
     productionKey,
     version: input.version,
@@ -421,6 +436,9 @@ async function processModVersionUpload(input: {
   modId: string;
   modSlug: string;
   fileName: string;
+  originalFileName: string;
+  originalExtension: string;
+  mimeType: string;
   fileSize: number;
   contentType: string;
   buffer: Buffer;
@@ -432,13 +450,18 @@ async function processModVersionUpload(input: {
   userId?: string;
 }) {
   const sha256 = createHash("sha256").update(input.buffer).digest("hex");
-  const productionKey = modFileKey(input.modSlug, input.version, input.fileName);
-  await uploadToR2(productionKey, input.buffer, input.contentType, "private, max-age=86400");
+  const storageName = input.originalFileName || input.fileName;
+  const productionKey = modFileKey(input.modSlug, input.version, storageName);
+  const resolvedMime = input.mimeType || input.contentType;
+  await uploadToR2(productionKey, input.buffer, resolvedMime, "private, max-age=86400");
 
   return persistModVersion({
     modId: input.modId,
     modSlug: input.modSlug,
-    fileName: input.fileName,
+    fileName: storageName,
+    originalFileName: input.originalFileName || storageName,
+    originalExtension: input.originalExtension,
+    mimeType: resolvedMime,
     fileSize: input.fileSize,
     productionKey,
     version: input.version,
@@ -470,12 +493,16 @@ export async function uploadModVersion(modId: string, formData: FormData) {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
+    const parsed = parseUploadFileName(file.name, file.type);
     const { created, scanStatus } = await processModVersionUpload({
       modId,
       modSlug: mod.slug,
-      fileName: file.name,
+      fileName: parsed.safeName,
+      originalFileName: parsed.originalFileName,
+      originalExtension: parsed.originalExtension,
+      mimeType: parsed.mimeType,
       fileSize: file.size,
-      contentType: file.type || "application/octet-stream",
+      contentType: parsed.mimeType,
       buffer,
       version,
       changelog,
@@ -529,12 +556,20 @@ export async function finalizeModVersionUpload(
 
   try {
     const fileSize = fileSizeNumber(session.fileSize);
+    const meta = (session.metadata ?? {}) as Record<string, string>;
+    const parsed = parseUploadFileName(
+      meta.originalFileName || session.fileName,
+      session.contentType
+    );
     const { created, scanStatus } = await processModVersionFromR2({
       modId,
       modSlug: mod.slug,
-      fileName: session.fileName,
+      fileName: parsed.safeName,
+      originalFileName: parsed.originalFileName,
+      originalExtension: meta.originalExtension || parsed.originalExtension,
+      mimeType: parsed.mimeType,
       fileSize,
-      contentType: session.contentType,
+      contentType: parsed.mimeType,
       sourceKey: session.fileKey,
       version: input.version.trim(),
       changelog: input.changelog,

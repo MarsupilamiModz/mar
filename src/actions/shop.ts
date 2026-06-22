@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { fail, ok, requireActionUser, type ActionResult } from "@/lib/action-utils";
 import { createModPurchaseCheckout, createModPurchaseCheckoutDynamic, createShopProductCheckout } from "@/lib/stripe";
@@ -11,6 +12,7 @@ import { generateInvoiceNumber } from "@/lib/invoices";
 import { uploadAsset } from "@/lib/asset-storage";
 import { onNewShopOrder } from "@/lib/order-workflow";
 import { rateLimit } from "@/lib/rate-limit";
+import { CACHE_TAGS, REVALIDATE } from "@/lib/cache";
 import type { ShopFormFieldType } from "@prisma/client";
 
 export async function startModPurchaseCheckout(modId: string, locale: string, clientOrigin?: string) {
@@ -102,6 +104,17 @@ export async function purchaseShopProductWithCredits(_productId: string): Promis
 }
 
 export async function getShopCatalog(params?: { categorySlug?: string; featured?: boolean }) {
+  const categorySlug = params?.categorySlug ?? "all";
+  const featured = params?.featured ? "featured" : "all";
+
+  return unstable_cache(
+    async () => fetchShopCatalog(params),
+    ["shop-catalog", categorySlug, featured],
+    { revalidate: REVALIDATE.shop, tags: [CACHE_TAGS.shop] }
+  )();
+}
+
+async function fetchShopCatalog(params?: { categorySlug?: string; featured?: boolean }) {
   await ensureDefaultShopProductTypes();
 
   const products = await prisma.shopProduct.findMany({

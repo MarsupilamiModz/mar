@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { AvatarCropUpload } from "@/components/upload/avatar-crop-upload";
 import { uploadViaApi } from "@/lib/upload-client";
+import { dispatchProfileAvatarUpdated } from "@/lib/profile-media-events";
+import { getMediaUrl } from "@/lib/media-url";
 import { formatDisplayName } from "@/lib/display-name";
 import { toast } from "@/hooks/use-toast";
 
@@ -31,6 +33,7 @@ export function SettingsForm({ locale, user }: { locale: string; user: User }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [password, setPassword] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
 
   return (
     <div className="space-y-6 max-w-lg">
@@ -38,14 +41,17 @@ export function SettingsForm({ locale, user }: { locale: string; user: User }) {
         <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
-            <UserAvatar src={user.avatarUrl} name={formatDisplayName(user)} className="h-16 w-16" />
+            <UserAvatar src={avatarUrl} name={formatDisplayName(user)} className="h-16 w-16" />
             <div>
               <AvatarCropUpload
                 label="Upload avatar"
                 onCropped={async (file) => {
                   startTransition(async () => {
                     try {
-                      await uploadViaApi({ file, purpose: "user-avatar" });
+                      const result = await uploadViaApi({ file, purpose: "user-avatar" });
+                      const resolved = getMediaUrl(result.url);
+                      setAvatarUrl(resolved);
+                      dispatchProfileAvatarUpdated({ avatarUrl: resolved });
                       toast({ title: "Avatar updated" });
                       router.refresh();
                     } catch (err) {

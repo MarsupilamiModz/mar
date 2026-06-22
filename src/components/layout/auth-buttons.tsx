@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { onProfileAvatarUpdated } from "@/lib/profile-media-events";
 import { Button } from "@/components/ui/button";
 import { UserNav, type NavUser } from "@/components/layout/user-nav";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -37,55 +38,63 @@ export function AuthButtons({
     if (initialUser) setReady(true);
   }, [initialUser]);
 
-  useEffect(() => {
+  const syncUser = useCallback(async () => {
     const supabase = createClient();
-
-    async function syncUser() {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        setHasSession(false);
-        setUser(null);
-        setReady(true);
-        return;
-      }
-
-      setHasSession(true);
-
-      try {
-        const res = await fetch("/api/auth/me", { cache: "no-store", credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.id) {
-            setUser(data);
-            setReady(true);
-            return;
-          }
-        }
-      } catch {
-        /* fall through to session fallback */
-      }
-
-      setUser({
-        id: authUser.id,
-        username: authUser.email?.split("@")[0] ?? "user",
-        displayName: (authUser.user_metadata?.full_name as string | undefined) ?? null,
-        avatarUrl: (authUser.user_metadata?.avatar_url as string | undefined) ?? null,
-        role: "USER" as UserRole,
-        isPremium: false,
-      });
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
+      setHasSession(false);
+      setUser(null);
       setReady(true);
+      return;
     }
 
-    syncUser();
+    setHasSession(true);
+
+    try {
+      const res = await fetch("/api/auth/me", { cache: "no-store", credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.id) {
+          setUser(data);
+          setReady(true);
+          return;
+        }
+      }
+    } catch {
+      /* fall through to session fallback */
+    }
+
+    setUser({
+      id: authUser.id,
+      username: authUser.email?.split("@")[0] ?? "user",
+      displayName: (authUser.user_metadata?.full_name as string | undefined) ?? null,
+      avatarUrl: null,
+      role: "USER" as UserRole,
+      isPremium: false,
+    });
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+    void syncUser();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      syncUser();
+      void syncUser();
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    const stopAvatarListener = onProfileAvatarUpdated(({ avatarUrl }) => {
+      setUser((prev) => (prev ? { ...prev, avatarUrl } : prev));
+      void syncUser();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      stopAvatarListener();
+    };
+  }, [syncUser]);
 
   if (hasSession) {
     if (!ready || !user) return <AuthLoadingAvatar />;

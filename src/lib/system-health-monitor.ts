@@ -18,7 +18,20 @@ export type HealthServiceId =
   | "email"
   | "discord_oauth"
   | "virustotal"
-  | "r2";
+  | "r2"
+  | "platform";
+
+export type PlatformHealthMetrics = {
+  activeUsers24h: number;
+  uploadQueue: number;
+  virusTotalQueue: number;
+  failedUploads24h: number;
+  failedPayments24h: number;
+  failedReports24h: number;
+  trackedStorageMb: number;
+  mediaFiles: number;
+  dbLatencyMs: number;
+};
 
 export type HealthServiceStatus = {
   id: HealthServiceId;
@@ -31,6 +44,7 @@ export type HealthServiceStatus = {
 export type SystemHealthSnapshot = {
   overall: HealthLevel;
   services: HealthServiceStatus[];
+  platform?: PlatformHealthMetrics;
   checkedAt: string;
 };
 
@@ -476,9 +490,98 @@ async function probeR2(): Promise<HealthServiceStatus> {
   };
 }
 
+async function probePlatformMetrics(dbLatencyMs: number): Promise<{
+  service: HealthServiceStatus;
+  metrics: PlatformHealthMetrics;
+}> {
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const [
+    activeUsers24h,
+    uploadQueue,
+    virusTotalQueue,
+    failedUploads24h,
+    failedPayments24h,
+    failedReports24h,
+    bytesAgg,
+    mediaFiles,
+  ] = await Promise.all([
+    prisma.download
+      .groupBy({
+        by: ["userId"],
+        where: { createdAt: { gte: since24h }, userId: { not: null } },
+      })
+      .then((rows) => rows.length)
+      .catch(() => 0),
+    prisma.storageUploadSession.count({ where: { status: "IN_PROGRESS" } }).catch(() => 0),
+    prisma.scanQueue.count({ where: { status: { in: ["PENDING", "PROCESSING"] } } }).catch(() => 0),
+    prisma.storageUploadSession.count({ where: { status: "ABORTED", createdAt: { gte: since24h } } }).catch(() => 0),
+    prisma.customOrder.count({
+      where: { status: { in: ["CANCELED", "REFUNDED"] }, updatedAt: { gte: since24h } },
+    }).catch(() => 0),
+    prisma.contentReport.count({
+      where: { status: "REJECTED", updatedAt: { gte: since24h } },
+    }).catch(() => 0),
+    prisma.modVersion.aggregate({ _sum: { fileSize: true } }).catch(() => ({ _sum: { fileSize: null } })),
+    prisma.mediaFile.count().catch(() => 0),
+  ]);
+
+  const trackedStorageMb =
+    Number(bytesAgg._sum.fileSize ?? 0) > 0
+      ? Math.round(Number(bytesAgg._sum.fileSize) / 1024 / 1024)
+      : 0;
+
+  const metrics: PlatformHealthMetrics = {
+    activeUsers24h,
+    uploadQueue,
+    virusTotalQueue,
+    failedUploads24h,
+    failedPayments24h,
+    failedReports24h,
+    trackedStorageMb,
+    mediaFiles,
+    dbLatencyMs,
+  };
+
+  let level: HealthLevel = "healthy";
+  let detail = `${activeUsers24h} active users · ${uploadQueue} uploads queued · ${virusTotalQueue} VT scans queued`;
+
+  if (failedUploads24h >= 5 || failedPayments24h >= 3 || virusTotalQueue >= 50) {
+    level = "critical";
+    detail = `Failures detected — uploads: ${failedUploads24h}, payments: ${failedPayments24h}, VT queue: ${virusTotalQueue}`;
+  } else if (uploadQueue >= 10 || virusTotalQueue >= 15 || failedUploads24h > 0) {
+    level = "warning";
+    detail = `Elevated queue load — uploads: ${uploadQueue}, VT: ${virusTotalQueue}`;
+  }
+
+  return {
+    metrics,
+    service: {
+      id: "platform",
+      name: "Platform",
+      level,
+      detail,
+      metrics: {
+        activeUsers24h,
+        uploadQueue,
+        virusTotalQueue,
+        failedUploads24h,
+        failedPayments24h,
+        failedReports24h,
+        trackedStorageMb,
+        mediaFiles,
+        dbLatencyMs,
+      },
+    },
+  };
+}
+
 export async function runSystemHealthMonitor(): Promise<SystemHealthSnapshot> {
+  const database = await probeDatabase();
+  const platformProbe = await probePlatformMetrics(Number(database.metrics?.latencyMs ?? 0));
+
   const services = await Promise.all([
-    probeDatabase(),
+    Promise.resolve(database),
     probeApi(),
     probeUpload(),
     probeStorage(),
@@ -486,11 +589,13 @@ export async function runSystemHealthMonitor(): Promise<SystemHealthSnapshot> {
     probeDiscordOAuth(),
     probeVirusTotal(),
     probeR2(),
+    Promise.resolve(platformProbe.service),
   ]);
 
   return {
     overall: worstLevel(services.map((service) => service.level)),
     services,
+    platform: platformProbe.metrics,
     checkedAt: new Date().toISOString(),
   };
 }

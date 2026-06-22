@@ -1,7 +1,12 @@
+import dynamic from "next/dynamic";
 import { getShopCatalog } from "@/actions/shop";
-import { ShopCatalog } from "@/components/shop/enterprise-shop";
 import type { Locale } from "@/i18n/config";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+
+const ShopCatalog = dynamic(
+  () => import("@/components/shop/enterprise-shop").then((m) => m.ShopCatalog),
+  { loading: () => <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-64 rounded-xl glass animate-pulse" />)}</div> }
+);
 
 export default async function ShopPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;

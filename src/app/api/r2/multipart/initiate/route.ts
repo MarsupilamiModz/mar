@@ -15,7 +15,8 @@ import { fileSizeBigInt } from "@/lib/file-size";
 import { getMediaSettings } from "@/lib/media-settings";
 import { assertCollectionCoverAccess } from "@/lib/api-auth";
 import { isAudioFileName, MAX_PREVIEW_BYTES } from "@/lib/sound";
-import { createSoundFileId, mimeFromFileName, soundPreviewStorageKey } from "@/lib/sound-storage";
+import { parseUploadFileName } from "@/lib/archive-meta";
+import { createSoundFileId, soundPreviewStorageKey } from "@/lib/sound-storage";
 
 const purposeSchema = z.enum([
   "mod-version",
@@ -152,7 +153,8 @@ export async function POST(req: Request) {
       }
     }
 
-    const safeName = fileName.replace(/[^\w.-]/g, "_");
+    const parsedFile = parseUploadFileName(fileName, contentType);
+    const { safeName, originalFileName, originalExtension, mimeType: resolvedMime } = parsedFile;
     let fileKey: string;
     let soundFileId: string | undefined;
 
@@ -168,11 +170,12 @@ export async function POST(req: Request) {
       userId: user.id,
       purpose,
       fileName: safeName,
+      originalFileName,
       fileSize,
       modId,
     });
 
-    const { uploadId, key } = await initiateMultipartUpload(fileKey, contentType);
+    const { uploadId, key } = await initiateMultipartUpload(fileKey, resolvedMime);
     const partCount = computePartCount(fileSize);
 
     const session = await prisma.storageUploadSession.create({
@@ -183,11 +186,13 @@ export async function POST(req: Request) {
         uploadId,
         fileName: safeName,
         fileSize: fileSizeBigInt(fileSize),
-        contentType: contentType || (purpose === "sound-preview" ? mimeFromFileName(safeName) : contentType),
+        contentType: resolvedMime,
         modId,
         metadata: {
           ...(metadata ?? {}),
           ...(soundFileId ? { soundFileId } : {}),
+          originalFileName,
+          originalExtension,
         },
         completedParts: [],
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),

@@ -7,6 +7,8 @@ import {
 } from "@/lib/r2-multipart-client";
 import { formatUploadErrorMessage } from "@/lib/upload-errors";
 import { logUploadDiagnostic } from "@/lib/upload-limits";
+import { dispatchProfileAvatarUpdated } from "@/lib/profile-media-events";
+import { getMediaUrl } from "@/lib/media-url";
 
 export type UploadPurpose =
   | "mod-screenshot"
@@ -88,6 +90,18 @@ export async function uploadViaApi(options: UploadApiOptions): Promise<UploadApi
     }
 
     logUploadDiagnostic("upload_via_api_ok", { purpose, url: result.url });
+
+    if (
+      purpose === "user-avatar" ||
+      purpose === "creator-avatar" ||
+      purpose === "partner-avatar" ||
+      purpose === "designer-avatar"
+    ) {
+      dispatchProfileAvatarUpdated({
+        avatarUrl: getMediaUrl(result.url),
+      });
+    }
+
     return {
       url: result.url,
       key: result.key,

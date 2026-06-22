@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { DMCAStatus, ReportStatus } from "@prisma/client";
+import { DMCAStatus, ReportAssignmentRole, ReportPriority, ReportStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { fail, ok, requireActionPermission } from "@/lib/action-utils";
+import { notifyUser } from "@/lib/notifications-service";
 
 const dmcaSchema = z.object({
   companyName: z.string().min(2).max(200),
@@ -70,7 +71,9 @@ export async function updateReportStatus(
   reportId: string,
   status: ReportStatus,
   resolution?: string,
-  adminNotes?: string
+  adminNotes?: string,
+  internalNotes?: string,
+  priority?: ReportPriority
 ) {
   const { user, error } = await requireActionPermission("moderation.reports");
   if (error) return error;
@@ -81,6 +84,8 @@ export async function updateReportStatus(
       status,
       resolution,
       adminNotes,
+      internalNotes,
+      priority,
       resolvedAt: status === "RESOLVED" || status === "REJECTED" ? new Date() : null,
     },
   });
@@ -90,20 +95,31 @@ export async function updateReportStatus(
     action: "report.status_change",
     entityType: "ContentReport",
     entityId: reportId,
-    metadata: { status, resolution },
+    metadata: { status, resolution, priority },
   });
 
   revalidatePath("/admin/reports");
   return ok(undefined);
 }
 
-export async function assignReport(reportId: string, assigneeId: string | null) {
+export async function assignReport(
+  reportId: string,
+  assigneeId: string | null,
+  assignmentRole?: ReportAssignmentRole | null
+) {
   const { user, error } = await requireActionPermission("moderation.reports");
   if (error) return error;
 
-  await prisma.contentReport.update({
+  const report = await prisma.contentReport.update({
     where: { id: reportId },
-    data: { assigneeId, status: "UNDER_REVIEW" },
+    data: {
+      assigneeId,
+      assignmentRole: assigneeId ? assignmentRole ?? "MODERATOR" : null,
+      status: assigneeId ? "UNDER_REVIEW" : undefined,
+    },
+    include: {
+      reporter: { select: { username: true } },
+    },
   });
 
   await createAuditLog({
@@ -111,8 +127,20 @@ export async function assignReport(reportId: string, assigneeId: string | null) 
     action: "report.assign",
     entityType: "ContentReport",
     entityId: reportId,
-    metadata: { assigneeId },
+    metadata: { assigneeId, assignmentRole },
   });
+
+  if (assigneeId) {
+    await notifyUser({
+      userId: assigneeId,
+      type: "SYSTEM",
+      category: "moderation",
+      title: "Report assigned to you",
+      body: `${report.category.replace(/_/g, " ")} report from @${report.reporter.username}`,
+      link: "/admin/reports",
+      metadata: { reportId, assignmentRole },
+    });
+  }
 
   revalidatePath("/admin/reports");
   return ok(undefined);
@@ -195,7 +223,9 @@ export async function getTrustCenterStats() {
     searchQueries,
     recommendationClicks,
   ] = await Promise.all([
-    prisma.contentReport.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW", "INVESTIGATING"] } } }),
+    prisma.contentReport.count({
+      where: { status: { in: ["SUBMITTED", "UNDER_REVIEW", "NEEDS_MORE_INFO", "INVESTIGATING"] } },
+    }),
     prisma.contentReport.count({ where: { category: { in: ["MALWARE", "VIRUS"] }, createdAt: { gte: since30 } } }),
     prisma.dMCAClaim.count({ where: { status: { in: ["SUBMITTED", "LEGAL_REVIEW", "ACCEPTED"] } } }),
     prisma.contentReport.count({ where: { status: "RESOLVED", resolvedAt: { gte: since30 } } }),

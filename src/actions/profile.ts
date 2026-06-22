@@ -8,6 +8,8 @@ import { fail, ok, requireActionUser } from "@/lib/action-utils";
 import { uploadAsset } from "@/lib/asset-storage";
 import { extensionForMime, validateUploadFile } from "@/lib/upload-validation";
 import { slugify } from "@/lib/utils";
+import { revalidateProfileMedia } from "@/lib/media-revalidate";
+import { getMediaUrl } from "@/lib/media-url";
 
 const profileSchema = z.object({
   displayName: z.string().min(1).max(80).optional(),
@@ -59,11 +61,18 @@ export async function uploadAvatar(formData: FormData) {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { avatarUrl: result.url },
+      data: {
+        avatarUrl: result.url,
+        avatar256Url: result.url,
+        avatar128Url: result.url,
+        avatar64Url: result.url,
+        avatarOriginalUrl: result.url,
+      },
     });
 
+    await revalidateProfileMedia(user.id);
     revalidatePath("/dashboard/settings");
-    return ok({ url: result.url });
+    return ok({ url: getMediaUrl(result.url) });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Avatar upload failed");
   }

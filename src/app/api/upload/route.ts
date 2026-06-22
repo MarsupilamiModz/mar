@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { uploadAsset, type AssetBucket } from "@/lib/asset-storage";
 import { extensionForMime, validateUploadFile } from "@/lib/upload-validation";
 import { getMediaSettings } from "@/lib/media-settings";
+import { revalidateProfileMedia } from "@/lib/media-revalidate";
 
 const uploadSchema = z.object({
   purpose: z.enum([
@@ -192,7 +193,17 @@ export async function POST(req: Request) {
     }
 
     if (purpose === "user-avatar" || purpose === "creator-avatar" || purpose === "partner-avatar" || purpose === "designer-avatar") {
-      await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: uploaded.url } });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          avatarUrl: uploaded.url,
+          avatar256Url: uploaded.url,
+          avatar128Url: uploaded.url,
+          avatar64Url: uploaded.url,
+          avatarOriginalUrl: uploaded.url,
+        },
+      });
+      await revalidateProfileMedia(user.id);
     }
 
     if (purpose === "creator-banner") {

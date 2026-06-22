@@ -835,6 +835,9 @@ model ModVersion {
   fileKey     String
   fileSize    BigInt
   fileName    String
+  originalFileName String @default("")
+  originalExtension String @default("")
+  mimeType    String   @default("application/octet-stream")
   gameVersion String?
   sha256      String?
   scanStatus  FileScanStatus @default(PENDING)
@@ -2589,10 +2592,13 @@ model ChatMessage {
 
 enum ReportTargetType {
   MOD
+  SOUND
+  GAME
   USER
   REVIEW
   COMMENT
   CREATOR
+  PARTNER
 }
 
 enum ReportCategory {
@@ -2600,10 +2606,14 @@ enum ReportCategory {
   MALWARE
   VIRUS
   BROKEN_DOWNLOAD
+  BROKEN_FILE
   COPYRIGHT
   SPAM
+  SCAM
   FAKE_CREATOR
   ABUSIVE
+  OFFENSIVE_CONTENT
+  DUPLICATE_CONTENT
   TOS
   OTHER
 }
@@ -2611,9 +2621,23 @@ enum ReportCategory {
 enum ReportStatus {
   SUBMITTED
   UNDER_REVIEW
+  NEEDS_MORE_INFO
   INVESTIGATING
   RESOLVED
   REJECTED
+}
+
+enum ReportPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ReportAssignmentRole {
+  MODERATOR
+  ADMIN
+  OWNER
 }
 
 model ContentReport {
@@ -2626,9 +2650,12 @@ model ContentReport {
   description String           @db.Text
   attachments Json?
   status      ReportStatus     @default(SUBMITTED)
+  priority    ReportPriority     @default(NORMAL)
   assigneeId  String?
   assignee    User?            @relation("ReportAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  assignmentRole ReportAssignmentRole?
   adminNotes  String?          @db.Text
+  internalNotes String?        @db.Text
   resolution  String?          @db.Text
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt

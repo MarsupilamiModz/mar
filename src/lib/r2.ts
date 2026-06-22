@@ -100,9 +100,22 @@ export async function copyObjectInR2(
   return dest;
 }
 
-export async function getSignedDownloadUrl(key: string, expiresIn = 300) {
+export async function getSignedDownloadUrl(
+  key: string,
+  expiresIn = 300,
+  options?: { fileName?: string; contentType?: string }
+) {
   const normalizedKey = key.startsWith(STORAGE.prefix) ? key : storageKey(key);
-  const command = new GetObjectCommand({ Bucket: BUCKET, Key: normalizedKey });
+  const command = new GetObjectCommand({
+    Bucket: BUCKET,
+    Key: normalizedKey,
+    ...(options?.fileName
+      ? {
+          ResponseContentDisposition: `attachment; filename="${options.fileName.replace(/"/g, "")}"`,
+        }
+      : {}),
+    ...(options?.contentType ? { ResponseContentType: options.contentType } : {}),
+  });
   return getSignedUrl(r2, command, { expiresIn });
 }
 

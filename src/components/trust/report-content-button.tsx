@@ -23,14 +23,17 @@ import { toast } from "@/hooks/use-toast";
 import { Flag } from "lucide-react";
 
 const CATEGORIES: { value: ReportCategory; label: string }[] = [
-  { value: "STOLEN", label: "Stolen mod" },
   { value: "MALWARE", label: "Malware" },
-  { value: "VIRUS", label: "Virus" },
+  { value: "BROKEN_FILE", label: "Broken file" },
   { value: "BROKEN_DOWNLOAD", label: "Broken download" },
-  { value: "COPYRIGHT", label: "Copyright violation" },
+  { value: "COPYRIGHT", label: "Copyright" },
   { value: "SPAM", label: "Spam" },
-  { value: "FAKE_CREATOR", label: "Fake creator" },
+  { value: "SCAM", label: "Scam" },
+  { value: "OFFENSIVE_CONTENT", label: "Offensive content" },
   { value: "ABUSIVE", label: "Abusive content" },
+  { value: "DUPLICATE_CONTENT", label: "Duplicate content" },
+  { value: "STOLEN", label: "Stolen content" },
+  { value: "FAKE_CREATOR", label: "Fake creator" },
   { value: "TOS", label: "Terms of service" },
   { value: "OTHER", label: "Other" },
 ];

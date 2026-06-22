@@ -12,6 +12,7 @@ export const CACHE_TAGS = {
   mod: (slug: string) => `mod-${slug}`,
   user: (userId: string) => `user-${userId}`,
   userSession: (supabaseId: string) => `session-${supabaseId}`,
+  shop: "shop-catalog",
   achievements: (userId: string) => `achievements-${userId}`,
 } as const;
 
@@ -26,4 +27,5 @@ export const REVALIDATE = {
   static: 3600,
   search: 60,
   adminStats: 60,
+  shop: 120,
 } as const;
