@@ -162,6 +162,25 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
           <p className="text-xs text-muted-foreground">Uploaded to {STORAGE.cdn} · WebP compression applied on upload</p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
+              <label className="text-xs text-muted-foreground">
+                Logo
+                <span className="mt-0.5 block font-normal text-muted-foreground/80">
+                  Navbar &amp; hover menu
+                </span>
+              </label>
+              {game.logoUrl && (
+                <div className="relative mt-1 mb-2 h-14 w-14 rounded-lg overflow-hidden border border-border/50">
+                  <SafeImage src={game.logoUrl} alt="" fill className="object-contain p-1" sizes="56px" />
+                </div>
+              )}
+              <Input
+                type="file"
+                accept="image/*"
+                className="mt-1"
+                onChange={(e) => e.target.files?.[0] && uploadAsset("logo", e.target.files[0])}
+              />
+            </div>
+            <div>
               <label className="text-xs text-muted-foreground">Icon (square)</label>
               {game.iconUrl && (
                 <div className="relative mt-1 mb-2 h-14 w-14 rounded-lg overflow-hidden border border-border/50">
@@ -176,21 +195,12 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Logo</label>
-              {game.logoUrl && (
-                <div className="relative mt-1 mb-2 h-14 w-14 rounded-lg overflow-hidden border border-border/50">
-                  <SafeImage src={game.logoUrl} alt="" fill className="object-contain p-1" sizes="56px" />
-                </div>
-              )}
-              <Input
-                type="file"
-                accept="image/*"
-                className="mt-1"
-                onChange={(e) => e.target.files?.[0] && uploadAsset("logo", e.target.files[0])}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Cover (portrait card)</label>
+              <label className="text-xs text-muted-foreground">
+                Cover portrait
+                <span className="mt-0.5 block font-normal text-muted-foreground/80">
+                  Games overview · 1000×1500 or 2:3 ratio
+                </span>
+              </label>
               {game.coverUrl && (
                 <div className="relative mt-1 mb-2 h-20 w-14 rounded-lg overflow-hidden border border-border/50">
                   <SafeImage src={game.coverUrl} alt="" fill className="object-cover" sizes="56px" />
@@ -204,7 +214,12 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Banner (wide hero)</label>
+              <label className="text-xs text-muted-foreground">
+                Banner (wide hero)
+                <span className="mt-0.5 block font-normal text-muted-foreground/80">
+                  Game detail page header
+                </span>
+              </label>
               {game.bannerUrl && (
                 <div className="relative mt-1 mb-2 h-16 w-full rounded-lg overflow-hidden border border-border/50">
                   <SafeImage src={game.bannerUrl} alt="" fill className="object-cover" sizes="200px" />

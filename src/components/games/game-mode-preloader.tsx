@@ -9,10 +9,7 @@ export const GameModePreloader = memo(function GameModePreloader({
   games,
   eager = false,
 }: {
-  games: Pick<
-    GameDiscoveryCardData,
-    "modeCount" | "modeBundle" | "bannerUrl" | "coverUrl" | "logoUrl"
-  >[];
+  games: Pick<GameDiscoveryCardData, "modeCount" | "modeBundle" | "coverUrl">[];
   eager?: boolean;
 }) {
   const picker = useGameModePickerOptional();
@@ -23,7 +20,7 @@ export const GameModePreloader = memo(function GameModePreloader({
     ranRef.current = true;
 
     for (const game of games) {
-      prefetchImages([game.bannerUrl, game.coverUrl, game.logoUrl]);
+      prefetchImages([game.coverUrl]);
       if (game.modeCount > 1 && game.modeBundle?.modes.length) {
         prefetchGameModeAssets(game.modeBundle.modes);
         picker?.warm(game.modeBundle.modes);

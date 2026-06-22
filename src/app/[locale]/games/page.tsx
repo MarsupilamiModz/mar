@@ -31,7 +31,7 @@ export default async function GamesPage({ params }: { params: Promise<{ locale: 
             {t("empty")}
           </Card>
         ) : (
-          <GameDiscoveryGrid locale={locale} games={games} priorityCount={9} />
+          <GameDiscoveryGrid locale={locale} games={games} layout="games" priorityCount={10} />
         )}
       </div>
     </div>

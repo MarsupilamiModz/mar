@@ -10,7 +10,6 @@ export type GameDiscoveryCardData = {
   name: string;
   shortDescription: string | null;
   coverUrl: string | null;
-  bannerUrl: string | null;
   logoUrl: string | null;
   isFeatured: boolean;
   modCount: number;
@@ -45,7 +44,6 @@ async function fetchGameDiscoveryStats() {
         name: true,
         shortDescription: true,
         coverUrl: true,
-        bannerUrl: true,
         logoUrl: true,
         isFeatured: true,
       },

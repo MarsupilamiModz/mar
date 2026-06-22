@@ -25,7 +25,6 @@ async function fetchNavGames(): Promise<NavGameItem[]> {
         name: true,
         coverUrl: true,
         logoUrl: true,
-        bannerUrl: true,
       },
     });
 
@@ -51,7 +50,7 @@ async function fetchNavGames(): Promise<NavGameItem[]> {
         id: g.id,
         slug: g.slug,
         name: g.name,
-        coverUrl: g.coverUrl ?? g.bannerUrl,
+        coverUrl: g.coverUrl,
         logoUrl: g.logoUrl,
         modeCount: slugs.length,
         soleModeSlug: slugs.length === 1 ? slugs[0]! : null,
