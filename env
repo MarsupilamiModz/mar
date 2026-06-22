@@ -1,0 +1,63 @@
+# App — production: https://www.xumari-modz.com
+NEXT_PUBLIC_APP_URL=https://www.xumari-modz.com/
+NEXT_PUBLIC_APP_NAME=Xumari Modz
+
+# --- EMAIL CONFIGURATION (Microsoft Graph API) ---
+# Entferne oder kommentiere alte SMTP-Variablen aus, falls vorhanden!
+EMAIL_PROVIDER=microsoft_graph
+
+# Microsoft OAuth 2.0 Credentials
+MICROSOFT_TENANT_ID=f31c6f08-afee-4b4f-bdd8-12c8fc9c6d13
+MICROSOFT_CLIENT_ID=b25e30ba-a21e-47d2-b0bc-7f83988ea4eb
+MICROSOFT_CLIENT_SECRET=TZ28Q~Zq98qfEqAipbRGtstszzNmyhMfBNK5xaJK
+
+# Die E-Mail-Adresse, von der gesendet werden soll
+EMAIL_FROM=XumariModz <noreply@xumari-modz.com>
+ADMIN_ORDER_EMAIL=support@xumari-modz.com
+
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://rpvlmpppuscczgghmyxd.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_Y94vzPIzFVo2dE0ealHILg_kw2xcjrw
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwdmxtcHBwdXNjY3pnZ2hteXhkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTI4MzYyMywiZXhwIjoyMDk0ODU5NjIzfQ.TED1eCpaoTyVlXEwAjGqVJRfYTm8vBTjwqYq5Xd3ID8
+
+# Database (Prisma - use Supabase connection pooler for production)
+DATABASE_URL="postgresql://postgres.rpvlmpppuscczgghmyxd:x6mb4D8DMAC8YEZyOyK0@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+DIRECT_URL="postgresql://postgres:x6mb4D8DMAC8YEZyOyK0@db.rpvlmpppuscczgghmyxd.supabase.co:5432/postgres"
+
+# Stripe
+STRIPE_SECRET_KEY=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
+STRIPE_WEBHOOK_SECRET=whsec_XBCJNtk5RIpxRtu85yteomgrszBxSZGE
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51TZC7QB9u22Eo1Mko5SCiPiVqMZHdmkZXhqOVTQNFpr9Dv7Xo7rvwJpVjQvZGDQ9NlCkmTwZ40MZIwY16TlvSx2000FFWkPops
+# Create one-time Stripe Prices for each plan and set stripePriceId in Admin → Memberships
+
+# Storage provider: auto | r2 | supabase
+STORAGE_PROVIDER=auto
+# Optional public CDN base — REQUIRED for client-side image resolution in production
+NEXT_PUBLIC_CDN_URL=https://pub-6553abd68fc1425eb55001280590ac7e.r2.dev
+NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-6553abd68fc1425eb55001280590ac7e.r2.dev
+R2_ACCOUNT_ID=804ef43d83caf58c19cf2e9a28ec925d
+R2_ACCESS_KEY_ID=c38191749dc5ca22fc93bfc81c029c68
+R2_SECRET_ACCESS_KEY=67c7bc47d0142085d6d493e0de3f01db569315688755104cc413d26eb6b093f9
+R2_BUCKET_NAME=xumari
+# Xumari CDN public base URL (Cloudflare R2 custom domain)
+R2_PUBLIC_URL=https://pub-6553abd68fc1425eb55001280590ac7e.r2.dev
+
+# Discord
+DISCORD_CLIENT_ID=1507592143198359683
+DISCORD_CLIENT_SECRET=PyLgVOlwpdz65eQ2OwrZJrsdaaLKvQ6k
+DISCORD_BOT_TOKEN=MTUwNzU5MjE0MzE5ODM1OTY4Mw.GG7bzX.d0eJd05WCB5Iax5P35A_r82ibiW8ZDU3wh-vBU
+DISCORD_GUILD_ID=1198651812350283907
+DISCORD_WEBHOOK_URL=
+DISCORD_ROLE_PREMIUM=1198651812350283910
+DISCORD_ROLE_CREATOR=1198713408355303524
+DISCORD_ROLE_MODERATOR=1198651812350283914
+
+# Security
+DOWNLOAD_SIGNING_SECRET=
+VIRUSTOTAL_API_KEY=df382197c1904daf73adc7c5c8f6246eb12b0b4787c567f339054f1df6434c4a
+VIRUSTOTAL_ENABLED=true
+
+# AI Localization (OpenAI)
+OPENAI_API_KEY=
+OPENAI_TRANSLATION_MODEL=gpt-4o-mini
