@@ -72,8 +72,8 @@ export function OrderCenterAdmin({
 
   function reload(status?: string) {
     startTransition(async () => {
-      const r = await getAdminOrders(status);
-      if (r.success) setOrders(r.data as OrderRow[]);
+      const r = await getAdminOrders({ status: status === "ALL" ? undefined : status });
+      if (r.success) setOrders(r.data.orders as OrderRow[]);
     });
   }
 

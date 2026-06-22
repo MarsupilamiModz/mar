@@ -2831,3 +2831,16 @@ model SearchQueryLog {
   @@index([createdAt])
   @@index([query])
 }
+
+model PlatformLanguage {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  flagIcon  String
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}

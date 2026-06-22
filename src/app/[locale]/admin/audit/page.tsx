@@ -1,14 +1,34 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { Card } from "@/components/ui/card";
-export default async function AuditLogPage() {
-  await requireAdmin();
+import { parseAdminLimit, parseAdminPage } from "@/lib/admin-pagination";
+import type { Locale } from "@/i18n/config";
 
-  const logs = await prisma.auditLog.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    include: { actor: { select: { username: true } } },
-  });
+export default async function AuditLogPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: Locale }>;
+  searchParams: Promise<{ page?: string; limit?: string }>;
+}) {
+  await requireAdmin();
+  const { locale } = await params;
+  const sp = await searchParams;
+  const page = parseAdminPage(sp.page);
+  const limit = parseAdminLimit(sp.limit);
+  const skip = (page - 1) * limit;
+
+  const [logs, total] = await Promise.all([
+    prisma.auditLog.findMany({
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      include: { actor: { select: { username: true } } },
+    }),
+    prisma.auditLog.count(),
+  ]);
+  const pages = Math.ceil(total / limit) || 1;
 
   return (
     <div>
@@ -31,6 +51,15 @@ export default async function AuditLogPage() {
           ))
         )}
       </div>
+      <AdminPagination
+        page={page}
+        pages={pages}
+        total={total}
+        limit={limit}
+        basePath={`/${locale}/admin/audit`}
+        searchParams={{ limit: String(limit) }}
+        className="mt-6"
+      />
     </div>
   );
 }

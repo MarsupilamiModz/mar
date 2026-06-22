@@ -13,7 +13,7 @@ export default async function AdminOrdersPage({ params }: { params: Promise<{ lo
   const t = await getTranslations("shop");
 
   const [result, analyticsResult] = await Promise.all([getAdminOrders(), getAdminShopAnalytics()]);
-  const orders = result.success ? result.data : [];
+  const orders = result.success ? result.data.orders : [];
   const analytics = analyticsResult.success ? analyticsResult.data : null;
 
   return (

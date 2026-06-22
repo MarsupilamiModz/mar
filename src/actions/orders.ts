@@ -464,21 +464,36 @@ export async function getAssignableStaff() {
   return ok(staff);
 }
 
-export async function getAdminOrders(status?: string) {
+export async function getAdminOrders(params?: {
+  status?: string;
+  page?: number;
+  limit?: number;
+}) {
   const { error } = await requireActionPermission("orders.read");
   if (error) return error;
 
-  const orders = await prisma.customOrder.findMany({
-    where: status ? { status: status as never } : undefined,
-    orderBy: { updatedAt: "desc" },
-    include: {
-      client: { select: { username: true } },
-      assignee: { select: { username: true } },
-      _count: { select: { messages: true } },
-    },
-    take: 100,
-  });
-  return ok(orders);
+  const page = params?.page ?? 1;
+  const limit = Math.min(Math.max(params?.limit ?? 25, 10), 250);
+  const skip = (page - 1) * limit;
+  const status = params?.status;
+
+  const [orders, total] = await Promise.all([
+    prisma.customOrder.findMany({
+      where: status ? { status: status as never } : undefined,
+      orderBy: { updatedAt: "desc" },
+      skip,
+      take: limit,
+      include: {
+        client: { select: { username: true } },
+        assignee: { select: { username: true } },
+        _count: { select: { messages: true } },
+      },
+    }),
+    prisma.customOrder.count({
+      where: status ? { status: status as never } : undefined,
+    }),
+  ]);
+  return ok({ orders, total, pages: Math.ceil(total / limit) || 1, page, limit });
 }
 
 export async function getUserOrders() {

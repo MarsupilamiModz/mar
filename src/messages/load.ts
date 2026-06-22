@@ -23,6 +23,7 @@ const modules = [
   "sounds",
   "email",
   "chat",
+  "search",
 ] as const;
 
 async function loadLocaleModules(locale: Locale) {

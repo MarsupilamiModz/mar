@@ -450,6 +450,7 @@ export async function getTicketsForUser(params?: { page?: number }) {
 
 export async function getTicketsAdmin(params: {
   page?: number;
+  limit?: number;
   status?: TicketStatus;
   category?: TicketCategory;
   priority?: TicketPriority;
@@ -464,7 +465,7 @@ export async function getTicketsAdmin(params: {
   if (error) return error;
 
   const page = params.page ?? 1;
-  const limit = 20;
+  const limit = Math.min(Math.max(params.limit ?? 25, 10), 250);
   const skip = (page - 1) * limit;
 
   const queueFilter = params.queue && params.queue !== "all"

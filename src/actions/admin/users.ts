@@ -31,7 +31,7 @@ export async function getUsers(params: {
   if (error) return error;
 
   const page = params.page ?? 1;
-  const limit = Math.min(params.limit ?? 20, 100);
+  const limit = Math.min(Math.max(params.limit ?? 25, 10), 250);
   const skip = (page - 1) * limit;
 
   const where = {
@@ -86,8 +86,9 @@ export async function getUsers(params: {
       }),
     })),
     total,
-    pages: Math.ceil(total / limit),
+    pages: Math.ceil(total / limit) || 1,
     page,
+    limit,
   });
 }
 

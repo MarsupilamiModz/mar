@@ -16,6 +16,7 @@ import { AdPopupSlot } from "@/components/ads/ad-popup-slot";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import { getCmsSeo } from "@/lib/page-content";
 import { PlatformVisitTracker } from "@/components/analytics/platform-visit-tracker";
+import { GlobalSearchShell } from "@/components/search/global-search-shell";
 import { isDynamicServerUsageError } from "@/lib/is-dynamic-server-error";
 
 const PlatformAudioShell = dynamic(
@@ -84,14 +85,16 @@ export default async function LocaleLayout({
       <AdProviderScripts />
       <AdPopupSlot />
       <AuthSync />
-      <div className="flex min-h-screen flex-col">
-        <AsyncHeader locale={locale} />
-        <PlatformAudioShell>
-          <main className="flex-1">{children}</main>
-        </PlatformAudioShell>
-        <AdLocationSlot location="footer" className="mx-auto max-w-7xl px-4 pb-4 sm:px-6" />
-        <AsyncFooter locale={locale} />
-      </div>
+      <GlobalSearchShell locale={locale}>
+        <div className="flex min-h-screen flex-col">
+          <AsyncHeader locale={locale} />
+          <PlatformAudioShell>
+            <main className="flex-1">{children}</main>
+          </PlatformAudioShell>
+          <AdLocationSlot location="footer" className="mx-auto max-w-7xl px-4 pb-4 sm:px-6" />
+          <AsyncFooter locale={locale} />
+        </div>
+      </GlobalSearchShell>
       <Toaster />
     </IntlProvider>
   );

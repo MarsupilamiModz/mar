@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { locales, localeLabels, type Locale } from "@/i18n/config";
+import { locales, localeLabels, localeFlags, type Locale } from "@/i18n/config";
 import { persistUserLocale } from "@/actions/locale";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,11 +12,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Globe } from "lucide-react";
+import type { PlatformLanguageOption } from "@/lib/languages";
 
-export function LanguageSwitcher({ locale }: { locale: string }) {
+export function LanguageSwitcher({
+  locale,
+  languages,
+}: {
+  locale: string;
+  languages?: PlatformLanguageOption[];
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const tNav = useTranslations("nav");
+
+  const options =
+    languages?.length
+      ? languages
+      : locales.map((l) => ({
+          code: l,
+          name: localeLabels[l],
+          flagIcon: localeFlags[l],
+          isActive: true,
+        }));
 
   function switchLocale(next: Locale) {
     document.cookie = `NEXT_LOCALE=${next};path=/;max-age=31536000;sameSite=lax`;
@@ -30,21 +47,28 @@ export function LanguageSwitcher({ locale }: { locale: string }) {
     router.push(segments.join("/") || `/${next}`);
   }
 
+  const current = options.find((l) => l.code === locale);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" aria-label={tNav("language")} className="dark-reader-lock">
-          <Globe className="h-4 w-4" data-neon-lock />
+          <span className="text-base leading-none" aria-hidden>
+            {current?.flagIcon ?? "🌐"}
+          </span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="glass max-h-72 overflow-y-auto dark-reader-lock">
-        {locales.map((l) => (
+      <DropdownMenuContent align="end" className="glass max-h-72 overflow-y-auto dark-reader-lock min-w-[11rem]">
+        {options.map((l) => (
           <DropdownMenuItem
-            key={l}
-            onClick={() => switchLocale(l)}
-            className={locale === l ? "text-neon-purple font-medium" : ""}
+            key={l.code}
+            onClick={() => switchLocale(l.code as Locale)}
+            className={locale === l.code ? "text-neon-purple font-medium" : ""}
           >
-            {localeLabels[l]}
+            <span className="mr-2 text-base leading-none" aria-hidden>
+              {l.flagIcon}
+            </span>
+            {l.name}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

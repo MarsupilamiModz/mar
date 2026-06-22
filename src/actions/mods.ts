@@ -959,22 +959,47 @@ export async function bulkReassignMods(input: {
 
 export async function getAdminMods(params: {
   page?: number;
+  limit?: number;
   search?: string;
   status?: ModStatus;
   gameId?: string;
   productType?: "MOD" | "SOUND" | "ALL";
+  pricing?: "FREE" | "PREMIUM" | "ALL";
+  featured?: boolean;
+  scheduled?: boolean;
+  sort?: "newest" | "oldest" | "downloads" | "rating" | "alpha";
 }) {
   const { error } = await requireActionPermission("mods.read");
   if (error) return error;
 
   const page = params.page ?? 1;
-  const limit = 20;
+  const limit = Math.min(Math.max(params.limit ?? 25, 10), 250);
   const skip = (page - 1) * limit;
+
+  const orderBy =
+    params.sort === "oldest"
+      ? { createdAt: "asc" as const }
+      : params.sort === "downloads"
+        ? { downloadCount: "desc" as const }
+        : params.sort === "rating"
+          ? { averageRating: "desc" as const }
+          : params.sort === "alpha"
+            ? { title: "asc" as const }
+            : { updatedAt: "desc" as const };
 
   const where = {
     ...(params.status && { status: params.status }),
     ...(params.gameId && { gameId: params.gameId }),
     ...(params.productType && params.productType !== "ALL" && { productType: params.productType }),
+    ...(params.pricing === "FREE" && { pricing: "FREE" as const }),
+    ...(params.pricing === "PREMIUM" && {
+      pricing: { in: ["PREMIUM", "PAID"] as ModPricing[] },
+    }),
+    ...(params.featured && { isFeatured: true }),
+    ...(params.scheduled && {
+      publishedAt: { gt: new Date() },
+      status: { in: ["DRAFT", "PENDING"] as ModStatus[] },
+    }),
     ...(params.search && {
       OR: [
         { title: { contains: params.search, mode: "insensitive" as const } },
@@ -988,7 +1013,7 @@ export async function getAdminMods(params: {
       where,
       skip,
       take: limit,
-      orderBy: { updatedAt: "desc" },
+      orderBy,
       include: {
         game: { select: { name: true } },
         mode: { select: { name: true } },
@@ -1001,7 +1026,7 @@ export async function getAdminMods(params: {
     prisma.mod.count({ where }),
   ]);
 
-  return ok({ mods, total, pages: Math.ceil(total / limit), page });
+  return ok({ mods, total, pages: Math.ceil(total / limit) || 1, page, limit });
 }
 
 export async function getModForEdit(modId: string) {

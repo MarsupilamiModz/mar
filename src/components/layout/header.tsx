@@ -7,10 +7,12 @@ import { Logo, type LogoBranding } from "@/components/brand/logo";
 import { AuthButtons } from "@/components/layout/auth-buttons";
 import { GamesHoverMenu } from "@/components/layout/games-hover-menu";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
+import { useGlobalSearchOptional } from "@/components/search/global-search-provider";
 import type { NavLabels } from "@/components/layout/nav-labels";
 import type { NavUser } from "@/components/layout/user-nav";
 import type { HeaderMenuItem, HeaderSettings } from "@/lib/branding-cms";
 import type { NavGameItem } from "@/lib/nav-games";
+import type { PlatformLanguageOption } from "@/lib/languages";
 import { useState } from "react";
 
 function resolveMenuHref(locale: string, href: string) {
@@ -27,6 +29,7 @@ export function Header({
   branding,
   navGames = [],
   allGamesLabel = "All games",
+  languages,
 }: {
   locale: string;
   user: NavUser | null;
@@ -35,8 +38,10 @@ export function Header({
   branding?: LogoBranding | null;
   navGames?: NavGameItem[];
   allGamesLabel?: string;
+  languages?: PlatformLanguageOption[];
 }) {
   const [open, setOpen] = useState(false);
+  const globalSearch = useGlobalSearchOptional();
 
   const labelMap: Record<string, string> = {
     games: navLabels.games,
@@ -115,12 +120,19 @@ export function Header({
         </nav>
 
         <div className="flex items-center gap-1 sm:gap-2">
-          <Button variant="ghost" size="icon" asChild className="hidden sm:flex">
-            <Link href={`/${locale}/mods`} aria-label={navLabels.search}>
-              <Search className="h-4 w-4" />
-            </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative"
+            aria-label={navLabels.search}
+            onClick={() => globalSearch?.setOpen(true)}
+          >
+            <Search className="h-4 w-4" />
+            <kbd className="pointer-events-none absolute -bottom-1 -right-1 hidden rounded border border-border/50 bg-background px-0.5 text-[8px] text-muted-foreground lg:inline">
+              ⌘K
+            </kbd>
           </Button>
-          <LanguageSwitcher locale={locale} />
+          <LanguageSwitcher locale={locale} languages={languages} />
           <AuthButtons locale={locale} user={user} />
           <Button
             variant="ghost"
@@ -150,6 +162,17 @@ export function Header({
               {l.label}
             </Link>
           ))}
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-md px-3 py-2.5 text-sm hover:bg-white/5"
+            onClick={() => {
+              setOpen(false);
+              globalSearch?.setOpen(true);
+            }}
+          >
+            <Search className="h-4 w-4" />
+            {navLabels.search}
+          </button>
         </nav>
       </div>
     </header>

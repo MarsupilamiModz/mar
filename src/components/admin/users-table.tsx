@@ -46,6 +46,8 @@ import { toast } from "@/hooks/use-toast";
 import { ASSIGNABLE_ROLES } from "@/lib/permission-types";
 import { formatDisplayName } from "@/lib/display-name";
 import { formatRoleLabel, roleBadgeVariant } from "@/lib/role-display";
+import { AdminPagination } from "@/components/admin/admin-pagination";
+import type { AdminPageSize } from "@/lib/admin-pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type UserRow = {
@@ -67,12 +69,16 @@ export function UsersTable({
   initialTotal,
   initialPages,
   initialPage,
+  initialLimit,
+  initialQuery = {},
 }: {
   locale: string;
   initialUsers: UserRow[];
   initialTotal: number;
   initialPages: number;
   initialPage: number;
+  initialLimit: number;
+  initialQuery?: Record<string, string | undefined>;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -81,9 +87,11 @@ export function UsersTable({
   const [total, setTotal] = useState(initialTotal);
   const [pages, setPages] = useState(initialPages);
   const [page, setPage] = useState(initialPage);
-  const [search, setSearch] = useState(searchParams.get("q") ?? "");
-  const [roleFilter, setRoleFilter] = useState(searchParams.get("role") ?? "all");
-  const [bannedFilter, setBannedFilter] = useState(searchParams.get("banned") ?? "all");
+  const [limit, setLimit] = useState(initialLimit);
+  const [search, setSearch] = useState(searchParams.get("q") ?? initialQuery.q ?? "");
+  const [roleFilter, setRoleFilter] = useState(searchParams.get("role") ?? initialQuery.role ?? "all");
+  const [bannedFilter, setBannedFilter] = useState(searchParams.get("banned") ?? initialQuery.banned ?? "all");
+  const [deletedFilter, setDeletedFilter] = useState(searchParams.get("deleted") ?? initialQuery.deleted ?? "0");
   const [confirm, setConfirm] = useState<{
     type: "ban" | "delete" | "permanent";
     userId: string;
@@ -91,23 +99,26 @@ export function UsersTable({
   } | null>(null);
 
   const refresh = useCallback(
-    (p = page) => {
+    (p = page, nextLimit = limit) => {
       startTransition(async () => {
         const result = await getUsers({
           page: p,
+          limit: nextLimit,
           search: search || undefined,
           role: roleFilter !== "all" ? (roleFilter as UserRole) : undefined,
           banned: bannedFilter === "banned" ? true : bannedFilter === "active" ? false : undefined,
+          includeDeleted: deletedFilter === "1",
         });
         if (result.success) {
           setUsers(result.data.users as UserRow[]);
           setTotal(result.data.total);
           setPages(result.data.pages);
           setPage(result.data.page);
+          setLimit(result.data.limit ?? nextLimit);
         }
       });
     },
-    [page, search, roleFilter, bannedFilter]
+    [page, limit, search, roleFilter, bannedFilter, deletedFilter]
   );
 
   async function handleAction(
@@ -129,8 +140,25 @@ export function UsersTable({
     if (search) params.set("q", search);
     if (roleFilter !== "all") params.set("role", roleFilter);
     if (bannedFilter !== "all") params.set("banned", bannedFilter);
+    if (deletedFilter === "1") params.set("deleted", "1");
+    if (limit !== 25) params.set("limit", String(limit));
     router.push(`/${locale}/admin/users?${params.toString()}`);
     refresh(1);
+  }
+
+  function goToPage(p: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", String(p));
+    router.push(`/${locale}/admin/users?${params.toString()}`);
+    refresh(p);
+  }
+
+  function changeLimit(nextLimit: AdminPageSize) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("limit", String(nextLimit));
+    params.delete("page");
+    router.push(`/${locale}/admin/users?${params.toString()}`);
+    refresh(1, nextLimit);
   }
 
   return (
@@ -169,6 +197,15 @@ export function UsersTable({
             <SelectItem value="banned">Banned</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={deletedFilter} onValueChange={setDeletedFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Deleted" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="0">Hide deleted</SelectItem>
+            <SelectItem value="1">Include deleted</SelectItem>
+          </SelectContent>
+        </Select>
         <Button variant="neon" onClick={applyFilters} disabled={pending}>
           Filter
         </Button>
@@ -180,10 +217,14 @@ export function UsersTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>User</TableHead>
+              <TableHead>Avatar</TableHead>
+              <TableHead>Username</TableHead>
+              <TableHead>Display name</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Premium</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Joined</TableHead>
+              <TableHead>Registered</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
@@ -191,7 +232,7 @@ export function UsersTable({
             {pending && users.length === 0 ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={5}>
+                  <TableCell colSpan={9}>
                     <Skeleton className="h-10 w-full" />
                   </TableCell>
                 </TableRow>
@@ -206,20 +247,27 @@ export function UsersTable({
               users.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell>
-                    <Link
-                      href={`/${locale}/admin/users/${u.id}`}
-                      className="flex items-center gap-3 hover:text-neon-purple"
-                    >
-                      <UserAvatar src={u.avatarUrl} name={u.displayName ?? u.username} className="h-8 w-8" />
-                      <div>
-                        <p className="font-medium">{formatDisplayName(u)}</p>
-                        <p className="text-xs text-muted-foreground">{u.email}</p>
-                      </div>
-                    </Link>
+                    <UserAvatar src={u.avatarUrl} name={u.displayName ?? u.username} className="h-8 w-8" />
                   </TableCell>
                   <TableCell>
+                    <Link
+                      href={`/${locale}/admin/users/${u.id}`}
+                      className="font-medium hover:text-neon-purple"
+                    >
+                      @{u.username}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-sm">{formatDisplayName(u)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{u.email}</TableCell>
+                  <TableCell>
                     <Badge variant={roleBadgeVariant(u.role)}>{formatRoleLabel(u.role)}</Badge>
-                    {u.isPremium && <Badge variant="premium" className="ml-1">PRO</Badge>}
+                  </TableCell>
+                  <TableCell>
+                    {u.isPremium ? (
+                      <Badge variant="premium">Premium</Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {u.isBanned ? (
@@ -305,21 +353,15 @@ export function UsersTable({
         </Table>
       </div>
 
-      {pages > 1 && (
-        <div className="flex justify-center gap-2">
-          {Array.from({ length: Math.min(pages, 10) }, (_, i) => i + 1).map((p) => (
-            <Button
-              key={p}
-              variant={p === page ? "neon" : "outline"}
-              size="sm"
-              onClick={() => refresh(p)}
-              disabled={pending}
-            >
-              {p}
-            </Button>
-          ))}
-        </div>
-      )}
+      <AdminPagination
+        page={page}
+        pages={pages}
+        total={total}
+        limit={limit as AdminPageSize}
+        onPageChange={goToPage}
+        onLimitChange={changeLimit}
+        disabled={pending}
+      />
 
       <ConfirmDialog
         open={!!confirm}

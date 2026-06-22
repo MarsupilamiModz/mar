@@ -5,6 +5,27 @@ export const defaultLocale: Locale = "en";
 /** Primary catalog game slug (GTA V / FiveM / Rage MP ecosystem). */
 export const primaryGameSlug = "gta-v-fivem";
 
+export const localeFlags: Record<Locale, string> = {
+  en: "🇺🇸",
+  de: "🇩🇪",
+  fr: "🇫🇷",
+  es: "🇪🇸",
+  tr: "🇹🇷",
+  pl: "🇵🇱",
+};
+
+/** Extended catalog for admin language management (may use EN fallback until translated). */
+export const extendedLocaleCatalog: Record<string, { name: string; flag: string }> = {
+  en: { name: "English", flag: "🇺🇸" },
+  de: { name: "Deutsch", flag: "🇩🇪" },
+  fr: { name: "Français", flag: "🇫🇷" },
+  es: { name: "Español", flag: "🇪🇸" },
+  it: { name: "Italiano", flag: "🇮🇹" },
+  pl: { name: "Polski", flag: "🇵🇱" },
+  tr: { name: "Türkçe", flag: "🇹🇷" },
+  nl: { name: "Nederlands", flag: "🇳🇱" },
+};
+
 export const localeLabels: Record<Locale, string> = {
   en: "English",
   de: "Deutsch",
