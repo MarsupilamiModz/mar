@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import { prisma } from "@/lib/db";
+import { prisma, withDbRetry } from "@/lib/db";
 import { CACHE_TAGS, REVALIDATE } from "@/lib/cache";
 
 export type GameModeCardData = {
@@ -20,31 +20,33 @@ export type GameModePickerMeta = {
 };
 
 async function fetchGameModePickerMeta(gameIds: string[]) {
-  const modes = await prisma.gameMode.findMany({
-    where: { gameId: { in: gameIds }, isActive: true },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    select: { gameId: true, slug: true },
-  });
+  return withDbRetry(async () => {
+    const modes = await prisma.gameMode.findMany({
+      where: { gameId: { in: gameIds }, isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { gameId: true, slug: true },
+    });
 
-  const byGame = new Map<string, string[]>();
-  for (const mode of modes) {
-    const list = byGame.get(mode.gameId) ?? [];
-    list.push(mode.slug);
-    byGame.set(mode.gameId, list);
-  }
+    const byGame = new Map<string, string[]>();
+    for (const mode of modes) {
+      const list = byGame.get(mode.gameId) ?? [];
+      list.push(mode.slug);
+      byGame.set(mode.gameId, list);
+    }
 
-  return Object.fromEntries(
-    gameIds.map((id) => {
-      const slugs = byGame.get(id) ?? [];
-      return [
-        id,
-        {
-          modeCount: slugs.length,
-          soleModeSlug: slugs.length === 1 ? slugs[0]! : null,
-        } satisfies GameModePickerMeta,
-      ];
-    })
-  ) as Record<string, GameModePickerMeta>;
+    return Object.fromEntries(
+      gameIds.map((id) => {
+        const slugs = byGame.get(id) ?? [];
+        return [
+          id,
+          {
+            modeCount: slugs.length,
+            soleModeSlug: slugs.length === 1 ? slugs[0]! : null,
+          } satisfies GameModePickerMeta,
+        ];
+      })
+    ) as Record<string, GameModePickerMeta>;
+  }, { label: "games:mode-meta" });
 }
 
 export async function getGameModePickerMetaBatch(gameIds: string[]) {
@@ -58,44 +60,45 @@ export async function getGameModePickerMetaBatch(gameIds: string[]) {
 
 export async function getGameModesForGame(gameId: string) {
   return unstable_cache(
-    async () => {
-      const [modes, modCounts] = await Promise.all([
-        prisma.gameMode.findMany({
-          where: { gameId, isActive: true },
-          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-          select: {
-            id: true,
-            slug: true,
-            name: true,
-            description: true,
-            thumbnailUrl: true,
-            bannerUrl: true,
-            iconUrl: true,
-            accentColor: true,
-          },
-        }),
-        prisma.mod.groupBy({
-          by: ["modeId"],
-          where: {
-            gameId,
-            status: "PUBLISHED",
-            visibility: "PUBLIC",
-            modeId: { not: null },
-          },
-          _count: { id: true },
-        }),
-      ]);
+    async () =>
+      withDbRetry(async () => {
+        const [modes, modCounts] = await Promise.all([
+          prisma.gameMode.findMany({
+            where: { gameId, isActive: true },
+            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              description: true,
+              thumbnailUrl: true,
+              bannerUrl: true,
+              iconUrl: true,
+              accentColor: true,
+            },
+          }),
+          prisma.mod.groupBy({
+            by: ["modeId"],
+            where: {
+              gameId,
+              status: "PUBLISHED",
+              visibility: "PUBLIC",
+              modeId: { not: null },
+            },
+            _count: { id: true },
+          }),
+        ]);
 
-      const countMap = new Map(modCounts.map((row) => [row.modeId!, row._count.id]));
+        const countMap = new Map(modCounts.map((row) => [row.modeId!, row._count.id]));
 
-      return modes.map(
-        (mode) =>
-          ({
-            ...mode,
-            modCount: countMap.get(mode.id) ?? 0,
-          }) satisfies GameModeCardData
-      );
-    },
+        return modes.map(
+          (mode) =>
+            ({
+              ...mode,
+              modCount: countMap.get(mode.id) ?? 0,
+            }) satisfies GameModeCardData
+        );
+      }, { label: "games:modes-for-game" }),
     [`game-modes-${gameId}`],
     { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.games, `game-${gameId}`] }
   )();
@@ -147,10 +150,12 @@ export async function getGameModeBySlug(gameSlug: string, modeSlug: string) {
 }
 
 export async function getGameModesByGameSlug(gameSlug: string) {
-  const game = await prisma.game.findUnique({
-    where: { slug: gameSlug, isActive: true },
-    select: { id: true },
-  });
-  if (!game) return [];
-  return getGameModesForGame(game.id);
+  return withDbRetry(async () => {
+    const game = await prisma.game.findUnique({
+      where: { slug: gameSlug, isActive: true },
+      select: { id: true },
+    });
+    if (!game) return [];
+    return getGameModesForGame(game.id);
+  }, { label: "games:modes-by-slug" });
 }

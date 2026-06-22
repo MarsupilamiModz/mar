@@ -13,9 +13,8 @@ function createPrismaClient() {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// Keep a single client per Node worker (dev + production) to avoid pool exhaustion.
+globalForPrisma.prisma = prisma;
 
 /** Warm connection before critical auth paths (pooler cold start). */
 export async function warmDbConnection() {
