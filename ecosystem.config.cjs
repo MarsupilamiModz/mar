@@ -1,17 +1,18 @@
-/** PM2 config — loads .env and binds Next.js to IPv4 only. */
+/** PM2 — Next.js production (Next loads .env from project root automatically). */
 module.exports = {
   apps: [
     {
       name: "xumarimodz",
       cwd: __dirname,
-      script: "./scripts/start-production.sh",
-      interpreter: "bash",
+      script: "npm",
+      args: "start",
       env: {
         NODE_ENV: "production",
         PORT: "3000",
       },
       max_restarts: 10,
       min_uptime: "10s",
+      listen_timeout: 10000,
     },
   ],
 };
