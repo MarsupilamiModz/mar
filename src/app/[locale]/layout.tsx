@@ -18,11 +18,6 @@ import { getCmsSeo } from "@/lib/page-content";
 import { PlatformVisitTracker } from "@/components/analytics/platform-visit-tracker";
 import { isDynamicServerUsageError } from "@/lib/is-dynamic-server-error";
 
-const SnakeEasterEgg = dynamic(
-  () => import("@/components/easter-egg/snake-game").then((m) => ({ default: m.SnakeEasterEgg })),
-  { ssr: false }
-);
-
 const PlatformAudioShell = dynamic(
   () =>
     import("@/components/audio/platform-audio-shell").then((m) => ({
@@ -98,7 +93,6 @@ export default async function LocaleLayout({
         <AsyncFooter locale={locale} />
       </div>
       <Toaster />
-      <SnakeEasterEgg />
     </IntlProvider>
   );
 }

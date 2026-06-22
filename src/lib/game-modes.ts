@@ -9,9 +9,24 @@ export type GameModeCardData = {
   description: string | null;
   thumbnailUrl: string | null;
   bannerUrl: string | null;
+  backgroundUrl: string | null;
+  logoUrl: string | null;
   iconUrl: string | null;
   accentColor: string | null;
   modCount: number;
+};
+
+export type GameModePickerSettings = {
+  overlayOpacity: number;
+  blurPx: number;
+  glowEnabled: boolean;
+  animation: "fade" | "scale" | "slide";
+  panelOpacity: number;
+};
+
+export type GameModePickerBundle = {
+  modes: GameModeCardData[];
+  picker: GameModePickerSettings;
 };
 
 export type GameModePickerMeta = {
@@ -73,6 +88,8 @@ export async function getGameModesForGame(gameId: string) {
               description: true,
               thumbnailUrl: true,
               bannerUrl: true,
+              backgroundUrl: true,
+              logoUrl: true,
               iconUrl: true,
               accentColor: true,
             },
@@ -158,4 +175,41 @@ export async function getGameModesByGameSlug(gameSlug: string) {
     if (!game) return [];
     return getGameModesForGame(game.id);
   }, { label: "games:modes-by-slug" });
+}
+
+const DEFAULT_PICKER: GameModePickerSettings = {
+  overlayOpacity: 0.72,
+  blurPx: 16,
+  glowEnabled: true,
+  animation: "fade",
+  panelOpacity: 0.85,
+};
+
+export async function getGameModePickerBundle(gameSlug: string): Promise<GameModePickerBundle> {
+  return withDbRetry(async () => {
+    const game = await prisma.game.findUnique({
+      where: { slug: gameSlug, isActive: true },
+      select: {
+        id: true,
+        modePickerOverlay: true,
+        modePickerBlurPx: true,
+        modePickerGlowEnabled: true,
+        modePickerAnimation: true,
+        modePickerOpacity: true,
+      },
+    });
+    if (!game) return { modes: [], picker: DEFAULT_PICKER };
+
+    const modes = await getGameModesForGame(game.id);
+    const animation = game.modePickerAnimation;
+    const picker: GameModePickerSettings = {
+      overlayOpacity: game.modePickerOverlay,
+      blurPx: game.modePickerBlurPx,
+      glowEnabled: game.modePickerGlowEnabled,
+      animation:
+        animation === "scale" || animation === "slide" ? animation : "fade",
+      panelOpacity: game.modePickerOpacity,
+    };
+    return { modes, picker };
+  }, { label: "games:mode-picker-bundle" });
 }

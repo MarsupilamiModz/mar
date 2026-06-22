@@ -463,3 +463,41 @@ export async function updateGameBannerSettings(
     return game;
   }, "games:banner-settings");
 }
+
+const modePickerSettingsSchema = z.object({
+  modePickerOverlay: z.number().min(0).max(1),
+  modePickerBlurPx: z.number().int().min(0).max(64),
+  modePickerGlowEnabled: z.boolean(),
+  modePickerAnimation: z.enum(["fade", "scale", "slide"]),
+  modePickerOpacity: z.number().min(0.3).max(1),
+});
+
+export async function updateGameModePickerSettings(
+  id: string,
+  input: z.infer<typeof modePickerSettingsSchema>
+) {
+  const { user, error } = await requireActionPermission("games.write");
+  if (error) return error;
+
+  const parsed = modePickerSettingsSchema.safeParse(input);
+  if (!parsed.success) return fail(formatZodError(parsed.error));
+
+  return actionTry(async () => {
+    const game = await prisma.game.update({
+      where: { id },
+      data: parsed.data,
+    });
+
+    await createAuditLog({
+      actorId: user.id,
+      action: "game.mode_picker_settings",
+      entityType: "Game",
+      entityId: id,
+    });
+
+    revalidatePath("/admin/games");
+    revalidatePath(`/games/${game.slug}`);
+    revalidateTag(CACHE_TAGS.games);
+    return game;
+  }, "games:mode-picker-settings");
+}

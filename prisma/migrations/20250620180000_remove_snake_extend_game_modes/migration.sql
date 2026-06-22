@@ -1,0 +1,13 @@
+-- Remove snake easter egg
+DROP TABLE IF EXISTS "SnakeScore";
+
+-- Per hover category visuals
+ALTER TABLE "GameMode" ADD COLUMN IF NOT EXISTS "backgroundUrl" TEXT;
+ALTER TABLE "GameMode" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT;
+
+-- Game mode picker modal design (per game)
+ALTER TABLE "Game" ADD COLUMN IF NOT EXISTS "modePickerOverlay" DOUBLE PRECISION NOT NULL DEFAULT 0.72;
+ALTER TABLE "Game" ADD COLUMN IF NOT EXISTS "modePickerBlurPx" INTEGER NOT NULL DEFAULT 16;
+ALTER TABLE "Game" ADD COLUMN IF NOT EXISTS "modePickerGlowEnabled" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "Game" ADD COLUMN IF NOT EXISTS "modePickerAnimation" TEXT NOT NULL DEFAULT 'fade';
+ALTER TABLE "Game" ADD COLUMN IF NOT EXISTS "modePickerOpacity" DOUBLE PRECISION NOT NULL DEFAULT 0.85;

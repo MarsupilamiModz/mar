@@ -54,6 +54,11 @@ export default async function EditGamePage({
           bannerFocusY: game.bannerFocusY,
           bannerZoom: game.bannerZoom,
           bannerAlign: game.bannerAlign,
+          modePickerOverlay: game.modePickerOverlay,
+          modePickerBlurPx: game.modePickerBlurPx,
+          modePickerGlowEnabled: game.modePickerGlowEnabled,
+          modePickerAnimation: game.modePickerAnimation,
+          modePickerOpacity: game.modePickerOpacity,
           _count: game._count,
         }}
         categories={game.categories}

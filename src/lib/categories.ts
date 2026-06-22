@@ -13,7 +13,9 @@ export type CategoryNode = {
   children: CategoryNode[];
 };
 
-export type FlatCategory = Omit<CategoryNode, "children">;
+export type FlatCategory = Omit<CategoryNode, "children"> & {
+  modeId?: string | null;
+};
 
 export function buildCategoryTree(flat: FlatCategory[]): CategoryNode[] {
   const map = new Map<string, CategoryNode>();

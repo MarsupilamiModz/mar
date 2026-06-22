@@ -526,7 +526,6 @@ model User {
   membershipPurchases MembershipPurchase[]
   exclusiveApplications ExclusiveApplication[]
   exclusivePrograms   ExclusiveProgram[] @relation("ExclusiveAuthor")
-  snakeScores         SnakeScore[]
   translationJobs     TranslationJob[] @relation("TranslationApprover")
   commissionEntries CommissionEntry[]
   payouts           Payout[]
@@ -618,6 +617,11 @@ model Game {
   isFeatured      Boolean  @default(false)
   sortOrder       Int      @default(0)
   isActive        Boolean  @default(true)
+  modePickerOverlay     Float    @default(0.72)
+  modePickerBlurPx      Int      @default(16)
+  modePickerGlowEnabled Boolean  @default(true)
+  modePickerAnimation   String   @default("fade")
+  modePickerOpacity     Float    @default(0.85)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -638,6 +642,8 @@ model GameMode {
   description  String?  @db.Text
   thumbnailUrl String?
   bannerUrl    String?
+  backgroundUrl String?
+  logoUrl      String?
   iconUrl      String?
   accentColor  String?
   sortOrder    Int      @default(0)
@@ -1949,18 +1955,6 @@ model TranslationJob {
 
   @@index([entityType, entityId])
   @@index([status, targetLocale])
-}
-
-model SnakeScore {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  username  String
-  score     Int
-  createdAt DateTime @default(now())
-
-  @@index([score])
-  @@index([createdAt])
 }
 
 model Achievement {

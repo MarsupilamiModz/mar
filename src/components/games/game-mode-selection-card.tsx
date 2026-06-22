@@ -13,6 +13,8 @@ type Props = {
   locale: string;
   gameSlug: string;
   mode: GameModeCardData;
+  glowEnabled?: boolean;
+  onHover?: () => void;
   onSelect?: () => void;
   className?: string;
 };
@@ -21,18 +23,36 @@ export const GameModeSelectionCard = memo(function GameModeSelectionCard({
   locale,
   gameSlug,
   mode,
+  glowEnabled = true,
+  onHover,
   onSelect,
   className,
 }: Props) {
   const t = useTranslations("games");
-  const banner = mode.bannerUrl ?? mode.thumbnailUrl;
+  const banner = mode.backgroundUrl ?? mode.bannerUrl ?? mode.thumbnailUrl;
   const href = `/${locale}/games/${gameSlug}/${mode.slug}`;
+  const accent = mode.accentColor ?? "#a855f7";
 
   return (
-    <Link href={href} onClick={onSelect} className={cn("group block", className)}>
+    <Link
+      href={href}
+      onClick={onSelect}
+      onMouseEnter={onHover}
+      onFocus={onHover}
+      className={cn("group block", className)}
+    >
       <Card
-        className="relative overflow-hidden rounded-2xl border-border/50 bg-background/40 transition-all duration-300 hover:-translate-y-0.5 hover:border-neon-purple/50 hover:shadow-[0_0_28px_rgba(168,85,247,0.2)]"
-        style={mode.accentColor ? { borderColor: `${mode.accentColor}55` } : undefined}
+        className={cn(
+          "relative overflow-hidden rounded-2xl border-white/15 bg-background/35 backdrop-blur-md transition-all duration-300",
+          "hover:-translate-y-1 hover:border-white/30",
+          glowEnabled && "hover:shadow-[0_0_32px_var(--mode-glow)]"
+        )}
+        style={
+          {
+            borderColor: `${accent}44`,
+            "--mode-glow": `${accent}55`,
+          } as React.CSSProperties
+        }
       >
         <div className="relative aspect-[16/9] overflow-hidden">
           {banner ? (
@@ -46,22 +66,30 @@ export const GameModeSelectionCard = memo(function GameModeSelectionCard({
           ) : (
             <div
               className="absolute inset-0 bg-gradient-to-br from-neon-purple/25 to-neon-blue/15"
-              style={mode.accentColor ? { background: `linear-gradient(135deg, ${mode.accentColor}44, transparent)` } : undefined}
+              style={{ background: `linear-gradient(135deg, ${accent}44, transparent)` }}
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
-          {mode.iconUrl && (
-            <div className="absolute left-3 top-3 h-9 w-9 overflow-hidden rounded-lg border border-white/20 bg-background/80">
-              <SafeImage src={mode.iconUrl} alt="" fill className="object-contain p-1" sizes="36px" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+          {(mode.logoUrl || mode.iconUrl) && (
+            <div className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-background/80 p-1">
+              <SafeImage
+                src={mode.logoUrl ?? mode.iconUrl!}
+                alt=""
+                fill
+                className="object-contain p-0.5"
+                sizes="40px"
+              />
             </div>
           )}
         </div>
         <div className="p-4">
-          <h3 className="font-bold text-lg group-hover:text-neon-purple transition-colors">{mode.name}</h3>
+          <h3 className="text-lg font-bold transition-colors group-hover:text-neon-purple">
+            {mode.name}
+          </h3>
           {mode.description && (
-            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{mode.description}</p>
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{mode.description}</p>
           )}
-          <p className="mt-2 text-xs text-neon-blue">
+          <p className="mt-2 text-xs" style={{ color: accent }}>
             {t("modsCount", { count: mode.modCount })}
           </p>
         </div>
@@ -72,7 +100,7 @@ export const GameModeSelectionCard = memo(function GameModeSelectionCard({
 
 export const GameModeSelectionCardSkeleton = memo(function GameModeSelectionCardSkeleton() {
   return (
-    <Card className="overflow-hidden rounded-2xl border-border/40 animate-pulse">
+    <Card className="overflow-hidden rounded-2xl border-border/40 animate-pulse bg-background/30">
       <div className="aspect-[16/9] bg-muted/40" />
       <div className="space-y-2 p-4">
         <div className="h-5 w-2/3 rounded bg-muted/50" />

@@ -180,6 +180,8 @@ export async function duplicateGameMode(modeId: string) {
       description: source.description,
       thumbnailUrl: source.thumbnailUrl,
       bannerUrl: source.bannerUrl,
+      backgroundUrl: source.backgroundUrl,
+      logoUrl: source.logoUrl,
       iconUrl: source.iconUrl,
       accentColor: source.accentColor,
       isActive: false,
@@ -217,7 +219,7 @@ export async function reorderGameModes(gameId: string, modeIds: string[]) {
 
 export async function uploadGameModeAsset(
   modeId: string,
-  type: "thumbnail" | "banner" | "icon",
+  type: "thumbnail" | "banner" | "background" | "logo" | "icon",
   formData: FormData
 ) {
   const { user, error } = await requireActionPermission("games.write");
@@ -248,7 +250,15 @@ export async function uploadGameModeAsset(
     });
 
     const field =
-      type === "thumbnail" ? "thumbnailUrl" : type === "banner" ? "bannerUrl" : "iconUrl";
+      type === "thumbnail"
+        ? "thumbnailUrl"
+        : type === "banner"
+          ? "bannerUrl"
+          : type === "background"
+            ? "backgroundUrl"
+            : type === "logo"
+              ? "logoUrl"
+              : "iconUrl";
 
     await prisma.gameMode.update({
       where: { id: modeId },

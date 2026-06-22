@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Music, Plus } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { getAdminMods } from "@/actions/mods";
+import { getGamesAndCategories } from "@/lib/data";
 import { AdminModsTable } from "@/components/admin/admin-mods-table";
 import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n/config";
@@ -17,11 +18,14 @@ export default async function AdminModsPage({
   const sp = await searchParams;
 
   const t = await getTranslations("admin");
-  const result = await getAdminMods({
-    page: Number(sp.page) || 1,
-    productType: (sp.type as "MOD" | "SOUND" | "ALL") || undefined,
-    status: sp.status as "ARCHIVED" | "PUBLISHED" | "PENDING" | undefined,
-  });
+  const [result, games] = await Promise.all([
+    getAdminMods({
+      page: Number(sp.page) || 1,
+      productType: (sp.type as "MOD" | "SOUND" | "ALL") || undefined,
+      status: sp.status as "ARCHIVED" | "PUBLISHED" | "PENDING" | undefined,
+    }),
+    getGamesAndCategories(),
+  ]);
   const data = result.success ? result.data : { mods: [], total: 0, pages: 0, page: 1 };
 
   return (
@@ -63,6 +67,7 @@ export default async function AdminModsPage({
         <AdminModsTable
           locale={locale}
           mods={data.mods}
+          games={games}
           emptyMessage={t("noMods")}
           editLabel={t("editMod")}
         />

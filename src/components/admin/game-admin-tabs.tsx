@@ -32,6 +32,11 @@ type GameData = {
   bannerFocusY: number;
   bannerZoom: number;
   bannerAlign: string;
+  modePickerOverlay?: number;
+  modePickerBlurPx?: number;
+  modePickerGlowEnabled?: boolean;
+  modePickerAnimation?: string;
+  modePickerOpacity?: number;
   _count?: { mods: number; categories: number; modes?: number };
 };
 
@@ -64,7 +69,18 @@ export function GameAdminTabs({
       </TabsContent>
 
       <TabsContent value="modes">
-        <GameModeEditor gameId={game.id} gameSlug={game.slug} modes={modes} />
+        <GameModeEditor
+          gameId={game.id}
+          gameSlug={game.slug}
+          modes={modes}
+          pickerSettings={{
+            modePickerOverlay: game.modePickerOverlay ?? 0.72,
+            modePickerBlurPx: game.modePickerBlurPx ?? 16,
+            modePickerGlowEnabled: game.modePickerGlowEnabled ?? true,
+            modePickerAnimation: game.modePickerAnimation ?? "fade",
+            modePickerOpacity: game.modePickerOpacity ?? 0.85,
+          }}
+        />
       </TabsContent>
 
       <TabsContent value="categories">

@@ -90,7 +90,7 @@ export function AvatarCropUpload({
       </label>
 
       <Dialog open={open} onOpenChange={(v) => !saving && setOpen(v)}>
-        <DialogContent className="glass max-w-md border-neon-purple/30" data-snake-trigger>
+        <DialogContent className="glass max-w-md border-neon-purple/30">
           <DialogHeader>
             <DialogTitle>Crop profile image</DialogTitle>
           </DialogHeader>

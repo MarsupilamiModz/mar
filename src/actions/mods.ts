@@ -151,6 +151,7 @@ export async function createMod(input: z.infer<typeof modCreateSchema> & { autho
 
 const modUpdateSchema = modCreateSchema.partial().extend({
   categoryId: z.string().cuid().nullable().optional(),
+  modeId: z.string().cuid().nullable().optional(),
   status: z.enum(["DRAFT", "PENDING", "PUBLISHED", "REJECTED", "ARCHIVED"]).optional(),
   visibility: z.enum(["PUBLIC", "UNLISTED", "PRIVATE"]).optional(),
   isFeatured: z.boolean().optional(),
@@ -171,12 +172,13 @@ function prismaErrorMessage(err: unknown): string {
 
 export async function updateMod(
   modId: string,
-  input: Omit<Partial<z.infer<typeof modCreateSchema>>, "categoryId"> & {
+  input: Omit<Partial<z.infer<typeof modCreateSchema>>, "categoryId" | "modeId"> & {
     status?: ModStatus;
     visibility?: ModVisibility;
     isFeatured?: boolean;
     authorId?: string;
     categoryId?: string | null;
+    modeId?: string | null;
   }
 ) {
   const { user, error } = await requireActionUser();
@@ -198,6 +200,32 @@ export async function updateMod(
       : input.categoryId !== undefined
         ? input.categoryId
         : data.categoryId;
+
+  const nextModeId =
+    input.modeId === null || input.modeId === ""
+      ? null
+      : input.modeId !== undefined
+        ? input.modeId
+        : data.modeId !== undefined
+          ? data.modeId
+          : mod.modeId;
+
+  if (nextModeId) {
+    const mode = await prisma.gameMode.findUnique({
+      where: { id: nextModeId },
+      select: { gameId: true, isActive: true },
+    });
+    if (!mode || mode.gameId !== nextGameId || !mode.isActive) {
+      return fail("Game mode does not belong to the selected game");
+    }
+  } else if (input.modeId !== undefined || data.gameId) {
+    const activeModes = await prisma.gameMode.count({
+      where: { gameId: nextGameId, isActive: true },
+    });
+    if (activeModes > 0 && mod.productType === "MOD") {
+      return fail("Game mode is required for this title");
+    }
+  }
 
   if (nextCategoryId) {
     const category = await prisma.gameCategory.findFirst({
@@ -225,6 +253,9 @@ export async function updateMod(
         ...(data.description && { description: data.description }),
         ...(data.shortDescription !== undefined && { shortDescription: data.shortDescription }),
         ...(data.gameId && { gameId: data.gameId }),
+        ...(input.modeId !== undefined || data.modeId !== undefined || data.gameId
+          ? { modeId: nextModeId }
+          : {}),
         ...(input.categoryId !== undefined || data.categoryId !== undefined
           ? { categoryId: nextCategoryId }
           : {}),
@@ -845,6 +876,87 @@ export async function bulkModAdminAction(input: {
   return ok(undefined);
 }
 
+export async function bulkReassignMods(input: {
+  ids: string[];
+  gameId?: string;
+  modeId?: string | null;
+  categoryId?: string | null;
+}) {
+  const { user, error } = await requireActionPermission("mods.write");
+  if (error) return error;
+  if (!input.ids.length) return fail("No items selected");
+  if (!input.gameId && input.modeId === undefined && input.categoryId === undefined) {
+    return fail("Select at least one field to reassign");
+  }
+
+  const { ids } = input;
+
+  if (input.gameId) {
+    const game = await prisma.game.findUnique({ where: { id: input.gameId }, select: { id: true } });
+    if (!game) return fail("Game not found");
+  }
+
+  if (input.modeId) {
+    const mode = await prisma.gameMode.findUnique({
+      where: { id: input.modeId },
+      select: { gameId: true, isActive: true },
+    });
+    if (!mode || !mode.isActive) return fail("Invalid hover category");
+    if (input.gameId && mode.gameId !== input.gameId) {
+      return fail("Hover category does not belong to the selected game");
+    }
+  }
+
+  if (input.categoryId) {
+    const category = await prisma.gameCategory.findUnique({
+      where: { id: input.categoryId },
+      select: { gameId: true },
+    });
+    if (!category) return fail("Invalid category");
+    if (input.gameId && category.gameId !== input.gameId) {
+      return fail("Category does not belong to the selected game");
+    }
+  }
+
+  const mods = await prisma.mod.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, gameId: true },
+  });
+
+  await prisma.$transaction(
+    mods.map((m) =>
+      prisma.mod.update({
+        where: { id: m.id },
+        data: {
+          ...(input.gameId ? { gameId: input.gameId } : {}),
+          ...(input.modeId !== undefined
+            ? { modeId: input.modeId }
+            : input.gameId
+              ? { modeId: null }
+              : {}),
+          ...(input.categoryId !== undefined
+            ? { categoryId: input.categoryId }
+            : input.gameId
+              ? { categoryId: null }
+              : {}),
+        },
+      })
+    )
+  );
+
+  await createAuditLog({
+    actorId: user.id,
+    action: "mod.bulk_reassign",
+    entityType: "Mod",
+    metadata: { ...input, count: ids.length },
+  });
+
+  invalidateModCaches();
+  revalidatePath("/admin/mods");
+  revalidatePath("/mods");
+  return ok(undefined);
+}
+
 export async function getAdminMods(params: {
   page?: number;
   search?: string;
@@ -879,6 +991,8 @@ export async function getAdminMods(params: {
       orderBy: { updatedAt: "desc" },
       include: {
         game: { select: { name: true } },
+        mode: { select: { name: true } },
+        category: { select: { name: true } },
         author: { select: { username: true } },
         soundProfile: { select: { audioCategory: true, artist: true } },
         _count: { select: { versions: true, screenshots: true } },
