@@ -22,7 +22,6 @@ import {
 import { formatDisplayName } from "@/lib/display-name";
 import { formatRoleLabel, roleBadgeVariant } from "@/lib/role-display";
 import { useAppToast } from "@/hooks/use-app-toast";
-import { ASSIGNABLE_ROLES } from "@/lib/permission-types";
 
 type OverviewData = {
   users: {

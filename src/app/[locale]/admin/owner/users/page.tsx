@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import { requireOwner } from "@/lib/auth";
 import { getOwnerUserManagementOverview } from "@/actions/admin/owner-users";
 import { OwnerUserManagementClient } from "@/components/admin/owner-user-management";
