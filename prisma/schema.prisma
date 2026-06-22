@@ -1445,7 +1445,6 @@ model UserBan {
   @@index([createdAt])
   @@index([expiresAt])
   @@index([banScope])
-  @@map("user_bans")
 }
 
 model UserPermission {
