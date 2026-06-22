@@ -1,10 +1,12 @@
 import { HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
+import os from "node:os";
 import { prisma } from "@/lib/db";
 import { checkDbHealth } from "@/lib/db";
 import { getEmailSettingsPublic } from "@/lib/email/settings";
 import { getMalwareScannerSettingsRaw } from "@/lib/malware-settings";
 import { listPlatformErrors } from "@/lib/platform-log";
 import { listPerfSamples, type PerfSample } from "@/lib/monitoring/perf";
+import { getCacheStats } from "@/lib/cache-store";
 import { getR2ConfigStatus } from "@/lib/r2-config";
 import { STORAGE } from "@/lib/storage";
 import { getVirusTotalQuota } from "@/lib/security/quota";
@@ -42,10 +44,24 @@ export type HealthServiceStatus = {
   metrics?: Record<string, string | number | boolean | null>;
 };
 
+export type PerformanceCenterMetrics = {
+  cacheHitRate: number;
+  cacheHits: number;
+  cacheMisses: number;
+  memoryCacheEntries: number;
+  serverRamUsedGb: number;
+  serverRamTotalGb: number;
+  serverRamUsedPercent: number;
+  cpuCount: number;
+  avgSlowQueryMs: number;
+  slowQueryCount: number;
+};
+
 export type SystemHealthSnapshot = {
   overall: HealthLevel;
   services: HealthServiceStatus[];
   platform?: PlatformHealthMetrics;
+  performance?: PerformanceCenterMetrics;
   slowQueries?: PerfSample[];
   checkedAt: string;
 };
@@ -595,11 +611,33 @@ export async function runSystemHealthMonitor(): Promise<SystemHealthSnapshot> {
   ]);
 
   const slowQueries = await listPerfSamples(15);
+  const cache = getCacheStats();
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+  const usedMem = totalMem - freeMem;
+  const slowAvg =
+    slowQueries.length > 0
+      ? Math.round(slowQueries.reduce((s, q) => s + q.durationMs, 0) / slowQueries.length)
+      : 0;
+
+  const performance: PerformanceCenterMetrics = {
+    cacheHitRate: cache.hitRate,
+    cacheHits: cache.hits,
+    cacheMisses: cache.misses,
+    memoryCacheEntries: cache.memoryEntries,
+    serverRamUsedGb: Math.round((usedMem / 1024 ** 3) * 10) / 10,
+    serverRamTotalGb: Math.round((totalMem / 1024 ** 3) * 10) / 10,
+    serverRamUsedPercent: Math.round((usedMem / totalMem) * 100),
+    cpuCount: os.cpus().length,
+    avgSlowQueryMs: slowAvg,
+    slowQueryCount: slowQueries.length,
+  };
 
   return {
     overall: worstLevel(services.map((service) => service.level)),
     services,
     platform: platformProbe.metrics,
+    performance,
     slowQueries,
     checkedAt: new Date().toISOString(),
   };

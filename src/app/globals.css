@@ -145,4 +145,10 @@
     transform: translateZ(0);
     contain: layout style paint;
   }
+
+  .game-mode-picker-panel {
+    will-change: transform, opacity;
+    transform: translate3d(0, 0, 0);
+    contain: layout style paint;
+  }
 }

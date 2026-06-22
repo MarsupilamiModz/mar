@@ -148,6 +148,69 @@ export function SystemHealthMonitor({ initial }: { initial: SystemHealthSnapshot
           <ServiceCard key={service.id} service={service} />
         ))}
       </div>
+
+      {snapshot.performance && (
+        <Card className="glass border border-neon-purple/20 p-5 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Performance Center</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Cache, server resources, and slow query telemetry.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border border-border/40 bg-background/30 p-3">
+              <p className="text-xs text-muted-foreground">Cache hit rate</p>
+              <p className="text-xl font-bold">{snapshot.performance.cacheHitRate}%</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {snapshot.performance.cacheHits} hits / {snapshot.performance.cacheMisses} misses
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/40 bg-background/30 p-3">
+              <p className="text-xs text-muted-foreground">Server RAM</p>
+              <p className="text-xl font-bold">{snapshot.performance.serverRamUsedPercent}%</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {snapshot.performance.serverRamUsedGb} GB / {snapshot.performance.serverRamTotalGb} GB
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/40 bg-background/30 p-3">
+              <p className="text-xs text-muted-foreground">DB latency</p>
+              <p className="text-xl font-bold">{snapshot.platform?.dbLatencyMs ?? "—"} ms</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {snapshot.performance.cpuCount} CPU cores
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/40 bg-background/30 p-3">
+              <p className="text-xs text-muted-foreground">Slow queries (recent)</p>
+              <p className="text-xl font-bold">{snapshot.performance.slowQueryCount}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                avg {snapshot.performance.avgSlowQueryMs} ms
+              </p>
+            </div>
+          </div>
+          {snapshot.slowQueries && snapshot.slowQueries.length > 0 && (
+            <div className="rounded-lg border border-border/40 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-background/40 text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Label</th>
+                    <th className="px-3 py-2 text-left">Type</th>
+                    <th className="px-3 py-2 text-right">Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {snapshot.slowQueries.slice(0, 8).map((row) => (
+                    <tr key={row.id} className="border-t border-border/30">
+                      <td className="px-3 py-2 font-mono">{row.label}</td>
+                      <td className="px-3 py-2">{row.kind}</td>
+                      <td className="px-3 py-2 text-right">{row.durationMs} ms</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

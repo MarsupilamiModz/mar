@@ -4,6 +4,19 @@ type CacheEntry<T> = { value: T; expiresAt: number };
 
 const memoryStore = new Map<string, CacheEntry<unknown>>();
 
+let cacheHits = 0;
+let cacheMisses = 0;
+
+export function getCacheStats() {
+  const total = cacheHits + cacheMisses;
+  return {
+    hits: cacheHits,
+    misses: cacheMisses,
+    hitRate: total > 0 ? Math.round((cacheHits / total) * 100) : 100,
+    memoryEntries: memoryStore.size,
+  };
+}
+
 function redisConfigured(): boolean {
   return Boolean(process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL);
 }
@@ -20,7 +33,10 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
         });
         if (res.ok) {
           const json = (await res.json()) as { result?: string | null };
-          if (json.result) return JSON.parse(json.result) as T;
+          if (json.result) {
+            cacheHits++;
+            return JSON.parse(json.result) as T;
+          }
         }
       }
     } catch {
@@ -29,11 +45,16 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
   }
 
   const hit = memoryStore.get(key);
-  if (!hit) return null;
-  if (Date.now() > hit.expiresAt) {
-    memoryStore.delete(key);
+  if (!hit) {
+    cacheMisses++;
     return null;
   }
+  if (Date.now() > hit.expiresAt) {
+    memoryStore.delete(key);
+    cacheMisses++;
+    return null;
+  }
+  cacheHits++;
   return hit.value as T;
 }
 

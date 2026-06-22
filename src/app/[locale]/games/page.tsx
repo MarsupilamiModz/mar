@@ -1,6 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getGamesDiscoveryCards } from "@/lib/game-discovery";
-import { GameDiscoveryCard } from "@/components/games/game-discovery-card";
+import { GameDiscoveryGrid } from "@/components/games/game-discovery-grid";
 import { Card } from "@/components/ui/card";
 import type { Locale } from "@/i18n/config";
 import type { Metadata } from "next";
@@ -31,14 +31,12 @@ export default async function GamesPage({ params }: { params: Promise<{ locale: 
             {t("empty")}
           </Card>
         ) : (
-          games.map((game, i) => (
-            <GameDiscoveryCard
-              key={game.id}
-              locale={locale}
-              game={game}
-              priority={i < 8}
-            />
-          ))
+          <GameDiscoveryGrid
+            locale={locale}
+            games={games}
+            priorityCount={8}
+            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          />
         )}
       </div>
     </div>

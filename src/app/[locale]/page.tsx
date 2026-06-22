@@ -4,7 +4,7 @@ import { ArrowRight, Crown, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ModCard } from "@/components/mods/mod-card";
-import { GameDiscoveryCard } from "@/components/games/game-discovery-card";
+import { GameDiscoveryGrid } from "@/components/games/game-discovery-grid";
 import { getGamesDiscoveryCards } from "@/lib/game-discovery";
 import { getTrendingMods, getGameBySlug } from "@/lib/data";
 import { primaryGameSlug } from "@/i18n/config";
@@ -106,14 +106,12 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
           <Card className="glass p-12 text-center text-muted-foreground">{t("noGamesYet")}</Card>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {games.map((game, i) => (
-              <GameDiscoveryCard
-                key={game.id}
-                locale={locale}
-                game={game}
-                priority={i < 4}
-              />
-            ))}
+          <GameDiscoveryGrid
+            locale={locale}
+            games={games}
+            priorityCount={4}
+            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          />
           </div>
         )}
       </section>

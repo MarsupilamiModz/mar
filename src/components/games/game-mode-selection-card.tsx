@@ -43,9 +43,10 @@ export const GameModeSelectionCard = memo(function GameModeSelectionCard({
     >
       <Card
         className={cn(
-          "relative overflow-hidden rounded-2xl border-white/15 bg-background/35 backdrop-blur-md transition-all duration-300",
-          "hover:-translate-y-1 hover:border-white/30",
-          glowEnabled && "hover:shadow-[0_0_32px_var(--mode-glow)]"
+          "relative overflow-hidden rounded-2xl border-white/15 bg-background/35 backdrop-blur-md",
+          "transition-[transform,box-shadow,border-color] duration-150",
+          "hover:-translate-y-0.5 hover:border-white/30 will-change-transform",
+          glowEnabled && "hover:shadow-[0_0_24px_var(--mode-glow)]"
         )}
         style={
           {
@@ -60,7 +61,7 @@ export const GameModeSelectionCard = memo(function GameModeSelectionCard({
               src={banner}
               alt={mode.name}
               fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              className="object-cover transition-transform duration-150 group-hover:scale-[1.03]"
               sizes="(max-width: 640px) 100vw, 400px"
             />
           ) : (
