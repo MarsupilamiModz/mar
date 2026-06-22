@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import { FileScanStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { CACHE_TAGS, REVALIDATE } from "@/lib/cache";
 import { collectDescendantIds, type FlatCategory } from "@/lib/categories";
@@ -82,6 +83,8 @@ export async function findModsListing(args: NonNullable<Parameters<typeof prisma
     }
   }
 }
+
+export type ModListingItem = Awaited<ReturnType<typeof findModsListing>>[number];
 
 const modDetailInclude = {
   game: true,
@@ -257,9 +260,12 @@ export async function getMods(filters: {
   pricing?: string;
   search?: string;
   categorySlug?: string;
+  subcategorySlug?: string;
   productType?: string;
   audioCategory?: string;
   genre?: string;
+  sort?: string;
+  verified?: boolean;
   page?: number;
   limit?: number;
 }) {
@@ -295,9 +301,12 @@ async function queryMods(filters: {
   pricing?: string;
   search?: string;
   categorySlug?: string;
+  subcategorySlug?: string;
   productType?: string;
   audioCategory?: string;
   genre?: string;
+  sort?: string;
+  verified?: boolean;
   page?: number;
   limit?: number;
 }) {
@@ -305,12 +314,19 @@ async function queryMods(filters: {
   const limit = filters.limit ?? 24;
   const skip = (page - 1) * limit;
 
-  if (filters.categorySlug && !filters.gameSlug) {
+  if ((filters.categorySlug || filters.subcategorySlug) && !filters.gameSlug) {
     return { mods: [], total: 0, pages: 0 };
   }
 
   let categoryFilter: string[] | undefined;
-  if (filters.categorySlug && filters.gameSlug) {
+  if (filters.subcategorySlug && filters.gameSlug) {
+    const sub = await prisma.gameCategory.findFirst({
+      where: { slug: filters.subcategorySlug, game: { slug: filters.gameSlug, isActive: true } },
+      select: { id: true },
+    });
+    if (!sub) return { mods: [], total: 0, pages: 0 };
+    categoryFilter = [sub.id];
+  } else if (filters.categorySlug && filters.gameSlug) {
     categoryFilter = await resolveCategoryFilter(filters.gameSlug, filters.categorySlug);
     if (!categoryFilter) {
       return { mods: [], total: 0, pages: 0 };
@@ -321,6 +337,13 @@ async function queryMods(filters: {
     ...(filters.audioCategory && { audioCategory: filters.audioCategory as never }),
     ...(filters.genre && { genre: { equals: filters.genre, mode: "insensitive" as const } }),
   };
+
+  const orderBy =
+    filters.sort === "likes"
+      ? { favoriteCount: "desc" as const }
+      : filters.sort === "date"
+        ? { updatedAt: "desc" as const }
+        : { downloadCount: "desc" as const };
 
   const where = {
     status: "PUBLISHED" as const,
@@ -339,6 +362,18 @@ async function queryMods(filters: {
     ...(filters.gameSlug && { game: { slug: filters.gameSlug } }),
     ...(categoryFilter && { categoryId: { in: categoryFilter } }),
     ...(Object.keys(soundProfileFilter).length > 0 && { soundProfile: soundProfileFilter }),
+    ...(filters.verified && {
+      versions: {
+        some: {
+          isPrimary: true,
+          isArchived: false,
+          OR: [
+            { scanStatus: { in: [FileScanStatus.CLEAN, FileScanStatus.APPROVED] } },
+            { trustedFile: { isNot: null } },
+          ],
+        },
+      },
+    }),
   };
 
   const [mods, total] = await Promise.all([
@@ -346,7 +381,7 @@ async function queryMods(filters: {
       where,
       skip,
       take: limit,
-      orderBy: { downloadCount: "desc" },
+      orderBy,
     }),
     prisma.mod.count({ where }),
   ]);

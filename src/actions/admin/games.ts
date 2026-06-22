@@ -162,7 +162,7 @@ export async function deleteGame(id: string) {
 
 export async function uploadGameAsset(
   gameId: string,
-  type: "icon" | "banner" | "cover",
+  type: "icon" | "banner" | "cover" | "logo" | "background",
   formData: FormData
 ) {
   const { user, error } = await requireActionPermission("games.write");
@@ -189,7 +189,16 @@ export async function uploadGameAsset(
       contentType: validation.mime,
     });
 
-    const field = type === "icon" ? "iconUrl" : type === "banner" ? "bannerUrl" : "coverUrl";
+    const field =
+      type === "icon"
+        ? "iconUrl"
+        : type === "banner"
+          ? "bannerUrl"
+          : type === "logo"
+            ? "logoUrl"
+            : type === "background"
+              ? "backgroundUrl"
+              : "coverUrl";
 
     await prisma.game.update({
       where: { id: gameId },
@@ -264,6 +273,7 @@ export async function updateGameCategory(
     sortOrder?: number;
     isVisible?: boolean;
     parentId?: string | null;
+    accentColor?: string | null;
   }
 ) {
   const { error } = await requireActionPermission("games.write");
@@ -281,6 +291,7 @@ export async function updateGameCategory(
       ...(input.description !== undefined && { description: input.description }),
       ...(input.sortOrder !== undefined && { sortOrder: input.sortOrder }),
       ...(input.isVisible !== undefined && { isVisible: input.isVisible }),
+      ...(input.accentColor !== undefined && { accentColor: input.accentColor }),
     },
     include: { game: { select: { slug: true } } },
   });
@@ -325,6 +336,62 @@ export async function reorderCategories(gameId: string, categoryIds: string[]) {
   revalidatePath("/admin/games");
   revalidateTag(CACHE_TAGS.games);
   return ok(undefined);
+}
+
+export async function uploadGameCategoryAsset(
+  categoryId: string,
+  type: "thumbnail" | "banner" | "icon",
+  formData: FormData
+) {
+  const { user, error } = await requireActionPermission("games.write");
+  if (error) return error;
+
+  try {
+    const file = formData.get("file") as File;
+    const validation = validateUploadFile(file, {
+      maxSizeMb: 5,
+      allowedTypes: ["image/jpeg", "image/png", "image/webp"],
+      label: "Category asset",
+    });
+    if (!validation.valid) return fail(validation.error);
+
+    const category = await prisma.gameCategory.findUnique({
+      where: { id: categoryId },
+      include: { game: { select: { slug: true } } },
+    });
+    if (!category) return fail("Category not found");
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const relativePath = `${category.game.slug}/categories/${category.slug}-${type}-${Date.now()}.${extensionForMime(validation.mime)}`;
+    const result = await uploadAsset({
+      bucket: "games",
+      relativePath,
+      body: buffer,
+      contentType: validation.mime,
+    });
+
+    const field =
+      type === "thumbnail" ? "thumbnailUrl" : type === "banner" ? "bannerUrl" : "iconUrl";
+
+    await prisma.gameCategory.update({
+      where: { id: categoryId },
+      data: { [field]: result.url },
+    });
+
+    await createAuditLog({
+      actorId: user.id,
+      action: `game.category.upload_${type}`,
+      entityType: "GameCategory",
+      entityId: categoryId,
+    });
+
+    revalidatePath("/admin/games");
+    revalidatePath(`/games/${category.game.slug}`);
+    revalidateTag(CACHE_TAGS.games);
+    return ok({ url: result.url });
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Upload failed");
+  }
 }
 
 export async function reorderGames(ids: string[]) {

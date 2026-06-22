@@ -24,7 +24,7 @@ const uploadSchema = z.object({
   ]),
   modId: z.string().optional(),
   gameId: z.string().optional(),
-  assetType: z.enum(["icon", "banner", "cover"]).optional(),
+  assetType: z.enum(["icon", "banner", "cover", "logo", "background"]).optional(),
 });
 
 const rateLimit = new Map<string, { count: number; resetAt: number }>();
@@ -240,7 +240,16 @@ export async function POST(req: Request) {
     }
 
     if (purpose === "game-asset" && gameId && assetType) {
-      const field = assetType === "icon" ? "iconUrl" : assetType === "banner" ? "bannerUrl" : "coverUrl";
+      const field =
+        assetType === "icon"
+          ? "iconUrl"
+          : assetType === "banner"
+            ? "bannerUrl"
+            : assetType === "logo"
+              ? "logoUrl"
+              : assetType === "background"
+                ? "backgroundUrl"
+                : "coverUrl";
       await prisma.game.update({ where: { id: gameId }, data: { [field]: uploaded.url } });
     }
 

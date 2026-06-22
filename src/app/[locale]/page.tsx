@@ -4,8 +4,9 @@ import { ArrowRight, Crown, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ModCard } from "@/components/mods/mod-card";
-import { GameCard } from "@/components/games/game-card";
-import { getHomepageGames, getTrendingMods, getGameBySlug } from "@/lib/data";
+import { GameDiscoveryCard } from "@/components/games/game-discovery-card";
+import { getGamesDiscoveryCards } from "@/lib/game-discovery";
+import { getTrendingMods, getGameBySlug } from "@/lib/data";
 import { primaryGameSlug } from "@/i18n/config";
 import { getActiveAnnouncements } from "@/actions/admin/announcements";
 import { REVALIDATE } from "@/lib/cache";
@@ -24,8 +25,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
   const t = await getTranslations("landing");
   const tm = await getTranslations("mods");
 
+  const tg = await getTranslations("games");
+
   const [games, primaryGame, announcements, cms] = await Promise.all([
-    getHomepageGames().catch(() => []),
+    getGamesDiscoveryCards().catch(() => []),
     getGameBySlug(primaryGameSlug).catch(() => null),
     getActiveAnnouncements().catch(() => []),
     getCachedPublicBranding(),
@@ -104,9 +107,21 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
         {games.length === 0 ? (
           <Card className="glass p-12 text-center text-muted-foreground">{t("noGamesYet")}</Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {games.map((game) => (
-              <GameCard key={game.id} locale={locale} game={game} />
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {games.map((game, i) => (
+              <GameDiscoveryCard
+                key={game.id}
+                locale={locale}
+                game={game}
+                priority={i < 4}
+                labels={{
+                  mods: tg("modsCountShort"),
+                  downloads: tg("downloadsCount"),
+                  creators: tg("creatorsCountShort"),
+                  updated: tg("lastUpdated"),
+                  featured: tg("featured"),
+                }}
+              />
             ))}
           </div>
         )}

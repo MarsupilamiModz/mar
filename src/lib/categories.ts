@@ -3,6 +3,10 @@ export type CategoryNode = {
   name: string;
   slug: string;
   description: string | null;
+  thumbnailUrl?: string | null;
+  bannerUrl?: string | null;
+  iconUrl?: string | null;
+  accentColor?: string | null;
   sortOrder: number;
   isVisible: boolean;
   parentId: string | null;

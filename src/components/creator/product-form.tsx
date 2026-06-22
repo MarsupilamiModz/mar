@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { useAppToast } from "@/hooks/use-app-toast";
-import { formatCategoryOptions, type FlatCategory } from "@/lib/categories";
+import { type FlatCategory } from "@/lib/categories";
 import { SOUND_CATEGORIES, PREVIEW_TYPES } from "@/lib/sound";
 import type { SoundAudioCategory, SoundPreviewType } from "@prisma/client";
 
@@ -35,11 +35,27 @@ export function ProductForm({
   const [pending, startTransition] = useTransition();
   const [productType, setProductType] = useState<"MOD" | "SOUND">("MOD");
   const [gameId, setGameId] = useState(games[0]?.id ?? "");
+  const [parentCategoryId, setParentCategoryId] = useState("");
+  const [subcategoryId, setSubcategoryId] = useState("");
   const [pricing, setPricing] = useState<"FREE" | "PREMIUM" | "PAID">("FREE");
   const [audioCategory, setAudioCategory] = useState<SoundAudioCategory>("CUSTOM_AUDIO");
   const [previewType, setPreviewType] = useState<SoundPreviewType>("FULL");
 
-  const gameCategories = formatCategoryOptions(categories.filter((c) => c.gameId === gameId));
+  const gameCategories = categories.filter((c) => c.gameId === gameId);
+  const rootCategories = gameCategories.filter((c) => !c.parentId);
+  const subcategories = gameCategories.filter((c) => c.parentId === parentCategoryId);
+  const requiresSubcategory = subcategories.length > 0;
+
+  function onGameChange(nextGameId: string) {
+    setGameId(nextGameId);
+    setParentCategoryId("");
+    setSubcategoryId("");
+  }
+
+  function onParentCategoryChange(nextId: string) {
+    setParentCategoryId(nextId);
+    setSubcategoryId("");
+  }
 
   return (
     <Card className="glass p-6 max-w-2xl">
@@ -53,13 +69,25 @@ export function ProductForm({
             .filter(Boolean);
 
           startTransition(async () => {
+            const resolvedCategoryId =
+              productType === "MOD" ? subcategoryId || parentCategoryId || undefined : undefined;
+
+            if (productType === "MOD" && !resolvedCategoryId) {
+              appToast.error("Please select a game category");
+              return;
+            }
+            if (productType === "MOD" && requiresSubcategory && !subcategoryId) {
+              appToast.error("Please select a subcategory");
+              return;
+            }
+
             const r = await createMod({
               productType,
               title: fd.get("title") as string,
               description: fd.get("description") as string,
               shortDescription: (fd.get("shortDescription") as string) || undefined,
               gameId,
-              categoryId: productType === "MOD" ? (fd.get("categoryId") as string) || undefined : undefined,
+              categoryId: resolvedCategoryId,
               pricing,
               priceCents: pricing === "PAID" ? Number(fd.get("priceCents")) * 100 : undefined,
               tags,
@@ -130,7 +158,7 @@ export function ProductForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="text-sm font-medium">{t("myMods")} *</label>
-            <Select value={gameId} onValueChange={setGameId}>
+            <Select value={gameId} onValueChange={onGameChange}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {games.map((g) => (
@@ -142,13 +170,15 @@ export function ProductForm({
 
           {productType === "MOD" ? (
             <div>
-              <label className="text-sm font-medium">{t("manageMod")}</label>
-              <select name="categoryId" className="mt-1 flex h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm">
-                <option value="">—</option>
-                {gameCategories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.label}</option>
-                ))}
-              </select>
+              <label className="text-sm font-medium">{t("category")} *</label>
+              <Select value={parentCategoryId} onValueChange={onParentCategoryChange}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {rootCategories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           ) : (
             <div>
@@ -166,6 +196,20 @@ export function ProductForm({
             </div>
           )}
         </div>
+
+        {productType === "MOD" && parentCategoryId && subcategories.length > 0 && (
+          <div>
+            <label className="text-sm font-medium">{t("subcategory")} *</label>
+            <Select value={subcategoryId} onValueChange={setSubcategoryId}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select subcategory" /></SelectTrigger>
+              <SelectContent>
+                {subcategories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {productType === "SOUND" && (
           <div className="grid gap-4 sm:grid-cols-3">

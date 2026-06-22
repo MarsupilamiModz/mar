@@ -40,7 +40,7 @@ export type UploadApiOptions = {
   purpose: UploadPurpose;
   modId?: string;
   gameId?: string;
-  assetType?: "icon" | "banner" | "cover";
+  assetType?: "icon" | "banner" | "cover" | "logo" | "background";
   brandingAssetType?: string;
   teamMemberId?: string;
   onProgress?: UploadProgressHandler;

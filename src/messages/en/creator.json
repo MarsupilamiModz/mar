@@ -10,6 +10,8 @@
     "uploadScreenshot": "Add screenshot",
     "uploadVideo": "Add video",
     "createMod": "Publish mod",
+    "category": "Category",
+    "subcategory": "Subcategory",
     "pendingReview": "Pending review",
     "published": "Live"
   }

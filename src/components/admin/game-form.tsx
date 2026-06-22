@@ -27,6 +27,8 @@ type GameData = {
   isFeatured: boolean;
   isActive: boolean;
   sortOrder: number;
+  logoUrl?: string | null;
+  backgroundUrl?: string | null;
   iconUrl?: string | null;
   bannerUrl?: string | null;
   coverUrl?: string | null;
@@ -78,7 +80,7 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
     });
   }
 
-  async function uploadAsset(type: "icon" | "banner" | "cover", file: File) {
+  async function uploadAsset(type: "icon" | "banner" | "cover" | "logo" | "background", file: File) {
     if (!game?.id) {
       toast({ title: "Save game first", variant: "destructive" });
       return;
@@ -158,7 +160,7 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
         <Card className="glass p-6 space-y-4">
           <p className="font-medium">Assets</p>
           <p className="text-xs text-muted-foreground">Uploaded to {STORAGE.cdn} · WebP compression applied on upload</p>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className="text-xs text-muted-foreground">Icon (square)</label>
               {game.iconUrl && (
@@ -174,7 +176,35 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Banner (wide)</label>
+              <label className="text-xs text-muted-foreground">Logo</label>
+              {game.logoUrl && (
+                <div className="relative mt-1 mb-2 h-14 w-14 rounded-lg overflow-hidden border border-border/50">
+                  <SafeImage src={game.logoUrl} alt="" fill className="object-contain p-1" sizes="56px" />
+                </div>
+              )}
+              <Input
+                type="file"
+                accept="image/*"
+                className="mt-1"
+                onChange={(e) => e.target.files?.[0] && uploadAsset("logo", e.target.files[0])}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Cover (portrait card)</label>
+              {game.coverUrl && (
+                <div className="relative mt-1 mb-2 h-20 w-14 rounded-lg overflow-hidden border border-border/50">
+                  <SafeImage src={game.coverUrl} alt="" fill className="object-cover" sizes="56px" />
+                </div>
+              )}
+              <Input
+                type="file"
+                accept="image/*"
+                className="mt-1"
+                onChange={(e) => e.target.files?.[0] && uploadAsset("cover", e.target.files[0])}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Banner (wide hero)</label>
               {game.bannerUrl && (
                 <div className="relative mt-1 mb-2 h-16 w-full rounded-lg overflow-hidden border border-border/50">
                   <SafeImage src={game.bannerUrl} alt="" fill className="object-cover" sizes="200px" />
@@ -187,18 +217,18 @@ export function GameForm({ locale, game }: { locale: string; game?: GameData }) 
                 onChange={(e) => e.target.files?.[0] && uploadAsset("banner", e.target.files[0])}
               />
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Cover (card fallback)</label>
-              {game.coverUrl && (
+            <div className="sm:col-span-2">
+              <label className="text-xs text-muted-foreground">Background (game page)</label>
+              {game.backgroundUrl && (
                 <div className="relative mt-1 mb-2 h-16 w-full rounded-lg overflow-hidden border border-border/50">
-                  <SafeImage src={game.coverUrl} alt="" fill className="object-cover" sizes="200px" />
+                  <SafeImage src={game.backgroundUrl} alt="" fill className="object-cover" sizes="200px" />
                 </div>
               )}
               <Input
                 type="file"
                 accept="image/*"
                 className="mt-1"
-                onChange={(e) => e.target.files?.[0] && uploadAsset("cover", e.target.files[0])}
+                onChange={(e) => e.target.files?.[0] && uploadAsset("background", e.target.files[0])}
               />
             </div>
           </div>

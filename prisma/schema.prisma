@@ -603,6 +603,8 @@ model Game {
   description     String?  @db.Text
   shortDescription String? @db.VarChar(300)
   coverUrl        String?
+  logoUrl         String?
+  backgroundUrl   String?
   bannerUrl       String?
   iconUrl         String?
   bannerDisplayType BannerDisplayType @default(FEATURED)
@@ -635,7 +637,11 @@ model GameCategory {
   children    GameCategory[] @relation("CategoryTree")
   slug        String
   name        String
-  description String?
+  description String?  @db.Text
+  thumbnailUrl String?
+  bannerUrl    String?
+  iconUrl      String?
+  accentColor  String?
   sortOrder   Int     @default(0)
   isVisible   Boolean @default(true)
 

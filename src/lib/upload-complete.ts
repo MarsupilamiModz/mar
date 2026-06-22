@@ -190,9 +190,18 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
     }
     case "game-asset": {
       const gameId = meta.gameId;
-      const assetType = meta.assetType as "icon" | "banner" | "cover" | undefined;
+      const assetType = meta.assetType as "icon" | "banner" | "cover" | "logo" | "background" | undefined;
       if (gameId && assetType) {
-        const field = assetType === "icon" ? "iconUrl" : assetType === "banner" ? "bannerUrl" : "coverUrl";
+        const field =
+          assetType === "icon"
+            ? "iconUrl"
+            : assetType === "banner"
+              ? "bannerUrl"
+              : assetType === "logo"
+                ? "logoUrl"
+                : assetType === "background"
+                  ? "backgroundUrl"
+                  : "coverUrl";
         const game = await prisma.game.update({ where: { id: gameId }, data: { [field]: publicUrl } });
         await revalidateGameMedia(game.slug);
       }

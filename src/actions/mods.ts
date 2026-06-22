@@ -64,6 +64,10 @@ export async function createMod(input: z.infer<typeof modCreateSchema> & { autho
   const parsed = modCreateSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.message);
 
+  if (parsed.data.productType === "MOD" && !parsed.data.categoryId) {
+    return fail("Game category is required for mods");
+  }
+
   if (parsed.data.categoryId) {
     const category = await prisma.gameCategory.findUnique({
       where: { id: parsed.data.categoryId },
