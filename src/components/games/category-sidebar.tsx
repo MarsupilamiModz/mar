@@ -12,10 +12,17 @@ import type { CategoryDiscoveryNode } from "@/lib/game-discovery";
 type Props = {
   locale: string;
   gameSlug: string;
+  modeSlug?: string;
   categories: CategoryDiscoveryNode[];
 };
 
-function buildHref(locale: string, gameSlug: string, params: URLSearchParams, patch: Record<string, string | null>) {
+function buildHref(
+  locale: string,
+  gameSlug: string,
+  modeSlug: string | undefined,
+  params: URLSearchParams,
+  patch: Record<string, string | null>
+) {
   const next = new URLSearchParams(params.toString());
   for (const [key, value] of Object.entries(patch)) {
     if (value === null) next.delete(key);
@@ -23,12 +30,16 @@ function buildHref(locale: string, gameSlug: string, params: URLSearchParams, pa
   }
   next.delete("page");
   const qs = next.toString();
-  return `/${locale}/games/${gameSlug}${qs ? `?${qs}` : ""}`;
+  const base = modeSlug
+    ? `/${locale}/games/${gameSlug}/${modeSlug}`
+    : `/${locale}/games/${gameSlug}`;
+  return `${base}${qs ? `?${qs}` : ""}`;
 }
 
 function CategoryRow({
   locale,
   gameSlug,
+  modeSlug,
   category,
   params,
   depth,
@@ -36,6 +47,7 @@ function CategoryRow({
 }: {
   locale: string;
   gameSlug: string;
+  modeSlug?: string;
   category: CategoryDiscoveryNode;
   params: URLSearchParams;
   depth: number;
@@ -50,8 +62,8 @@ function CategoryRow({
     : activeSub === category.slug;
 
   const href = isRoot
-    ? buildHref(locale, gameSlug, params, { category: category.slug, subcategory: null })
-    : buildHref(locale, gameSlug, params, {
+    ? buildHref(locale, gameSlug, modeSlug, params, { category: category.slug, subcategory: null })
+    : buildHref(locale, gameSlug, modeSlug, params, {
         category: parentSlug ?? activeCategory ?? category.slug,
         subcategory: category.slug,
       });
@@ -98,6 +110,7 @@ function CategoryRow({
           key={child.id}
           locale={locale}
           gameSlug={gameSlug}
+          modeSlug={modeSlug}
           category={child}
           params={params}
           depth={depth + 1}
@@ -111,6 +124,7 @@ function CategoryRow({
 export const CategorySidebar = memo(function CategorySidebar({
   locale,
   gameSlug,
+  modeSlug,
   categories,
 }: Props) {
   const t = useTranslations("games");
@@ -123,7 +137,7 @@ export const CategorySidebar = memo(function CategorySidebar({
         {t("categories")}
       </h2>
       <Link
-        href={buildHref(locale, gameSlug, params, { category: null, subcategory: null })}
+        href={buildHref(locale, gameSlug, modeSlug, params, { category: null, subcategory: null })}
         scroll={false}
         className={cn(
           "flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all",
@@ -140,6 +154,7 @@ export const CategorySidebar = memo(function CategorySidebar({
             key={cat.id}
             locale={locale}
             gameSlug={gameSlug}
+            modeSlug={modeSlug}
             category={cat}
             params={params}
             depth={0}

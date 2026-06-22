@@ -11,6 +11,7 @@ import type { ModListingItem } from "@/lib/data";
 type Props = {
   locale: string;
   gameSlug: string;
+  modeSlug?: string;
   initialMods: ModListingItem[];
   initialTotal: number;
   pageSize: number;
@@ -47,6 +48,7 @@ function useDebouncedCallback<T extends (...args: never[]) => void>(fn: T, ms: n
 export const GameModsExplorer = memo(function GameModsExplorer({
   locale,
   gameSlug,
+  modeSlug,
   initialMods,
   initialTotal,
   pageSize,
@@ -70,6 +72,10 @@ export const GameModsExplorer = memo(function GameModsExplorer({
     setPage(1);
   }, [filterKey, initialMods, initialTotal]);
 
+  const basePath = modeSlug
+    ? `/${locale}/games/${gameSlug}/${modeSlug}`
+    : `/${locale}/games/${gameSlug}`;
+
   const pushParams = useCallback(
     (patch: Record<string, string | null>) => {
       const next = new URLSearchParams(params.toString());
@@ -80,10 +86,10 @@ export const GameModsExplorer = memo(function GameModsExplorer({
       next.delete("page");
       const qs = next.toString();
       startTransition(() => {
-        router.replace(`/${locale}/games/${gameSlug}${qs ? `?${qs}` : ""}`, { scroll: false });
+        router.replace(`${basePath}${qs ? `?${qs}` : ""}`, { scroll: false });
       });
     },
-    [gameSlug, locale, params, router]
+    [basePath, params, router]
   );
 
   const debouncedSearch = useDebouncedCallback((value: string) => {
@@ -100,7 +106,10 @@ export const GameModsExplorer = memo(function GameModsExplorer({
       const qs = new URLSearchParams(params.toString());
       qs.set("page", String(nextPage));
       qs.set("limit", String(pageSize));
-      const res = await fetch(`/api/games/${gameSlug}/mods?${qs.toString()}`);
+      const apiBase = modeSlug
+        ? `/api/games/${gameSlug}/${modeSlug}/mods`
+        : `/api/games/${gameSlug}/mods`;
+      const res = await fetch(`${apiBase}?${qs.toString()}`);
       if (!res.ok) return;
       const data = (await res.json()) as { mods: ModListingItem[]; total: number };
       setMods((prev) => {
@@ -113,7 +122,7 @@ export const GameModsExplorer = memo(function GameModsExplorer({
     } finally {
       setLoadingMore(false);
     }
-  }, [gameSlug, hasMore, loadingMore, page, pageSize, params]);
+  }, [gameSlug, modeSlug, hasMore, loadingMore, page, pageSize, params]);
 
   useEffect(() => {
     const el = sentinelRef.current;

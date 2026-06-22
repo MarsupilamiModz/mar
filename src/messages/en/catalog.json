@@ -25,7 +25,9 @@
     "sortDownloads": "Most downloads",
     "sortLikes": "Most liked",
     "sortDate": "Recently updated",
-    "loadMore": "Load more mods"
+    "loadMore": "Load more mods",
+    "choosePlatform": "Choose your platform",
+    "modesAvailable": "{count, plural, one {# area available} other {# areas available}}"
   },
   "mods": {
     "title": "Mod catalog",

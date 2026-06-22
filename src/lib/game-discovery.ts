@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { CACHE_TAGS, REVALIDATE } from "@/lib/cache";
 import { buildCategoryTree, type FlatCategory } from "@/lib/categories";
+import { getGameModePickerMetaBatch } from "@/lib/game-modes";
 
 export type GameDiscoveryCardData = {
   id: string;
@@ -16,6 +17,8 @@ export type GameDiscoveryCardData = {
   downloadCount: number;
   creatorCount: number;
   lastUpdated: Date | string | null;
+  modeCount: number;
+  soleModeSlug: string | null;
 };
 
 export type CategoryDiscoveryNode = FlatCategory & {
@@ -67,14 +70,19 @@ async function fetchGameDiscoveryStats() {
     creatorsByGame.set(row.gameId, (creatorsByGame.get(row.gameId) ?? 0) + 1);
   }
 
+  const modeMeta = await getGameModePickerMetaBatch(gameIds);
+
   return games.map((g) => {
     const agg = aggByGame.get(g.id);
+    const meta = modeMeta[g.id] ?? { modeCount: 0, soleModeSlug: null };
     return {
       ...g,
       modCount: agg?._count.id ?? 0,
       downloadCount: agg?._sum.downloadCount ?? 0,
       creatorCount: creatorsByGame.get(g.id) ?? 0,
       lastUpdated: agg?._max.updatedAt ?? null,
+      modeCount: meta.modeCount,
+      soleModeSlug: meta.soleModeSlug,
     } satisfies GameDiscoveryCardData;
   });
 }
@@ -85,12 +93,28 @@ export const getGamesDiscoveryCards = unstable_cache(
   { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.games] }
 );
 
-export async function getGameCategoriesWithStats(gameId: string) {
+export async function getGameCategoriesWithStats(gameId: string, modeId?: string) {
   return unstable_cache(
     async () => {
+      const categoryWhere = {
+        gameId,
+        isVisible: true,
+        ...(modeId
+          ? { OR: [{ modeId: null }, { modeId }] }
+          : {}),
+      };
+
+      const modWhere = {
+        gameId,
+        status: "PUBLISHED" as const,
+        visibility: "PUBLIC" as const,
+        categoryId: { not: null },
+        ...(modeId ? { modeId } : {}),
+      };
+
       const [categories, modCounts] = await Promise.all([
         prisma.gameCategory.findMany({
-          where: { gameId, isVisible: true },
+          where: categoryWhere,
           orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
           select: {
             id: true,
@@ -100,6 +124,7 @@ export async function getGameCategoriesWithStats(gameId: string) {
             sortOrder: true,
             isVisible: true,
             parentId: true,
+            modeId: true,
             thumbnailUrl: true,
             bannerUrl: true,
             iconUrl: true,
@@ -108,12 +133,7 @@ export async function getGameCategoriesWithStats(gameId: string) {
         }),
         prisma.mod.groupBy({
           by: ["categoryId"],
-          where: {
-            gameId,
-            status: "PUBLISHED",
-            visibility: "PUBLIC",
-            categoryId: { not: null },
-          },
+          where: modWhere,
           _count: { id: true },
         }),
       ]);
@@ -148,7 +168,7 @@ export async function getGameCategoriesWithStats(gameId: string) {
 
       return rollUp(tree);
     },
-    [`game-categories-discovery-${gameId}`],
+    [`game-categories-discovery-${gameId}-${modeId ?? "all"}`],
     { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.games, `game-${gameId}`] }
   )();
 }

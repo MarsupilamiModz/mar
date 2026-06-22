@@ -3,9 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAdminGame } from "@/actions/admin/games";
-import { GameForm } from "@/components/admin/game-form";
-import { GameBannerSettings } from "@/components/admin/game-banner-settings";
-import { CategoryTreeEditor } from "@/components/admin/category-tree-editor";
+import { GameAdminTabs } from "@/components/admin/game-admin-tabs";
 import type { Locale } from "@/i18n/config";
 
 export default async function EditGamePage({
@@ -32,7 +30,7 @@ export default async function EditGamePage({
         <ArrowLeft className="h-4 w-4" /> {tc("back")}
       </Link>
       <h1 className="text-2xl font-bold tracking-tight">{t("games")}: {game.name}</h1>
-      <GameForm
+      <GameAdminTabs
         locale={locale}
         game={{
           id: game.id,
@@ -46,24 +44,21 @@ export default async function EditGamePage({
           isActive: game.isActive,
           sortOrder: game.sortOrder,
           iconUrl: game.iconUrl,
+          logoUrl: game.logoUrl,
+          backgroundUrl: game.backgroundUrl,
           bannerUrl: game.bannerUrl,
           coverUrl: game.coverUrl,
-        }}
-      />
-      <GameBannerSettings
-        gameId={game.id}
-        bannerUrl={game.bannerUrl}
-        coverUrl={game.coverUrl}
-        settings={{
           bannerDisplayType: game.bannerDisplayType,
           bannerHeightPx: game.bannerHeightPx,
           bannerFocusX: game.bannerFocusX,
           bannerFocusY: game.bannerFocusY,
           bannerZoom: game.bannerZoom,
           bannerAlign: game.bannerAlign,
+          _count: game._count,
         }}
+        categories={game.categories}
+        modes={game.modes}
       />
-      <CategoryTreeEditor gameId={game.id} categories={game.categories} />
     </div>
   );
 }

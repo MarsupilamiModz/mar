@@ -12,6 +12,7 @@
     "createMod": "Publish mod",
     "category": "Category",
     "subcategory": "Subcategory",
+    "gameMode": "Game mode",
     "pendingReview": "Pending review",
     "published": "Live"
   }

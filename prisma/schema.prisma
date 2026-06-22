@@ -622,16 +622,43 @@ model Game {
   updatedAt       DateTime @updatedAt
 
   categories GameCategory[]
+  modes      GameMode[]
   mods       Mod[]
 
   @@index([isActive, isFeatured])
   @@index([sortOrder])
 }
 
+model GameMode {
+  id           String   @id @default(cuid())
+  gameId       String
+  game         Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  slug         String
+  name         String
+  description  String?  @db.Text
+  thumbnailUrl String?
+  bannerUrl    String?
+  iconUrl      String?
+  accentColor  String?
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  mods       Mod[]
+  categories GameCategory[]
+
+  @@unique([gameId, slug])
+  @@index([gameId, sortOrder])
+  @@index([gameId, isActive])
+}
+
 model GameCategory {
   id          String  @id @default(cuid())
   gameId      String
   game        Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  modeId      String?
+  mode        GameMode? @relation(fields: [modeId], references: [id], onDelete: SetNull)
   parentId    String?
   parent      GameCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
   children    GameCategory[] @relation("CategoryTree")
@@ -650,6 +677,7 @@ model GameCategory {
   @@unique([gameId, slug])
   @@index([gameId, sortOrder])
   @@index([gameId, isVisible])
+  @@index([gameId, modeId])
   @@index([parentId])
 }
 
@@ -784,6 +812,8 @@ model Mod {
   shortDescription String?
   gameId          String
   game            Game          @relation(fields: [gameId], references: [id])
+  modeId          String?
+  mode            GameMode?     @relation(fields: [modeId], references: [id], onDelete: SetNull)
   categoryId      String?
   category        GameCategory? @relation(fields: [categoryId], references: [id])
   authorId        String
@@ -832,6 +862,8 @@ model Mod {
   @@index([status, visibility, averageRating(sort: Desc)])
   @@index([categoryId, status])
   @@index([gameId, status])
+  @@index([gameId, modeId, status])
+  @@index([modeId, status])
   @@index([isFeatured, status])
   @@index([authorId])
   @@index([publishedAt])

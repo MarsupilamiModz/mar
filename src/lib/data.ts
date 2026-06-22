@@ -197,7 +197,7 @@ export const getAllGames = unstable_cache(
   { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.games] }
 );
 
-export async function getTrendingMods(limit = 8, gameId?: string) {
+export async function getTrendingMods(limit = 8, gameId?: string, modeId?: string) {
   return unstable_cache(
     async () =>
       findModsListing({
@@ -205,16 +205,17 @@ export async function getTrendingMods(limit = 8, gameId?: string) {
           status: "PUBLISHED",
           visibility: "PUBLIC",
           ...(gameId && { gameId }),
+          ...(modeId && { modeId }),
         },
         orderBy: { downloadCount: "desc" },
         take: limit,
       }),
-    [`trending-mods-${limit}-${gameId ?? "all"}`],
+    [`trending-mods-${limit}-${gameId ?? "all"}-${modeId ?? "all"}`],
     { revalidate: REVALIDATE.homepage, tags: [CACHE_TAGS.mods] }
   )();
 }
 
-export async function getPremiumMods(limit = 8, gameId?: string) {
+export async function getPremiumMods(limit = 8, gameId?: string, modeId?: string) {
   return unstable_cache(
     async () =>
       findModsListing({
@@ -223,16 +224,17 @@ export async function getPremiumMods(limit = 8, gameId?: string) {
           visibility: "PUBLIC",
           pricing: { in: ["PREMIUM", "PAID"] },
           ...(gameId && { gameId }),
+          ...(modeId && { modeId }),
         },
         orderBy: { downloadCount: "desc" },
         take: limit,
       }),
-    [`premium-mods-${limit}-${gameId ?? "all"}`],
+    [`premium-mods-${limit}-${gameId ?? "all"}-${modeId ?? "all"}`],
     { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.mods] }
   )();
 }
 
-export async function getFeaturedMods(limit = 8, gameId?: string) {
+export async function getFeaturedMods(limit = 8, gameId?: string, modeId?: string) {
   return unstable_cache(
     async () =>
       findModsListing({
@@ -241,11 +243,12 @@ export async function getFeaturedMods(limit = 8, gameId?: string) {
           visibility: "PUBLIC",
           isFeatured: true,
           ...(gameId && { gameId }),
+          ...(modeId && { modeId }),
         },
         orderBy: { downloadCount: "desc" },
         take: limit,
       }),
-    [`featured-mods-${limit}-${gameId ?? "all"}`],
+    [`featured-mods-${limit}-${gameId ?? "all"}-${modeId ?? "all"}`],
     { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.mods, CACHE_TAGS.featured] }
   )();
 }
@@ -257,6 +260,8 @@ export async function getFeaturedCreators(limit = 6) {
 
 export async function getMods(filters: {
   gameSlug?: string;
+  modeSlug?: string;
+  modeId?: string;
   pricing?: string;
   search?: string;
   categorySlug?: string;
@@ -298,6 +303,8 @@ export async function getMods(filters: {
 
 async function queryMods(filters: {
   gameSlug?: string;
+  modeSlug?: string;
+  modeId?: string;
   pricing?: string;
   search?: string;
   categorySlug?: string;
@@ -316,6 +323,20 @@ async function queryMods(filters: {
 
   if ((filters.categorySlug || filters.subcategorySlug) && !filters.gameSlug) {
     return { mods: [], total: 0, pages: 0 };
+  }
+
+  let modeId = filters.modeId;
+  if (!modeId && filters.modeSlug && filters.gameSlug) {
+    const mode = await prisma.gameMode.findFirst({
+      where: {
+        slug: filters.modeSlug,
+        isActive: true,
+        game: { slug: filters.gameSlug, isActive: true },
+      },
+      select: { id: true },
+    });
+    if (!mode) return { mods: [], total: 0, pages: 0 };
+    modeId = mode.id;
   }
 
   let categoryFilter: string[] | undefined;
@@ -360,6 +381,7 @@ async function queryMods(filters: {
       ],
     }),
     ...(filters.gameSlug && { game: { slug: filters.gameSlug } }),
+    ...(modeId && { modeId }),
     ...(categoryFilter && { categoryId: { in: categoryFilter } }),
     ...(Object.keys(soundProfileFilter).length > 0 && { soundProfile: soundProfileFilter }),
     ...(filters.verified && {
@@ -474,17 +496,19 @@ async function resolveCategoryFilter(gameSlug: string, categorySlug: string): Pr
   return collectDescendantIds(flat as FlatCategory[], category.id);
 }
 
-export async function getGamePageData(slug: string) {
+export async function getGamePageData(slug: string, modeId?: string) {
   const game = await getGameBySlug(slug);
   if (!game) return null;
 
+  const modFilter = { gameId: game.id, status: "PUBLISHED" as const, ...(modeId && { modeId }) };
+
   const [featured, trending, premium, creatorCount] = await Promise.all([
-    getFeaturedMods(8, game.id),
-    getTrendingMods(12, game.id),
-    getPremiumMods(8, game.id),
+    getFeaturedMods(8, game.id, modeId),
+    getTrendingMods(12, game.id, modeId),
+    getPremiumMods(8, game.id, modeId),
     prisma.mod.groupBy({
       by: ["authorId"],
-      where: { gameId: game.id, status: "PUBLISHED" },
+      where: modFilter,
     }).then((rows) => rows.length),
   ]);
 
@@ -499,6 +523,11 @@ export async function getGamesAndCategories() {
       id: true,
       name: true,
       slug: true,
+      modes: {
+        where: { isActive: true },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        select: { id: true, name: true, slug: true },
+      },
       categories: {
         select: {
           id: true,
@@ -506,6 +535,7 @@ export async function getGamesAndCategories() {
           slug: true,
           description: true,
           gameId: true,
+          modeId: true,
           parentId: true,
           sortOrder: true,
           isVisible: true,

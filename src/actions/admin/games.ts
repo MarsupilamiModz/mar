@@ -45,6 +45,8 @@ export async function getAdminGame(id: string) {
     where: { id },
     include: {
       categories: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }] },
+      modes: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }] },
+      _count: { select: { mods: true, categories: true, modes: true } },
     },
   });
   if (!game) return fail("Game not found");

@@ -68,6 +68,23 @@ export async function createMod(input: z.infer<typeof modCreateSchema> & { autho
     return fail("Game category is required for mods");
   }
 
+  const activeModes = await prisma.gameMode.count({
+    where: { gameId: parsed.data.gameId, isActive: true },
+  });
+  if (parsed.data.productType === "MOD" && activeModes > 0 && !parsed.data.modeId) {
+    return fail("Game mode is required for this title");
+  }
+
+  if (parsed.data.modeId) {
+    const mode = await prisma.gameMode.findUnique({
+      where: { id: parsed.data.modeId },
+      select: { gameId: true, isActive: true },
+    });
+    if (!mode || mode.gameId !== parsed.data.gameId || !mode.isActive) {
+      return fail("Game mode does not belong to the selected game");
+    }
+  }
+
   if (parsed.data.categoryId) {
     const category = await prisma.gameCategory.findUnique({
       where: { id: parsed.data.categoryId },
@@ -88,6 +105,7 @@ export async function createMod(input: z.infer<typeof modCreateSchema> & { autho
       description: parsed.data.description,
       shortDescription: parsed.data.shortDescription,
       gameId: parsed.data.gameId,
+      modeId: parsed.data.modeId,
       categoryId: parsed.data.categoryId,
       authorId,
       productType: parsed.data.productType,

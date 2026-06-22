@@ -6,6 +6,7 @@ export const modCreateSchema = z.object({
   description: z.string().min(20).max(50000),
   shortDescription: z.string().max(300).optional(),
   gameId: z.string().cuid(),
+  modeId: z.string().cuid().optional(),
   categoryId: z.string().cuid().optional(),
   pricing: z.enum(["FREE", "PREMIUM", "PAID"]),
   priceCents: z.number().int().min(0).optional(),

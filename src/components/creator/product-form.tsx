@@ -14,8 +14,12 @@ import { type FlatCategory } from "@/lib/categories";
 import { SOUND_CATEGORIES, PREVIEW_TYPES } from "@/lib/sound";
 import type { SoundAudioCategory, SoundPreviewType } from "@prisma/client";
 
-type Game = { id: string; name: string };
-type Category = FlatCategory & { gameId: string };
+type Game = {
+  id: string;
+  name: string;
+  modes: { id: string; name: string; slug: string }[];
+};
+type Category = FlatCategory & { gameId: string; modeId?: string | null };
 
 export function ProductForm({
   locale,
@@ -35,19 +39,35 @@ export function ProductForm({
   const [pending, startTransition] = useTransition();
   const [productType, setProductType] = useState<"MOD" | "SOUND">("MOD");
   const [gameId, setGameId] = useState(games[0]?.id ?? "");
+  const [modeId, setModeId] = useState("");
   const [parentCategoryId, setParentCategoryId] = useState("");
   const [subcategoryId, setSubcategoryId] = useState("");
   const [pricing, setPricing] = useState<"FREE" | "PREMIUM" | "PAID">("FREE");
   const [audioCategory, setAudioCategory] = useState<SoundAudioCategory>("CUSTOM_AUDIO");
   const [previewType, setPreviewType] = useState<SoundPreviewType>("FULL");
 
-  const gameCategories = categories.filter((c) => c.gameId === gameId);
+  const selectedGame = games.find((g) => g.id === gameId);
+  const gameModes = selectedGame?.modes ?? [];
+  const requiresMode = gameModes.length > 0;
+
+  const gameCategories = categories.filter(
+    (c) =>
+      c.gameId === gameId &&
+      (!modeId || !c.modeId || c.modeId === modeId)
+  );
   const rootCategories = gameCategories.filter((c) => !c.parentId);
   const subcategories = gameCategories.filter((c) => c.parentId === parentCategoryId);
   const requiresSubcategory = subcategories.length > 0;
 
   function onGameChange(nextGameId: string) {
     setGameId(nextGameId);
+    setModeId("");
+    setParentCategoryId("");
+    setSubcategoryId("");
+  }
+
+  function onModeChange(nextModeId: string) {
+    setModeId(nextModeId);
     setParentCategoryId("");
     setSubcategoryId("");
   }
@@ -81,12 +101,18 @@ export function ProductForm({
               return;
             }
 
+            if (productType === "MOD" && requiresMode && !modeId) {
+              appToast.error("Please select a game mode");
+              return;
+            }
+
             const r = await createMod({
               productType,
               title: fd.get("title") as string,
               description: fd.get("description") as string,
               shortDescription: (fd.get("shortDescription") as string) || undefined,
               gameId,
+              modeId: modeId || undefined,
               categoryId: resolvedCategoryId,
               pricing,
               priceCents: pricing === "PAID" ? Number(fd.get("priceCents")) * 100 : undefined,
@@ -154,6 +180,20 @@ export function ProductForm({
           <label className="text-sm font-medium">{t("manageMod")} *</label>
           <Textarea name="description" required minLength={20} rows={6} className="mt-1" />
         </div>
+
+        {productType === "MOD" && requiresMode && (
+          <div>
+            <label className="text-sm font-medium">{t("gameMode")} *</label>
+            <Select value={modeId} onValueChange={onModeChange}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select platform / mode" /></SelectTrigger>
+              <SelectContent>
+                {gameModes.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
