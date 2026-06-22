@@ -2,7 +2,7 @@ import { unstable_cache } from "next/cache";
 import { prisma, withDbRetry } from "@/lib/db";
 import { CACHE_TAGS, REVALIDATE } from "@/lib/cache";
 import { buildCategoryTree, type FlatCategory } from "@/lib/categories";
-import type { GameModePickerMeta } from "@/lib/game-modes";
+import type { GameModePickerMeta, GameModeCardData, GameModePickerSettings } from "@/lib/game-modes";
 
 export type GameDiscoveryCardData = {
   id: string;
@@ -19,6 +19,10 @@ export type GameDiscoveryCardData = {
   lastUpdated: Date | string | null;
   modeCount: number;
   soleModeSlug: string | null;
+  modeBundle?: {
+    modes: import("@/lib/game-modes").GameModeCardData[];
+    picker: import("@/lib/game-modes").GameModePickerSettings;
+  } | null;
 };
 
 export type CategoryDiscoveryNode = FlatCategory & {
@@ -77,17 +81,103 @@ async function fetchGameDiscoveryStats() {
     }
 
     const modeMeta: Record<string, GameModePickerMeta> = {};
+    const multiModeGameIds: string[] = [];
     for (const id of gameIds) {
       const slugs = modes.filter((m) => m.gameId === id).map((m) => m.slug);
       modeMeta[id] = {
         modeCount: slugs.length,
         soleModeSlug: slugs.length === 1 ? slugs[0]! : null,
       };
+      if (slugs.length > 1) multiModeGameIds.push(id);
     }
+
+    const modeDetails =
+      multiModeGameIds.length > 0
+        ? await prisma.gameMode.findMany({
+            where: { gameId: { in: multiModeGameIds }, isActive: true },
+            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+            select: {
+              id: true,
+              gameId: true,
+              slug: true,
+              name: true,
+              description: true,
+              thumbnailUrl: true,
+              bannerUrl: true,
+              backgroundUrl: true,
+              logoUrl: true,
+              iconUrl: true,
+              accentColor: true,
+            },
+          })
+        : [];
+
+    const pickerRows =
+      multiModeGameIds.length > 0
+        ? await prisma.game.findMany({
+            where: { id: { in: multiModeGameIds } },
+            select: {
+              id: true,
+              modePickerOverlay: true,
+              modePickerBlurPx: true,
+              modePickerGlowEnabled: true,
+              modePickerAnimation: true,
+              modePickerOpacity: true,
+            },
+          })
+        : [];
+
+    const pickerByGame = new Map(pickerRows.map((g) => [g.id, g]));
+    const modesByGame = new Map<string, typeof modeDetails>();
+    for (const mode of modeDetails) {
+      const list = modesByGame.get(mode.gameId) ?? [];
+      list.push(mode);
+      modesByGame.set(mode.gameId, list);
+    }
+
+    const modCountsByMode =
+      modeDetails.length > 0
+        ? await prisma.mod.groupBy({
+            by: ["modeId"],
+            where: {
+              gameId: { in: multiModeGameIds },
+              status: "PUBLISHED",
+              visibility: "PUBLIC",
+              modeId: { not: null },
+            },
+            _count: { id: true },
+          })
+        : [];
+    const modeCountMap = new Map(modCountsByMode.map((r) => [r.modeId!, r._count.id]));
 
     return games.map((g) => {
       const agg = aggByGame.get(g.id);
       const meta = modeMeta[g.id] ?? { modeCount: 0, soleModeSlug: null };
+      const pickerRow = pickerByGame.get(g.id);
+      const gameModes = modesByGame.get(g.id);
+
+      let modeBundle: GameDiscoveryCardData["modeBundle"] = null;
+      if (meta.modeCount > 1 && gameModes?.length) {
+        const animation = pickerRow?.modePickerAnimation ?? "fade";
+        modeBundle = {
+          modes: gameModes.map(
+            (mode) =>
+              ({
+                ...mode,
+                modCount: modeCountMap.get(mode.id) ?? 0,
+              }) satisfies GameModeCardData
+          ),
+          picker: {
+            overlayOpacity: pickerRow?.modePickerOverlay ?? 0.72,
+            blurPx: pickerRow?.modePickerBlurPx ?? 16,
+            glowEnabled: pickerRow?.modePickerGlowEnabled ?? true,
+            animation:
+              animation === "scale" || animation === "slide" ? animation : "fade",
+            panelOpacity: pickerRow?.modePickerOpacity ?? 0.85,
+          } satisfies GameModePickerSettings,
+        };
+      }
+
       return {
         ...g,
         modCount: agg?._count.id ?? 0,
@@ -96,6 +186,7 @@ async function fetchGameDiscoveryStats() {
         lastUpdated: agg?._max.updatedAt ?? null,
         modeCount: meta.modeCount,
         soleModeSlug: meta.soleModeSlug,
+        modeBundle,
       } satisfies GameDiscoveryCardData;
     });
   }, { label: "games:discovery-stats" });

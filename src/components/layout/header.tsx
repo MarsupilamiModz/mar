@@ -5,10 +5,12 @@ import { Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo, type LogoBranding } from "@/components/brand/logo";
 import { AuthButtons } from "@/components/layout/auth-buttons";
+import { GamesHoverMenu } from "@/components/layout/games-hover-menu";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import type { NavLabels } from "@/components/layout/nav-labels";
 import type { NavUser } from "@/components/layout/user-nav";
 import type { HeaderMenuItem, HeaderSettings } from "@/lib/branding-cms";
+import type { NavGameItem } from "@/lib/nav-games";
 import { useState } from "react";
 
 function resolveMenuHref(locale: string, href: string) {
@@ -23,12 +25,16 @@ export function Header({
   navLabels,
   header,
   branding,
+  navGames = [],
+  allGamesLabel = "All games",
 }: {
   locale: string;
   user: NavUser | null;
   navLabels: NavLabels;
   header?: HeaderSettings | null;
   branding?: LogoBranding | null;
+  navGames?: NavGameItem[];
+  allGamesLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -86,16 +92,26 @@ export function Header({
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              prefetch
-              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
-            >
-              {l.label}
-            </Link>
-          ))}
+          {links.map((l) =>
+            l.href === `/${locale}/games` && navGames.length > 0 ? (
+              <GamesHoverMenu
+                key={l.href}
+                locale={locale}
+                label={l.label}
+                games={navGames}
+                allGamesLabel={allGamesLabel}
+              />
+            ) : (
+              <Link
+                key={l.href}
+                href={l.href}
+                prefetch
+                className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+              >
+                {l.label}
+              </Link>
+            )
+          )}
         </nav>
 
         <div className="flex items-center gap-1 sm:gap-2">

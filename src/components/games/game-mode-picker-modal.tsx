@@ -1,7 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { memo, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Dialog,
@@ -11,10 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SafeImage } from "@/components/ui/safe-image";
-import {
-  GameModeSelectionCard,
-  GameModeSelectionCardSkeleton,
-} from "@/components/games/game-mode-selection-card";
+import { GameModeSelectionCard } from "@/components/games/game-mode-selection-card";
 import type { GameModeCardData, GameModePickerSettings } from "@/lib/game-modes";
 import { cn } from "@/lib/utils";
 
@@ -24,16 +20,8 @@ type Props = {
   gameName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  modes?: GameModeCardData[];
-  picker?: GameModePickerSettings;
-};
-
-const DEFAULT_PICKER: GameModePickerSettings = {
-  overlayOpacity: 0.72,
-  blurPx: 16,
-  glowEnabled: true,
-  animation: "fade",
-  panelOpacity: 0.85,
+  modes: GameModeCardData[];
+  picker: GameModePickerSettings;
 };
 
 export const GameModePickerModal = memo(function GameModePickerModal({
@@ -42,60 +30,22 @@ export const GameModePickerModal = memo(function GameModePickerModal({
   gameName,
   open,
   onOpenChange,
-  modes: initialModes,
-  picker: initialPicker,
+  modes,
+  picker,
 }: Props) {
   const t = useTranslations("games");
-  const router = useRouter();
-  const [modes, setModes] = useState<GameModeCardData[]>(initialModes ?? []);
-  const [picker, setPicker] = useState<GameModePickerSettings>(initialPicker ?? DEFAULT_PICKER);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const fetchedRef = useRef(false);
 
-  const activeBg =
-    modes.find((m) => m.id === hoveredId)?.backgroundUrl ??
-    modes.find((m) => m.backgroundUrl)?.backgroundUrl ??
-    modes[0]?.bannerUrl ??
-    modes[0]?.thumbnailUrl ??
-    null;
-
-  const loadModes = useCallback(async () => {
-    if (initialModes?.length) {
-      setModes(initialModes);
-      if (initialPicker) setPicker(initialPicker);
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/games/${gameSlug}/modes`);
-      if (res.ok) {
-        const data = (await res.json()) as {
-          modes: GameModeCardData[];
-          picker?: GameModePickerSettings;
-        };
-        setModes(data.modes);
-        if (data.picker) setPicker(data.picker);
-        if (data.modes.length === 1) {
-          onOpenChange(false);
-          router.push(`/${locale}/games/${gameSlug}/${data.modes[0]!.slug}`);
-        }
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [gameSlug, initialModes, initialPicker, locale, onOpenChange, router]);
-
-  useEffect(() => {
-    if (!open) {
-      fetchedRef.current = false;
-      setHoveredId(null);
-      return;
-    }
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
-    void loadModes();
-  }, [open, loadModes]);
+  const activeBg = useMemo(() => {
+    const hovered = modes.find((m) => m.id === hoveredId);
+    return (
+      hovered?.backgroundUrl ??
+      modes.find((m) => m.backgroundUrl)?.backgroundUrl ??
+      modes[0]?.bannerUrl ??
+      modes[0]?.thumbnailUrl ??
+      null
+    );
+  }, [hoveredId, modes]);
 
   const animationClass =
     picker.animation === "scale"
@@ -103,6 +53,8 @@ export const GameModePickerModal = memo(function GameModePickerModal({
       : picker.animation === "slide"
         ? "animate-in slide-in-from-bottom-4 duration-300"
         : "animate-in fade-in duration-300";
+
+  if (!modes.length) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,28 +103,22 @@ export const GameModePickerModal = memo(function GameModePickerModal({
               className="grid flex-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2 sm:p-8"
               onMouseLeave={() => setHoveredId(null)}
             >
-              {loading
-                ? Array.from({ length: 4 }).map((_, i) => (
-                    <GameModeSelectionCardSkeleton key={i} />
-                  ))
-                : modes.map((mode) => (
-                    <GameModeSelectionCard
-                      key={mode.id}
-                      locale={locale}
-                      gameSlug={gameSlug}
-                      mode={mode}
-                      glowEnabled={picker.glowEnabled}
-                      onHover={() => setHoveredId(mode.id)}
-                      onSelect={() => onOpenChange(false)}
-                    />
-                  ))}
+              {modes.map((mode) => (
+                <GameModeSelectionCard
+                  key={mode.id}
+                  locale={locale}
+                  gameSlug={gameSlug}
+                  mode={mode}
+                  glowEnabled={picker.glowEnabled}
+                  onHover={() => setHoveredId(mode.id)}
+                  onSelect={() => onOpenChange(false)}
+                />
+              ))}
             </div>
 
-            {!loading && modes.length > 0 && (
-              <p className="border-t border-white/10 px-6 py-4 text-center text-sm text-muted-foreground sm:px-8">
-                {t("modesAvailable", { count: modes.length })}
-              </p>
-            )}
+            <p className="border-t border-white/10 px-6 py-4 text-center text-sm text-muted-foreground sm:px-8">
+              {t("modesAvailable", { count: modes.length })}
+            </p>
           </div>
         </div>
       </DialogContent>

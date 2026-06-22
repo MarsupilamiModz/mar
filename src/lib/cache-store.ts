@@ -58,6 +58,26 @@ export async function cacheSet<T>(key: string, value: T, ttlSeconds = 120): Prom
   memoryStore.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
 }
 
+export async function cacheDel(key: string): Promise<void> {
+  memoryStore.delete(key);
+
+  if (redisConfigured()) {
+    try {
+      const url = process.env.UPSTASH_REDIS_REST_URL;
+      const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+      if (url && token) {
+        await fetch(`${url}/del/${encodeURIComponent(key)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          method: "POST",
+          next: { revalidate: 0 },
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 export function cachedQuery<T>(
   keyParts: string[],
   fn: () => Promise<T>,

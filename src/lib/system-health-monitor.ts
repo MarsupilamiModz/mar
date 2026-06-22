@@ -4,6 +4,7 @@ import { checkDbHealth } from "@/lib/db";
 import { getEmailSettingsPublic } from "@/lib/email/settings";
 import { getMalwareScannerSettingsRaw } from "@/lib/malware-settings";
 import { listPlatformErrors } from "@/lib/platform-log";
+import { listPerfSamples, type PerfSample } from "@/lib/monitoring/perf";
 import { getR2ConfigStatus } from "@/lib/r2-config";
 import { STORAGE } from "@/lib/storage";
 import { getVirusTotalQuota } from "@/lib/security/quota";
@@ -45,6 +46,7 @@ export type SystemHealthSnapshot = {
   overall: HealthLevel;
   services: HealthServiceStatus[];
   platform?: PlatformHealthMetrics;
+  slowQueries?: PerfSample[];
   checkedAt: string;
 };
 
@@ -592,10 +594,13 @@ export async function runSystemHealthMonitor(): Promise<SystemHealthSnapshot> {
     Promise.resolve(platformProbe.service),
   ]);
 
+  const slowQueries = await listPerfSamples(15);
+
   return {
     overall: worstLevel(services.map((service) => service.level)),
     services,
     platform: platformProbe.metrics,
+    slowQueries,
     checkedAt: new Date().toISOString(),
   };
 }

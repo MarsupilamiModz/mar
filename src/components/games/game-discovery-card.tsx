@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { SafeImage } from "@/components/ui/safe-image";
 import { GameModePickerModal } from "@/components/games/game-mode-picker-modal";
 import { formatCompactCount, type GameDiscoveryCardData } from "@/lib/game-discovery";
+import { prefetchGameModeAssets } from "@/lib/image-prefetch";
 
 type Props = {
   locale: string;
@@ -51,6 +52,12 @@ export const GameDiscoveryCard = memo(function GameDiscoveryCard({
     [router]
   );
 
+  const handlePointerEnter = useCallback(() => {
+    if (game.modeBundle?.modes.length) {
+      prefetchGameModeAssets(game.modeBundle.modes);
+    }
+  }, [game.modeBundle]);
+
   const handleClick = useCallback(() => {
     if (game.soleModeSlug) {
       navigate(`/${locale}/games/${game.slug}/${game.soleModeSlug}`);
@@ -79,6 +86,8 @@ export const GameDiscoveryCard = memo(function GameDiscoveryCard({
         role="button"
         tabIndex={0}
         onClick={handleClick}
+        onMouseEnter={handlePointerEnter}
+        onFocus={handlePointerEnter}
         onKeyDown={handleKeyDown}
         className="group block h-full cursor-pointer rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-neon-purple"
       >
@@ -147,13 +156,15 @@ export const GameDiscoveryCard = memo(function GameDiscoveryCard({
         </Card>
       </div>
 
-      {game.modeCount > 1 && (
+      {game.modeCount > 1 && game.modeBundle && (
         <GameModePickerModal
           locale={locale}
           gameSlug={game.slug}
           gameName={game.name}
           open={modalOpen}
           onOpenChange={setModalOpen}
+          modes={game.modeBundle.modes}
+          picker={game.modeBundle.picker}
         />
       )}
     </>

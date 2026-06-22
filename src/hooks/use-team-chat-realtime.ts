@@ -87,10 +87,7 @@ export function useTeamChatRealtime({
         }
       });
 
-    const poll = window.setInterval(() => onNewMessageRef.current(), 15000);
-
     return () => {
-      window.clearInterval(poll);
       setTypingUsers([]);
       setOnlineUserIds([]);
       void supabase.removeChannel(room);

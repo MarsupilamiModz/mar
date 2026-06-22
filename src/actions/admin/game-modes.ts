@@ -8,6 +8,7 @@ import { fail, ok, requireActionPermission, formatZodError } from "@/lib/action-
 import { uploadAsset } from "@/lib/asset-storage";
 import { extensionForMime, validateUploadFile } from "@/lib/upload-validation";
 import { CACHE_TAGS } from "@/lib/cache";
+import { invalidatePlatformCacheKey, PLATFORM_CACHE_KEYS } from "@/lib/platform-cache";
 import { resolveSlug, ensureUniqueSlug, zSlugInput } from "@/lib/slug";
 
 const modeSchema = z.object({
@@ -26,6 +27,8 @@ function revalidateGamePaths(gameSlug: string, modeSlug?: string) {
   if (modeSlug) revalidatePath(`/games/${gameSlug}/${modeSlug}`);
   revalidatePath("/admin/games");
   revalidateTag(CACHE_TAGS.games);
+  void invalidatePlatformCacheKey(PLATFORM_CACHE_KEYS.navGames);
+  void invalidatePlatformCacheKey(PLATFORM_CACHE_KEYS.gameModeBundles(gameSlug));
 }
 
 export async function createGameMode(

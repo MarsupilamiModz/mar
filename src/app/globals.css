@@ -130,4 +130,19 @@
   .logo-protected {
     filter: none !important;
   }
+
+  .games-hover-panel {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    transition:
+      opacity 120ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 120ms cubic-bezier(0.22, 1, 0.36, 1);
+    contain: layout style paint;
+  }
+
+  .games-hover-item {
+    will-change: transform;
+    transform: translateZ(0);
+    contain: layout style paint;
+  }
 }

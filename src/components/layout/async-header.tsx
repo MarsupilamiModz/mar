@@ -10,6 +10,7 @@ import {
 } from "@/components/layout/nav-labels";
 import type { NavUser } from "@/components/layout/user-nav";
 import { getCachedPublicBranding } from "@/lib/branding-data";
+import { getNavGames } from "@/lib/nav-games";
 import { getSafeLocale } from "@/lib/i18n/safe-locale";
 import { isDynamicServerUsageError } from "@/lib/is-dynamic-server-error";
 
@@ -24,9 +25,10 @@ async function HeaderWithUser({ locale }: { locale: string }) {
     }
   }
 
-  const [t, brandingBundle] = await Promise.all([
+  const [t, brandingBundle, navGames] = await Promise.all([
     getTranslations("nav"),
     getCachedPublicBranding(),
+    getNavGames(),
   ]);
   const defaults = NAV_LABEL_DEFAULTS[safeLocale] ?? NAV_LABEL_DEFAULTS.en;
 
@@ -51,6 +53,8 @@ async function HeaderWithUser({ locale }: { locale: string }) {
       navLabels={navLabels}
       header={brandingBundle.header}
       branding={brandingBundle.branding}
+      navGames={navGames}
+      allGamesLabel={t("allGames")}
     />
   );
 }

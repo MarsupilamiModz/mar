@@ -1,5 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { prisma, withDbRetry } from "@/lib/db";
+import { withPlatformCache, PLATFORM_CACHE_KEYS } from "@/lib/platform-cache";
+import { timedQuery } from "@/lib/monitoring/perf";
 import { CACHE_TAGS, REVALIDATE } from "@/lib/cache";
 
 export type GameModeCardData = {
@@ -186,30 +188,37 @@ const DEFAULT_PICKER: GameModePickerSettings = {
 };
 
 export async function getGameModePickerBundle(gameSlug: string): Promise<GameModePickerBundle> {
-  return withDbRetry(async () => {
-    const game = await prisma.game.findUnique({
-      where: { slug: gameSlug, isActive: true },
-      select: {
-        id: true,
-        modePickerOverlay: true,
-        modePickerBlurPx: true,
-        modePickerGlowEnabled: true,
-        modePickerAnimation: true,
-        modePickerOpacity: true,
-      },
-    });
-    if (!game) return { modes: [], picker: DEFAULT_PICKER };
+  return withPlatformCache(
+    PLATFORM_CACHE_KEYS.gameModeBundles(gameSlug),
+    () =>
+      timedQuery(`game-mode-picker:${gameSlug}`, () =>
+        withDbRetry(async () => {
+          const game = await prisma.game.findUnique({
+            where: { slug: gameSlug, isActive: true },
+            select: {
+              id: true,
+              modePickerOverlay: true,
+              modePickerBlurPx: true,
+              modePickerGlowEnabled: true,
+              modePickerAnimation: true,
+              modePickerOpacity: true,
+            },
+          });
+          if (!game) return { modes: [], picker: DEFAULT_PICKER };
 
-    const modes = await getGameModesForGame(game.id);
-    const animation = game.modePickerAnimation;
-    const picker: GameModePickerSettings = {
-      overlayOpacity: game.modePickerOverlay,
-      blurPx: game.modePickerBlurPx,
-      glowEnabled: game.modePickerGlowEnabled,
-      animation:
-        animation === "scale" || animation === "slide" ? animation : "fade",
-      panelOpacity: game.modePickerOpacity,
-    };
-    return { modes, picker };
-  }, { label: "games:mode-picker-bundle" });
+          const modes = await getGameModesForGame(game.id);
+          const animation = game.modePickerAnimation;
+          const picker: GameModePickerSettings = {
+            overlayOpacity: game.modePickerOverlay,
+            blurPx: game.modePickerBlurPx,
+            glowEnabled: game.modePickerGlowEnabled,
+            animation:
+              animation === "scale" || animation === "slide" ? animation : "fade",
+            panelOpacity: game.modePickerOpacity,
+          };
+          return { modes, picker };
+        }, { label: "games:mode-picker-bundle" })
+      ),
+    { ttlSeconds: REVALIDATE.catalog, tag: CACHE_TAGS.games }
+  );
 }

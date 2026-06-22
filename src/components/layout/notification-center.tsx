@@ -79,8 +79,6 @@ export function NotificationCenter({ locale, userId }: { locale: string; userId?
   useEffect(() => {
     if (!open) return;
     void refresh();
-    const interval = setInterval(() => void refreshRef.current(), 5000);
-    return () => clearInterval(interval);
   }, [open, refresh]);
 
   useEffect(() => {
