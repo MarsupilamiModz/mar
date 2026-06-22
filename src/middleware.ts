@@ -47,6 +47,7 @@ function isServerAction(request: NextRequest): boolean {
 
 function isStatelessApi(pathname: string): boolean {
   return (
+    pathname === "/api/health" ||
     pathname.startsWith("/api/stripe/webhook") ||
     pathname.startsWith("/api/r2/") ||
     pathname.startsWith("/api/security/") ||
@@ -98,7 +99,10 @@ export async function middleware(request: NextRequest) {
 
   const isProtected = isProtectedPath(pathWithoutLocale);
 
-  const sessionResult = cookieHint ? await updateSession(request) : null;
+  // Refresh Supabase session only where auth matters — keeps Set-Cookie headers
+  // smaller on public pages (avoids nginx "upstream sent too big header" 502s).
+  const sessionResult =
+    cookieHint && isProtected ? await updateSession(request) : null;
   const authenticated = Boolean(sessionResult?.userId);
 
   // Auth entry redirect handled in login/register page SSR (avoids Supabase/Prisma mismatch loops).
