@@ -11,6 +11,7 @@ import {
 import type { NavUser } from "@/components/layout/user-nav";
 import { getCachedPublicBranding } from "@/lib/branding-data";
 import { getSafeLocale } from "@/lib/i18n/safe-locale";
+import { isDynamicServerUsageError } from "@/lib/is-dynamic-server-error";
 
 async function HeaderWithUser({ locale }: { locale: string }) {
   const safeLocale = getSafeLocale(locale);
@@ -18,7 +19,9 @@ async function HeaderWithUser({ locale }: { locale: string }) {
   try {
     user = await getNavUser();
   } catch (err) {
-    console.error("[header] getNavUser failed", err);
+    if (!isDynamicServerUsageError(err)) {
+      console.error("[header] getNavUser failed", err);
+    }
   }
 
   const [t, brandingBundle] = await Promise.all([

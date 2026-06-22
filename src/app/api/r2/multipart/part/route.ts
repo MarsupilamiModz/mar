@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { assertR2Configured, logUploadServer } from "@/lib/r2-config";
 import { getPresignedPartUrl } from "@/lib/r2-multipart";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   const user = await getCurrentUser();
   if (!user) {

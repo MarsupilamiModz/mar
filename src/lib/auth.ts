@@ -17,6 +17,7 @@ import { withDbRetry } from "@/lib/db";
 import type { PermissionKey } from "@/lib/permissions";
 import type { AppUser, CurrentAppUser } from "@/lib/auth-cache";
 import type { User } from "@supabase/supabase-js";
+import { isDynamicServerUsageError } from "@/lib/is-dynamic-server-error";
 
 export const getSession = cache(async () => {
   try {
@@ -34,7 +35,9 @@ export const getSession = cache(async () => {
     }
     return user;
   } catch (err) {
-    console.error("[getSession]", err);
+    if (!isDynamicServerUsageError(err)) {
+      console.error("[getSession]", err);
+    }
     return null;
   }
 });

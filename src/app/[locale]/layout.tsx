@@ -16,6 +16,7 @@ import { AdPopupSlot } from "@/components/ads/ad-popup-slot";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import { getCmsSeo } from "@/lib/page-content";
 import { PlatformVisitTracker } from "@/components/analytics/platform-visit-tracker";
+import { isDynamicServerUsageError } from "@/lib/is-dynamic-server-error";
 
 const SnakeEasterEgg = dynamic(
   () => import("@/components/easter-egg/snake-game").then((m) => ({ default: m.SnakeEasterEgg })),
@@ -74,7 +75,9 @@ export default async function LocaleLayout({
   try {
     messages = await getMessages();
   } catch (err) {
-    console.error("[layout] getMessages failed", err);
+    if (!isDynamicServerUsageError(err)) {
+      console.error("[layout] getMessages failed", err);
+    }
     messages = {};
   }
 

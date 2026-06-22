@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { userOwnsStripePayment } from "@/lib/api-auth";
 import { getStripeReceiptUrl } from "@/lib/stripe";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
