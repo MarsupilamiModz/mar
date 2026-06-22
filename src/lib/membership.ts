@@ -5,7 +5,6 @@ import {
   DEFAULT_PREMIUM_PAGE,
   mapPlan,
   type MembershipPlanData,
-  type PremiumPageSettings,
 } from "@/lib/membership-pricing";
 import {
   getEffectiveMembershipPlan,
