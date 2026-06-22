@@ -49,7 +49,7 @@ function sessionUsernameBase(session: User): string {
   return base || "user";
 }
 
-async function uniqueUsername(base: string) {
+export async function uniqueUsername(base: string) {
   let candidate = base;
   let i = 0;
   while (await prisma.user.findUnique({ where: { username: candidate } })) {
@@ -237,6 +237,14 @@ export async function ensurePrismaUser(session: User) {
   try {
     const created = await withDbRetry(() => createAppUser(session), { label: "user:create" });
     invalidateUserSessionCache(session.id);
+    void import("@/lib/notifications-service").then(({ notifyOwnerPlatformEvent }) =>
+      notifyOwnerPlatformEvent({
+        title: "New registration",
+        body: `${created.username} (${created.email}) joined the platform.`,
+        link: `/en/admin/owner/users/${created.id}`,
+        category: "registrations",
+      })
+    ).catch(() => undefined);
     return created;
   } catch (err) {
     if (isUniqueConstraintError(err)) {

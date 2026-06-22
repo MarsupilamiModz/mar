@@ -235,6 +235,33 @@ export async function notifyStaffNewShopOrder(params: {
   );
 }
 
+export async function notifyOwnerPlatformEvent(params: {
+  title: string;
+  body: string;
+  link?: string;
+  category?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const owners = await prisma.user.findMany({
+    where: { role: "OWNER", deletedAt: null, isBanned: false },
+    select: { id: true },
+  });
+
+  await Promise.all(
+    owners.map((o) =>
+      notifyUser({
+        userId: o.id,
+        type: "SYSTEM",
+        category: params.category ?? "owner",
+        title: params.title,
+        body: params.body,
+        link: params.link,
+        metadata: params.metadata,
+      })
+    )
+  );
+}
+
 export async function notifyChatMention(params: {
   userId: string;
   channelId: string;

@@ -480,6 +480,8 @@ model User {
   bannedBy          User?     @relation("BanIssuer", fields: [bannedById], references: [id])
   isMuted           Boolean   @default(false)
   isSuspended       Boolean   @default(false)
+  uploadBanned      Boolean   @default(false)
+  commentBanned     Boolean   @default(false)
   warningCount      Int       @default(0)
   moderationNote    String?   @db.Text
   deletedAt         DateTime?
@@ -561,6 +563,10 @@ model User {
   mfaBackupCodes      UserMfaBackupCode[]
   platformEvents      PlatformEvent[]
   searchQueries       SearchQueryLog[]
+  userPermissions     UserPermission[]   @relation("UserPermissions")
+  permissionGrants    UserPermission[]   @relation("PermissionGrants")
+  roleHistory         UserRoleHistory[]  @relation("UserRoleHistory")
+  roleChangesMade     UserRoleHistory[]  @relation("RoleChanges")
 
   mfaEnabled          Boolean   @default(false)
   mfaEnabledAt        DateTime?
@@ -1426,6 +1432,8 @@ model UserBan {
   user         User      @relation("BannedUser", fields: [userId], references: [id], onDelete: Cascade)
   reason       String?
   banType      String    @default("PERMANENT")
+  banScope     String    @default("ACCOUNT")
+  ipHash       String?
   expiresAt    DateTime?
   internalNote String?   @db.Text
   bannedById   String?
@@ -1436,6 +1444,39 @@ model UserBan {
   @@index([userId])
   @@index([createdAt])
   @@index([expiresAt])
+  @@index([banScope])
+  @@map("user_bans")
+}
+
+model UserPermission {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation("UserPermissions", fields: [userId], references: [id], onDelete: Cascade)
+  permissionKey String
+  granted       Boolean  @default(true)
+  grantedById   String?
+  grantedBy     User?    @relation("PermissionGrants", fields: [grantedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, permissionKey])
+  @@index([userId])
+  @@map("user_permissions")
+}
+
+model UserRoleHistory {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation("UserRoleHistory", fields: [userId], references: [id], onDelete: Cascade)
+  fromRole    UserRole?
+  toRole      UserRole
+  changedById String?
+  changedBy   User?     @relation("RoleChanges", fields: [changedById], references: [id], onDelete: SetNull)
+  reason      String?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@map("user_role_history")
 }
 
 enum ModerationAction {

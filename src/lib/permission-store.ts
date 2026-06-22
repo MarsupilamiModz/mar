@@ -137,7 +137,27 @@ export async function getEffectivePermissions(user: PermissionUser): Promise<Set
     for (const p of extras) effective.add(p);
   }
 
+  if (user.id) {
+    const overrides = await getUserPermissionOverrides(user.id);
+    for (const row of overrides) {
+      if (row.granted) effective.add(row.permissionKey);
+      else effective.delete(row.permissionKey);
+    }
+  }
+
   return effective;
+}
+
+export async function getUserPermissionOverrides(userId: string) {
+  return unstable_cache(
+    async () =>
+      prisma.userPermission.findMany({
+        where: { userId },
+        select: { permissionKey: true, granted: true },
+      }),
+    ["user-permission-overrides", userId],
+    { tags: [PERMISSION_CACHE_TAG, `user-perms-${userId}`], revalidate: 30 }
+  )();
 }
 
 export async function userHasPermission(

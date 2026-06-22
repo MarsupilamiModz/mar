@@ -11,15 +11,27 @@ const intlMiddleware = createMiddleware({
   localeDetection: false,
 });
 
+/** Paths that must never require login (public discovery). */
+const PUBLIC_PATH_PREFIXES = ["/creators", "/partners", "/team"];
+
 const protectedPrefixes = [
   "/dashboard",
   "/admin",
-  "/creator", // studio (singular) — public profiles live at /creators and /partners
+  "/creator",
   "/designer",
-  "/partner", // studio (singular)
+  "/partner",
   "/team-chat",
   "/banned",
 ];
+
+function isPublicPath(path: string): boolean {
+  return PUBLIC_PATH_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
+function isProtectedPath(path: string): boolean {
+  if (isPublicPath(path)) return false;
+  return protectedPrefixes.some((p) => path === p || path.startsWith(`${p}/`));
+}
 
 const SESSION_COOKIE_HINTS = ["sb-", "auth-token"];
 
@@ -84,7 +96,7 @@ export async function middleware(request: NextRequest) {
     pathWithoutLocale = `/${pathWithoutLocale}`;
   }
 
-  const isProtected = protectedPrefixes.some((p) => pathWithoutLocale.startsWith(p));
+  const isProtected = isProtectedPath(pathWithoutLocale);
 
   const sessionResult = cookieHint ? await updateSession(request) : null;
   const authenticated = Boolean(sessionResult?.userId);
