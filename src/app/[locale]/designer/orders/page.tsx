@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { getDesignerDashboard } from "@/actions/designer";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { DesignerOrderActions } from "@/components/orders/designer-order-actions";
 import type { Locale } from "@/i18n/config";
 
 export default async function DesignerOrdersPage({ params }: { params: Promise<{ locale: Locale }> }) {
@@ -31,6 +32,7 @@ export default async function DesignerOrdersPage({ params }: { params: Promise<{
                   </div>
                   <Badge variant="outline">{o.status}</Badge>
                 </div>
+                <DesignerOrderActions orderId={o.id} status={o.status} locale={locale} />
               </Card>
             </Link>
           ))

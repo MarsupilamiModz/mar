@@ -232,6 +232,9 @@ export async function POST(req: Request) {
                 finalAmountCents: session.amount_total ?? 0,
               },
             });
+
+            const { onOrderPaid } = await import("@/lib/order-workflow");
+            void onOrderPaid(orderId, "en");
           }
 
           void sendPaymentNotification({
@@ -254,9 +257,12 @@ export async function POST(req: Request) {
               paymentStatus: "PAID",
               paymentMethod: "STRIPE",
               stripePaymentId: paymentId ?? undefined,
-              status: "COMPLETED",
+              status: "PAID",
             },
           });
+
+          const { onOrderPaid } = await import("@/lib/order-workflow");
+          void onOrderPaid(orderId, "en");
 
           void sendPaymentNotification({
             type: "Custom order payment",

@@ -50,6 +50,7 @@ export async function sendViaMicrosoftGraph(params: {
   subject: string;
   html: string;
   text?: string;
+  replyTo?: string;
 }) {
   const token = await getMicrosoftGraphToken({
     tenantId: params.tenantId,
@@ -73,6 +74,9 @@ export async function sendViaMicrosoftGraph(params: {
           toRecipients: recipients.map((address) => ({
             emailAddress: { address },
           })),
+          ...(params.replyTo
+            ? { replyTo: [{ emailAddress: { address: params.replyTo } }] }
+            : {}),
         },
         saveToSentItems: true,
       }),

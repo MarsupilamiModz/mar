@@ -5,6 +5,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { prisma } from "@/lib/db";
 import { ModCard } from "@/components/mods/mod-card";
+import { getCreatorBySlug } from "@/lib/creators";
 import { CreatorLevelBadge } from "@/components/creator/creator-level-badge";
 import { SocialLinks } from "@/components/social/social-links";
 import { ProfileShowcase } from "@/components/achievements/profile-showcase";
@@ -49,26 +50,29 @@ export default async function CreatorProfilePage({
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
 
-  const profile = await prisma.creatorProfile.findUnique({
-    where: { slug, isSuspended: false, isPublic: true },
-    include: {
-      user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
-      socialLinks: { orderBy: { sortOrder: "asc" } },
-    },
-  });
+  const profile = await getCreatorBySlug(slug);
   if (!profile) notFound();
 
-  const [mods, showcased, membershipTier] = await Promise.all([
+  const modWhere = { authorId: profile.userId, status: "PUBLISHED" as const, visibility: "PUBLIC" as const };
+  const modInclude = {
+    game: { select: { name: true, slug: true } },
+    media: { orderBy: [{ isFeatured: "desc" as const }, { orderIndex: "asc" as const }] },
+    screenshots: { take: 1, orderBy: { sortOrder: "asc" as const } },
+    tags: { take: 3 },
+  };
+
+  const [mods, sounds, showcased, membershipTier] = await Promise.all([
     prisma.mod.findMany({
-      where: { authorId: profile.userId, status: "PUBLISHED", visibility: "PUBLIC" },
+      where: { ...modWhere, productType: "MOD" },
       orderBy: [{ isFeatured: "desc" }, { downloadCount: "desc" }],
       take: 12,
-      include: {
-        game: { select: { name: true, slug: true } },
-        media: { orderBy: [{ isFeatured: "desc" }, { orderIndex: "asc" }] },
-        screenshots: { take: 1, orderBy: { sortOrder: "asc" } },
-        tags: { take: 3 },
-      },
+      include: modInclude,
+    }),
+    prisma.mod.findMany({
+      where: { ...modWhere, productType: "SOUND" },
+      orderBy: [{ isFeatured: "desc" }, { downloadCount: "desc" }],
+      take: 8,
+      include: { ...modInclude, soundProfile: { select: { artist: true, playCount: true } } },
     }),
     getShowcasedAchievements(profile.userId, locale),
     getUserMembershipTier(profile.userId),
@@ -144,6 +148,17 @@ export default async function CreatorProfilePage({
           </div>
         )}
       </div>
+
+      {sounds.length > 0 && (
+        <div className="mx-auto max-w-7xl px-4 pb-8 sm:px-6">
+          <h2 className="text-xl font-bold mb-6">{t("soundPacks")}</h2>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {sounds.map((sound) => (
+              <ModCard key={sound.id} locale={locale} mod={sound} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

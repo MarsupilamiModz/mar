@@ -83,13 +83,18 @@ export const getHomepageCreators = unstable_cache(
 );
 
 export async function getCreatorBySlug(slug: string) {
-  return prisma.creatorProfile.findFirst({
-    where: { slug, isPublic: true, isSuspended: false },
-    include: {
-      user: { select: { id: true, username: true, displayName: true, avatarUrl: true, bio: true } },
-      socialLinks: { orderBy: { sortOrder: "asc" } },
-    },
-  });
+  return unstable_cache(
+    async () =>
+      prisma.creatorProfile.findFirst({
+        where: { slug, isPublic: true, isSuspended: false },
+        include: {
+          user: { select: { id: true, username: true, displayName: true, avatarUrl: true, bio: true } },
+          socialLinks: { orderBy: { sortOrder: "asc" } },
+        },
+      }),
+    ["creator-profile", slug],
+    { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.creators, `creator-${slug}`] }
+  )();
 }
 
 export function creatorReferralLink(locale: string, code: string) {

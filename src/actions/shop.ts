@@ -195,6 +195,62 @@ function parseFormResponses(
   return { responses };
 }
 
+export async function startShopProductCheckout(productSlug: string, locale = "en", discord?: string, clientOrigin?: string) {
+  const { user, error } = await requireActionUser();
+  if (error) return error;
+
+  const limit = rateLimit(`shop-checkout:${user.id}`, 10, 3600_000);
+  if (!limit.success) return fail("Rate limited");
+
+  const product = await getShopProduct(productSlug);
+  if (!product) return fail("Product not found");
+  if (product.pricingMode === "QUOTE" || !product.priceCents) {
+    return fail("This product requires a quote request instead of checkout");
+  }
+
+  const invoiceNumber = await generateInvoiceNumber();
+  const order = await prisma.customOrder.create({
+    data: {
+      clientId: user.id,
+      shopProductId: product.id,
+      title: product.name,
+      description: product.shortDescription ?? product.name,
+      orderType: product.customType?.name ?? product.productType,
+      budgetCents: product.priceCents,
+      finalAmountCents: product.priceCents,
+      invoiceNumber,
+      customerEmail: user.email,
+      discordUsername: discord?.trim() || user.discordUsername || undefined,
+      status: "PENDING",
+      paymentStatus: "UNPAID",
+    },
+  });
+
+  const paymentSettings = await getPaymentSettings();
+  if (!paymentSettings.stripeEnabled) {
+    revalidatePath("/dashboard/orders");
+    return ok({ orderId: order.id, checkoutUrl: null as string | null });
+  }
+
+  try {
+    const session = await createShopProductCheckout(
+      user.id,
+      user.email,
+      order.id,
+      product.id,
+      product.name,
+      product.priceCents,
+      invoiceNumber,
+      locale,
+      { clientOrigin, productSlug: product.slug }
+    );
+    revalidatePath("/dashboard/orders");
+    return ok({ orderId: order.id, checkoutUrl: session.url ?? null });
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Checkout failed");
+  }
+}
+
 export async function submitShopProductOrder(formData: FormData, locale = "en") {
   const { user, error } = await requireActionUser();
   if (error) return error;
@@ -231,6 +287,7 @@ export async function submitShopProductOrder(formData: FormData, locale = "en") 
       customerEmail: user.email,
       discordUsername: String(formData.get("discord") ?? user.discordUsername ?? "").trim() || undefined,
       formResponses: responses as object,
+      requirementsSubmittedAt: new Date(),
       status: product.pricingMode === "QUOTE" ? "PENDING" : "PENDING",
       messages: {
         create: {

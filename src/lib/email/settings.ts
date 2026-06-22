@@ -3,7 +3,7 @@ import { SITE } from "@/lib/site";
 
 export type SmtpEncryption = "SSL" | "TLS" | "STARTTLS" | "NONE";
 
-export type EmailAuthMode = "smtp" | "microsoft";
+export type EmailAuthMode = "smtp" | "microsoft" | "graph";
 
 export type EmailSettings = {
   enabled: boolean;
@@ -17,6 +17,7 @@ export type EmailSettings = {
   microsoftClientSecret: string;
   senderEmail: string;
   senderName: string;
+  replyToEmail: string;
   encryption: SmtpEncryption;
   supportEmail: string;
   ticketNotificationEmail: string;
@@ -49,6 +50,7 @@ export const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
   microsoftClientSecret: "",
   senderEmail: "",
   senderName: SITE.name,
+  replyToEmail: "",
   encryption: "STARTTLS",
   supportEmail: "",
   ticketNotificationEmail: "",
@@ -84,7 +86,9 @@ export async function getEmailSettingsPublic(): Promise<EmailSettingsPublic> {
   );
   const configured =
     settings.enabled &&
-    (settings.authMode === "microsoft" ? microsoftConfigured : smtpConfigured);
+    (settings.authMode === "microsoft" || settings.authMode === "graph"
+      ? microsoftConfigured
+      : smtpConfigured);
   const { smtpPassword: _pw, microsoftClientSecret: _ms, ...rest } = settings;
   return {
     ...rest,

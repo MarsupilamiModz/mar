@@ -274,7 +274,7 @@ export async function createOrderPaymentCheckout(
         quantity: 1,
       },
     ],
-    success_url: `${checkoutPath(origin, locale, `/dashboard/orders/${orderId}`)}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${checkoutPath(origin, locale, `/dashboard/orders/${orderId}/requirements`)}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: checkoutPath(origin, locale, `/dashboard/orders/${orderId}`),
     invoice_creation: { enabled: true },
     metadata: {
@@ -321,7 +321,7 @@ export async function createShopProductCheckout(
         quantity: 1,
       },
     ],
-    success_url: `${checkoutPath(origin, locale, `/dashboard/orders/${orderId}`)}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${checkoutPath(origin, locale, `/dashboard/orders/${orderId}/requirements`)}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: checkoutPath(origin, locale, `/shop/${options?.productSlug ?? ""}`),
     invoice_creation: { enabled: true },
     metadata: {

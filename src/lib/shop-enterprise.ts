@@ -15,8 +15,8 @@ export const DEFAULT_SHOP_PRODUCT_TYPES = [
 ] as const;
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  PENDING: "Pending",
-  PAID: "Paid",
+  PENDING: "New",
+  PAID: "Paid — Awaiting Details",
   QUOTED: "Quoted",
   IN_REVIEW: "In Review",
   ACCEPTED: "Accepted",
@@ -71,6 +71,11 @@ export const ALLOWED_ORDER_UPLOAD_MIMES = [
   "application/pdf",
   "application/zip",
   "application/x-zip-compressed",
+  "application/x-rar-compressed",
+  "application/vnd.rar",
+  "application/x-7z-compressed",
+  "image/vnd.adobe.photoshop",
+  "application/octet-stream",
 ];
 
 export const MAX_ORDER_UPLOAD_BYTES = 25 * 1024 * 1024;

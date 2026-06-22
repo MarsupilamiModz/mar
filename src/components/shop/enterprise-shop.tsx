@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { submitShopProductOrder } from "@/actions/shop";
+import { submitShopProductOrder, startShopProductCheckout } from "@/actions/shop";
 import { useAppToast } from "@/hooks/use-app-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,8 @@ export function ShopProductOrderPage({ product, locale }: { product: Product; lo
     setFiles((prev) => [...prev, ...dropped].slice(0, 10));
   }
 
+  const isQuoteProduct = product.pricingMode === "QUOTE" || !product.priceCents;
+
   return (
     <div className="space-y-8">
       {hero && (
@@ -102,18 +104,35 @@ export function ShopProductOrderPage({ product, locale }: { product: Product; lo
               e.preventDefault();
               const form = e.currentTarget;
               const fd = new FormData(form);
-              fd.set("productSlug", product.slug);
-              fd.set("clientOrigin", typeof window !== "undefined" ? window.location.origin : "");
-              files.forEach((f) => fd.append("order_files", f));
+              const discord = String(fd.get("discord") ?? "").trim();
 
               startTransition(async () => {
+                if (!isQuoteProduct) {
+                  const r = await startShopProductCheckout(
+                    product.slug,
+                    locale,
+                    discord,
+                    typeof window !== "undefined" ? window.location.origin : undefined
+                  );
+                  if (!r.success) {
+                    appToast.error(r.error);
+                    return;
+                  }
+                  if (r.data.checkoutUrl) {
+                    window.location.href = r.data.checkoutUrl;
+                    return;
+                  }
+                  appToast.error("Checkout unavailable");
+                  return;
+                }
+
+                fd.set("productSlug", product.slug);
+                fd.set("clientOrigin", typeof window !== "undefined" ? window.location.origin : "");
+                files.forEach((f) => fd.append("order_files", f));
+
                 const r = await submitShopProductOrder(fd, locale);
                 if (!r.success) {
                   appToast.error(r.error);
-                  return;
-                }
-                if (r.data.checkoutUrl) {
-                  window.location.href = r.data.checkoutUrl;
                   return;
                 }
                 appToast.saved();
@@ -122,7 +141,7 @@ export function ShopProductOrderPage({ product, locale }: { product: Product; lo
               });
             }}
           >
-            {product.formFields.map((field) => (
+            {isQuoteProduct && product.formFields.map((field) => (
               <div key={field.id} className="space-y-1">
                 <label className="text-sm font-medium">
                   {field.label}
@@ -162,18 +181,17 @@ export function ShopProductOrderPage({ product, locale }: { product: Product; lo
               </div>
             ))}
 
-            <Input name="discord" placeholder="Discord username (optional)" />
-
+            {isQuoteProduct && (
             <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDrop}
               className="rounded-lg border border-dashed border-neon-purple/40 p-4 text-center text-sm text-muted-foreground"
             >
-              <p>Drag & drop reference files (PNG, JPG, WEBP, ZIP, PDF)</p>
+              <p>Drag & drop reference files (PNG, JPG, WEBP, ZIP, RAR, PSD, PDF)</p>
               <Input
                 type="file"
                 multiple
-                accept=".png,.jpg,.jpeg,.webp,.zip,.pdf"
+                accept=".png,.jpg,.jpeg,.webp,.zip,.rar,.7z,.psd,.pdf"
                 className="mt-2"
                 onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 10))}
               />
@@ -185,9 +203,18 @@ export function ShopProductOrderPage({ product, locale }: { product: Product; lo
                 </ul>
               )}
             </div>
+            )}
+
+            {!isQuoteProduct && (
+              <p className="text-xs text-muted-foreground">
+                After payment you will complete a project details form with uploads and requirements.
+              </p>
+            )}
+
+            <Input name="discord" placeholder="Discord username (optional)" />
 
             <Button type="submit" variant="neon" className="w-full" disabled={pending}>
-              {product.pricingMode === "QUOTE" ? "Request quote" : "Order now"}
+              {isQuoteProduct ? "Request quote" : "Proceed to checkout"}
             </Button>
           </form>
         </Card>

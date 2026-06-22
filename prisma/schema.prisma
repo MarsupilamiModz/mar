@@ -1299,8 +1299,9 @@ model CustomOrder {
   internalNotes     String?             @db.Text
   formResponses     Json?
   priority          Int                 @default(0)
-  completedAt       DateTime?
-  deliveredAt       DateTime?
+  completedAt              DateTime?
+  deliveredAt              DateTime?
+  requirementsSubmittedAt  DateTime?
   status            OrderStatus         @default(PENDING)
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt

@@ -32,7 +32,7 @@ function readEmailForm(form: HTMLFormElement) {
   const fd = new FormData(form);
   return {
     enabled: fd.get("enabled") === "on",
-    authMode: (fd.get("authMode") as "smtp" | "microsoft") || "smtp",
+    authMode: (fd.get("authMode") as "smtp" | "microsoft" | "graph") || "smtp",
     smtpHost: fd.get("smtpHost") as string,
     smtpPort: Number(fd.get("smtpPort") || 587),
     smtpUser: fd.get("smtpUser") as string,
@@ -42,6 +42,7 @@ function readEmailForm(form: HTMLFormElement) {
     microsoftClientSecret: (fd.get("microsoftClientSecret") as string) || undefined,
     senderEmail: fd.get("senderEmail") as string,
     senderName: fd.get("senderName") as string,
+    replyToEmail: fd.get("replyToEmail") as string,
     encryption: fd.get("encryption") as "SSL" | "TLS" | "STARTTLS" | "NONE",
     supportEmail: fd.get("supportEmail") as string,
     ticketNotificationEmail: fd.get("ticketNotificationEmail") as string,
@@ -72,9 +73,9 @@ export function EmailSettingsPanel({
       <Card className="glass p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="font-semibold">Email configuration</h3>
+            <h3 className="font-semibold">Email providers</h3>
             <p className="text-xs text-muted-foreground mt-1">
-              SMTP or Microsoft 365 / Exchange Online via Graph API. Falls back to Resend if disabled.
+              SMTP, Microsoft 365 Business, or Graph API (OAuth2). Falls back to Resend if disabled.
             </p>
           </div>
           <Badge variant={settings.configured ? "premium" : "outline"}>
@@ -100,8 +101,9 @@ export function EmailSettingsPanel({
             <input type="checkbox" name="enabled" defaultChecked={settings.enabled} /> Enable outbound email
           </label>
           <select name="authMode" defaultValue={settings.authMode ?? "smtp"} className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm sm:col-span-2">
-            <option value="smtp">SMTP (custom / Office365 SMTP)</option>
-            <option value="microsoft">Microsoft 365 (Graph API OAuth)</option>
+            <option value="smtp">SMTP (custom / Exchange SMTP relay)</option>
+            <option value="microsoft">Microsoft 365 (Graph API OAuth2)</option>
+            <option value="graph">Graph API (alias)</option>
           </select>
           <Input name="smtpHost" defaultValue={settings.smtpHost} placeholder="SMTP Host (smtp mode)" />
           <Input name="smtpPort" type="number" defaultValue={settings.smtpPort} placeholder="Port" />
@@ -114,8 +116,9 @@ export function EmailSettingsPanel({
             type="password"
             placeholder={settings.microsoftSecretSet ? "•••••••• (unchanged)" : "Microsoft Client Secret"}
           />
-          <Input name="senderEmail" type="email" defaultValue={settings.senderEmail} placeholder="Sender email" />
+          <Input name="senderEmail" type="email" defaultValue={settings.senderEmail} placeholder="Sender address" />
           <Input name="senderName" defaultValue={settings.senderName} placeholder="Sender name" />
+          <Input name="replyToEmail" type="email" defaultValue={settings.replyToEmail ?? ""} placeholder="Reply-To address" />
           <select name="encryption" defaultValue={settings.encryption} className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm">
             <option value="STARTTLS">STARTTLS</option>
             <option value="TLS">TLS</option>

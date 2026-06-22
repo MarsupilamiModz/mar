@@ -3,7 +3,7 @@ import { safeToLocaleString } from "@/lib/i18n/safe-locale";
 import { SafeImage } from "@/components/ui/safe-image";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { prisma } from "@/lib/db";
+import { getPublicPartnerBySlug } from "@/lib/partners";
 import { SocialLinks } from "@/components/social/social-links";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -29,13 +29,7 @@ export default async function PartnerProfilePage({
   setRequestLocale(locale);
   const t = await getTranslations("ecosystem");
 
-  const profile = await prisma.partnerProfile.findUnique({
-    where: { slug, isBanned: false, isSuspended: false },
-    include: {
-      user: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
-      socialLinks: { orderBy: { sortOrder: "asc" } },
-    },
-  });
+  const profile = await getPublicPartnerBySlug(slug);
   if (!profile) notFound();
 
   const showcased = await getShowcasedAchievements(profile.userId, locale);

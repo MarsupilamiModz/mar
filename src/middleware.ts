@@ -14,9 +14,9 @@ const intlMiddleware = createMiddleware({
 const protectedPrefixes = [
   "/dashboard",
   "/admin",
-  "/creator",
+  "/creator", // studio (singular) — public profiles live at /creators and /partners
   "/designer",
-  "/partner",
+  "/partner", // studio (singular)
   "/team-chat",
   "/banned",
 ];

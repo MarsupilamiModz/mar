@@ -16,6 +16,7 @@ const EMPTY_SETTINGS = {
   microsoftSecretSet: false,
   senderEmail: "",
   senderName: "XumariModz",
+  replyToEmail: "",
   encryption: "STARTTLS" as const,
   supportEmail: "",
   ticketNotificationEmail: "",

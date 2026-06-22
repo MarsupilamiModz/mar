@@ -23,7 +23,7 @@ import { SITE } from "@/lib/site";
 
 const settingsSchema = z.object({
   enabled: z.boolean().optional(),
-  authMode: z.enum(["smtp", "microsoft"]).optional(),
+  authMode: z.enum(["smtp", "microsoft", "graph"]).optional(),
   smtpHost: z.string().max(255).optional(),
   smtpPort: z.number().int().min(1).max(65535).optional(),
   smtpUser: z.string().max(255).optional(),
@@ -33,6 +33,7 @@ const settingsSchema = z.object({
   microsoftClientSecret: z.string().max(255).optional(),
   senderEmail: z.string().email().optional().or(z.literal("")),
   senderName: z.string().max(120).optional(),
+  replyToEmail: z.string().email().optional().or(z.literal("")),
   encryption: z.enum(["SSL", "TLS", "STARTTLS", "NONE"]).optional(),
   supportEmail: z.string().email().optional().or(z.literal("")),
   ticketNotificationEmail: z.string().email().optional().or(z.literal("")),

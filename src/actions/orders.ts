@@ -15,7 +15,7 @@ import { assertStripeConfigured, formatStripeError } from "@/lib/stripe-config";
 import { uploadAsset } from "@/lib/asset-storage";
 import { formatDisplayName } from "@/lib/display-name";
 import type { OrderPaymentMethod, OrderStatus } from "@prisma/client";
-import { transitionOrderStatus, onOrderMessageSent, logOrderActivity } from "@/lib/order-workflow";
+import { transitionOrderStatus, onOrderMessageSent, logOrderActivity, onOrderRequirementsSubmitted } from "@/lib/order-workflow";
 import { userHasPermission } from "@/lib/permission-store";
 
 export async function createCustomOrder(input: {
@@ -46,6 +46,7 @@ export async function createCustomOrder(input: {
       invoiceNumber,
       customerEmail: user.email,
       discordUsername: input.discordUsername ?? user.discordUsername,
+      requirementsSubmittedAt: new Date(),
       messages: {
         create: {
           senderId: user.id,
@@ -167,6 +168,15 @@ export async function quoteCustomOrder(orderId: string, amountCents: number, not
         (await prisma.customOrder.findUnique({ where: { id: orderId }, select: { invoiceNumber: true } }))?.invoiceNumber ?? orderId
       ),
     },
+    select: { id: true, title: true, clientId: true },
+  });
+
+  const { notifyOrderUpdate } = await import("@/lib/notifications-service");
+  await notifyOrderUpdate({
+    userId: order.clientId,
+    title: "Quote ready",
+    body: `Your order "${order.title}" has been quoted. Review and pay from your order page.`,
+    orderId: order.id,
   });
 
   revalidatePath(`/admin/orders/${orderId}`);
@@ -250,7 +260,7 @@ export async function markOrderPaidManual(
       paymentStatus: "PAID",
       paymentMethod: method,
       paymentReference: reference,
-      status: "COMPLETED",
+      status: "IN_REVIEW",
     },
   });
 
@@ -417,6 +427,22 @@ export async function uploadOrderDeliveryVersion(orderId: string, formData: Form
 
   await logOrderActivity(orderId, "delivery.uploaded", user.id, { version, fileName: file.name });
 
+  const order = await prisma.customOrder.findUnique({
+    where: { id: orderId },
+    select: { clientId: true, title: true, assigneeId: true },
+  });
+  if (order) {
+    const { notifyOrderStakeholders } = await import("@/lib/order-workflow");
+    await notifyOrderStakeholders({
+      orderId,
+      title: "Delivery ready",
+      body: `Your order "${order.title}" has a new delivery ready for review.`,
+      clientId: order.clientId,
+      assigneeId: order.assigneeId,
+      emailTemplate: "completed",
+    });
+  }
+
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath(`/dashboard/orders/${orderId}`);
   return ok({ fileName: file.name, version });
@@ -518,4 +544,152 @@ export async function getOrderDetail(orderId: string) {
       : order.messages.filter((m) => !m.isInternal);
 
   return ok({ ...order, messages });
+}
+
+const ORDER_REQUIREMENT_FIELDS = [
+  "projectDescription",
+  "requirements",
+  "notes",
+  "preferredStyle",
+  "budgetNotes",
+  "deadline",
+] as const;
+
+export async function submitOrderRequirements(orderId: string, formData: FormData, locale = "en") {
+  const { user, error } = await requireActionUser();
+  if (error) return error;
+
+  const order = await prisma.customOrder.findUnique({ where: { id: orderId } });
+  if (!order || order.clientId !== user.id) return fail("Not found");
+  if (order.requirementsSubmittedAt) return fail("Requirements already submitted");
+  if (order.paymentStatus !== "PAID" && order.shopProductId) {
+    return fail("Complete payment before submitting project details");
+  }
+
+  const responses: Record<string, string> = {};
+  for (const key of ORDER_REQUIREMENT_FIELDS) {
+    const value = String(formData.get(key) ?? "").trim();
+    if (value) responses[key] = value;
+  }
+
+  const projectDescription = responses.projectDescription ?? "";
+  const requirements = responses.requirements ?? "";
+  if (!projectDescription && !requirements) {
+    return fail("Provide a project description or requirements");
+  }
+
+  const description = [
+    projectDescription && `Project: ${projectDescription}`,
+    requirements && `Requirements:\n${requirements}`,
+    responses.notes && `Notes: ${responses.notes}`,
+    responses.preferredStyle && `Style: ${responses.preferredStyle}`,
+    responses.budgetNotes && `Budget notes: ${responses.budgetNotes}`,
+    responses.deadline && `Deadline: ${responses.deadline}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  await prisma.customOrder.update({
+    where: { id: orderId },
+    data: {
+      description,
+      formResponses: {
+        ...(typeof order.formResponses === "object" && order.formResponses !== null
+          ? (order.formResponses as Record<string, unknown>)
+          : {}),
+        ...responses,
+      } as object,
+    },
+  });
+
+  await prisma.orderMessage.create({
+    data: { orderId, senderId: user.id, content: description },
+  });
+
+  const files = formData
+    .getAll("order_files")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+
+  const { ALLOWED_ORDER_UPLOAD_MIMES, MAX_ORDER_UPLOAD_BYTES, MAX_ORDER_UPLOAD_FILES } = await import("@/lib/shop-enterprise");
+  if (files.length > MAX_ORDER_UPLOAD_FILES) return fail(`Maximum ${MAX_ORDER_UPLOAD_FILES} files`);
+
+  for (const file of files) {
+    if (file.size > MAX_ORDER_UPLOAD_BYTES) return fail(`${file.name} exceeds upload limit`);
+    const allowed =
+      ALLOWED_ORDER_UPLOAD_MIMES.includes(file.type) ||
+      file.name.match(/\.(zip|rar|7z|psd|png|jpe?g|webp|pdf)$/i);
+    if (!allowed) return fail(`File type not allowed: ${file.name}`);
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const safeName = file.name.replace(/[^\w.-]/g, "_");
+    const uploaded = await uploadAsset({
+      bucket: "tickets",
+      relativePath: `orders/${orderId}/refs/${Date.now()}-${safeName}`,
+      body: buffer,
+      contentType: file.type || "application/octet-stream",
+    });
+    await prisma.orderAttachment.create({
+      data: {
+        orderId,
+        fileKey: uploaded.key,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+      },
+    });
+  }
+
+  await onOrderRequirementsSubmitted(orderId, locale);
+
+  revalidatePath(`/dashboard/orders/${orderId}`);
+  revalidatePath(`/admin/orders/${orderId}`);
+  return ok(undefined);
+}
+
+export async function acceptOrderAssignment(orderId: string, locale = "en") {
+  const { user, error } = await requireActionUser();
+  if (error) return error;
+
+  const order = await prisma.customOrder.findUnique({ where: { id: orderId } });
+  if (!order || order.assigneeId !== user.id) return fail("Not assigned to you");
+  if (order.status !== "ASSIGNED") return fail("Order is not awaiting acceptance");
+
+  await transitionOrderStatus({
+    orderId,
+    status: "IN_PROGRESS",
+    actorId: user.id,
+    locale,
+  });
+
+  revalidatePath(`/designer/orders`);
+  revalidatePath(`/dashboard/orders/${orderId}`);
+  return ok(undefined);
+}
+
+export async function rejectOrderAssignment(orderId: string, reason: string, locale = "en") {
+  const { user, error } = await requireActionUser();
+  if (error) return error;
+
+  const order = await prisma.customOrder.findUnique({ where: { id: orderId } });
+  if (!order || order.assigneeId !== user.id) return fail("Not assigned to you");
+  if (order.status !== "ASSIGNED") return fail("Order is not awaiting acceptance");
+
+  await prisma.customOrder.update({
+    where: { id: orderId },
+    data: { assigneeId: null, status: "IN_REVIEW" },
+  });
+
+  await logOrderActivity(orderId, "assignment.rejected", user.id, { reason });
+  await onOrderMessageSent({
+    orderId,
+    senderId: user.id,
+    clientId: order.clientId,
+    assigneeId: null,
+    isInternal: true,
+    content: `Designer rejected assignment: ${reason}`,
+    locale,
+  });
+
+  revalidatePath(`/designer/orders`);
+  revalidatePath(`/admin/orders/${orderId}`);
+  return ok(undefined);
 }

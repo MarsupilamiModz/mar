@@ -78,7 +78,7 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   let sent = false;
   let lastError: string | null = null;
 
-  if (settings.enabled && settings.authMode === "microsoft" && settings.senderEmail) {
+  if (settings.enabled && (settings.authMode === "microsoft" || settings.authMode === "graph") && settings.senderEmail) {
     try {
       const { sendViaMicrosoftGraph } = await import("@/lib/email/microsoft-graph");
       const { resolveMicrosoftSecret } = await import("@/lib/email/settings");
@@ -91,6 +91,7 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
         subject: params.subject,
         html: params.html,
         text: params.text,
+        replyTo: settings.replyToEmail || undefined,
       });
       sent = true;
     } catch (err) {
@@ -105,6 +106,7 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
       await transport.sendMail({
         from: `"${settings.senderName || SITE.name}" <${settings.senderEmail}>`,
         to: params.to,
+        replyTo: settings.replyToEmail || undefined,
         subject: params.subject,
         html: params.html,
         text: params.text,

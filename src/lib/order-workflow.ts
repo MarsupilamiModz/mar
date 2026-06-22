@@ -5,8 +5,10 @@ import {
   notifyOrderUpdate,
   notifyStaffNewShopOrder,
 } from "@/lib/notifications-service";
-import { sendOrderStatusEmail, sendOrderMessageEmail } from "@/lib/email/send";
+import { sendOrderStatusEmail, sendOrderMessageEmail, sendCustomOrderNotification } from "@/lib/email/send";
 import { ORDER_STATUS_LABELS } from "@/lib/shop-enterprise";
+import { postTeamChannelAlert } from "@/lib/team-chat-system";
+import { getAppUrl } from "@/lib/app-url";
 
 export async function logOrderActivity(
   orderId: string,
@@ -61,6 +63,40 @@ export async function notifyOrderStakeholders(params: {
   }).catch(() => undefined);
 }
 
+export async function notifyStaffNewCustomOrder(orderId: string, locale = "en") {
+  const order = await prisma.customOrder.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      title: true,
+      client: { select: { username: true, email: true, displayName: true, discordUsername: true } },
+      attachments: { select: { fileName: true } },
+    },
+  });
+  if (!order) return;
+
+  await notifyStaffNewShopOrder({
+    orderId: order.id,
+    title: order.title,
+    clientUsername: order.client.username,
+    locale,
+  });
+
+  void sendCustomOrderNotification({
+    id: order.id,
+    title: order.title,
+    description: "",
+    client: order.client,
+    attachments: order.attachments,
+  } as Parameters<typeof sendCustomOrderNotification>[0]).catch(() => undefined);
+
+  const link = `${getAppUrl()}/${locale}/admin/orders/${orderId}`;
+  void postTeamChannelAlert({
+    channelSlug: "designers",
+    content: `🛒 **New Custom Order Received**\n${order.title} by @${order.client.username}\n${link}`,
+  }).catch(() => undefined);
+}
+
 export async function onNewShopOrder(orderId: string, locale = "en") {
   const order = await prisma.customOrder.findUnique({
     where: { id: orderId },
@@ -69,27 +105,76 @@ export async function onNewShopOrder(orderId: string, locale = "en") {
       title: true,
       clientId: true,
       assigneeId: true,
+      requirementsSubmittedAt: true,
+      paymentStatus: true,
       client: { select: { email: true, username: true } },
     },
   });
   if (!order) return;
 
+  // Paid shop orders notify staff only after requirements are submitted.
+  if (order.paymentStatus === "PAID" && !order.requirementsSubmittedAt) return;
+
   await logOrderActivity(orderId, "order.created", undefined, { source: "shop" });
-  await notifyStaffNewShopOrder({
-    orderId: order.id,
-    title: order.title,
-    clientUsername: order.client.username,
-  });
+  await notifyStaffNewCustomOrder(orderId, locale);
 
   await notifyOrderStakeholders({
     orderId: order.id,
     title: "Order received",
-    body: `Your order "${order.title}" has been received.`,
+    body: `Your order "${order.title}" has been received and is in review.`,
     clientId: order.clientId,
     assigneeId: order.assigneeId,
     locale,
     emailTemplate: "status",
   });
+}
+
+export async function onOrderRequirementsSubmitted(orderId: string, locale = "en") {
+  await prisma.customOrder.update({
+    where: { id: orderId },
+    data: { requirementsSubmittedAt: new Date(), status: "IN_REVIEW" },
+  });
+
+  await logOrderActivity(orderId, "requirements.submitted", undefined);
+  await notifyStaffNewCustomOrder(orderId, locale);
+
+  const order = await prisma.customOrder.findUnique({
+    where: { id: orderId },
+    select: { id: true, title: true, clientId: true, assigneeId: true },
+  });
+  if (!order) return;
+
+  await notifyOrderStakeholders({
+    orderId: order.id,
+    title: "Requirements submitted",
+    body: `Your project details for "${order.title}" were received. Our team will review them shortly.`,
+    clientId: order.clientId,
+    assigneeId: order.assigneeId,
+    locale,
+    emailTemplate: "status",
+  });
+}
+
+export async function onOrderPaid(orderId: string, locale = "en") {
+  const order = await prisma.customOrder.findUnique({
+    where: { id: orderId },
+    select: { id: true, title: true, clientId: true, requirementsSubmittedAt: true },
+  });
+  if (!order) return;
+
+  await logOrderActivity(orderId, "payment.received", undefined);
+
+  await notifyOrderUpdate({
+    userId: order.clientId,
+    title: "Payment confirmed",
+    body: `Complete your project details for "${order.title}".`,
+    orderId: order.id,
+    locale,
+  });
+
+  if (order.requirementsSubmittedAt) {
+    await onNewShopOrder(orderId, locale);
+  }
 }
 
 export async function transitionOrderStatus(params: {
