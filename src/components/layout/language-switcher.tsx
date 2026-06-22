@@ -11,7 +11,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Globe } from "lucide-react";
 import type { PlatformLanguageOption } from "@/lib/languages";
 
 export function LanguageSwitcher({
