@@ -1,0 +1,19 @@
+{
+  "title": "Ara",
+  "placeholder": "Mod, oyun, içerik üreticisi ara…",
+  "hint": "En az 2 karakter yazın",
+  "noResults": "Sonuç bulunamadı",
+  "close": "Aramayı kapat",
+  "shortcutHint": "⌘K veya Ctrl+K ile açın",
+  "viewAll": "Tüm sonuçları gör",
+  "groups": {
+    "mods": "Modlar",
+    "sounds": "Sesler",
+    "collections": "Koleksiyonlar",
+    "modpacks": "Mod paketleri",
+    "creators": "İçerik üreticileri",
+    "partners": "Partnerler",
+    "games": "Oyunlar",
+    "categories": "Kategoriler"
+  }
+}

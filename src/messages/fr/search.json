@@ -1,0 +1,19 @@
+{
+  "title": "Recherche",
+  "placeholder": "Rechercher mods, jeux, créateurs…",
+  "hint": "Saisissez au moins 2 caractères",
+  "noResults": "Aucun résultat",
+  "close": "Fermer la recherche",
+  "shortcutHint": "Appuyez sur ⌘K ou Ctrl+K",
+  "viewAll": "Voir tous les résultats",
+  "groups": {
+    "mods": "Mods",
+    "sounds": "Sons",
+    "collections": "Collections",
+    "modpacks": "Modpacks",
+    "creators": "Créateurs",
+    "partners": "Partenaires",
+    "games": "Jeux",
+    "categories": "Catégories"
+  }
+}

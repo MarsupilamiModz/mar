@@ -26,13 +26,17 @@ const modules = [
   "search",
 ] as const;
 
+async function importLocaleModule(locale: Locale, name: (typeof modules)[number]) {
+  try {
+    const mod = await import(`./${locale}/${name}.json`);
+    return mod.default as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
 async function loadLocaleModules(locale: Locale) {
-  return Promise.all(
-    modules.map(async (name) => {
-      const mod = await import(`./${locale}/${name}.json`);
-      return mod.default as Record<string, unknown>;
-    })
-  );
+  return Promise.all(modules.map((name) => importLocaleModule(locale, name)));
 }
 
 function mergeParts(parts: Record<string, unknown>[]) {
