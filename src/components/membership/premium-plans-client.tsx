@@ -23,10 +23,16 @@ type Plan = Pick<
   | "perks"
   | "originalPriceCents"
   | "saleDiscountPercent"
-  | "saleEndsAt"
   | "cardStyle"
   | "iconKey"
-> & { cta?: string };
+> & { cta?: string; saleEndsAt: string | null };
+
+function planForPricing(plan: Plan): MembershipPlanData {
+  return {
+    ...(plan as MembershipPlanData),
+    saleEndsAt: plan.saleEndsAt ? new Date(plan.saleEndsAt) : null,
+  };
+}
 
 type Props = {
   locale: string;
@@ -106,8 +112,8 @@ export function PremiumPlansClient({ locale, plans, pageSettings, isLoggedIn, cu
           const isCurrent = currentPlanSlug === plan.slug;
           const isOwnedHigher = currentSort >= 0 && index < currentSort;
           const accent = plan.cardStyle?.accentColor ?? plan.perks?.accentColor ?? "#a855f7";
-          const pricing = getEffectivePlanPrice(plan as MembershipPlanData);
-          const saleEnds = getSaleTimeRemaining(plan as MembershipPlanData);
+          const pricing = getEffectivePlanPrice(planForPricing(plan));
+          const saleEnds = getSaleTimeRemaining(planForPricing(plan));
           const icon = plan.iconKey ?? plan.cardStyle?.iconKey ?? "👑";
 
           return (

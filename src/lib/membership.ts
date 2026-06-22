@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma, withDbRetry } from "@/lib/db";
 import { getSiteSetting } from "@/lib/site-settings";
 import { formatMoneyFromCents, formatMoneyWithInterval } from "@/lib/currency";
 import {
@@ -260,18 +260,33 @@ export function getSaleTimeRemaining(plan: MembershipPlanData): number | null {
 }
 
 export async function getActiveMembershipPlans() {
-  const plans = await prisma.membershipPlan.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: "asc" },
-  });
-  if (plans.length === 0) {
-    await seedDefaultPlans();
-    return (await prisma.membershipPlan.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: "asc" },
-    })).map(mapPlan);
+  try {
+    const plans = await withDbRetry(
+      () =>
+        prisma.membershipPlan.findMany({
+          where: { isActive: true },
+          orderBy: { sortOrder: "asc" },
+        }),
+      { label: "membership:plans" }
+    );
+    if (plans.length === 0) {
+      await seedDefaultPlans();
+      const seeded = await prisma.membershipPlan.findMany({
+        where: { isActive: true },
+        orderBy: { sortOrder: "asc" },
+      });
+      return seeded.map(mapPlan);
+    }
+    return plans.map(mapPlan);
+  } catch (err) {
+    console.error("[membership] getActiveMembershipPlans failed", err);
+    return DEFAULT_MEMBERSHIP_PLANS.map((plan, index) =>
+      mapPlan({
+        id: `fallback-${plan.slug}-${index}`,
+        ...plan,
+      })
+    );
   }
-  return plans.map(mapPlan);
 }
 
 export async function seedDefaultPlans() {
