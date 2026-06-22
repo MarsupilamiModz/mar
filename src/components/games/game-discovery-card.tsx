@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Gamepad2, Download, Users, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,17 +12,18 @@ import { formatCompactCount, type GameDiscoveryCardData } from "@/lib/game-disco
 type Props = {
   locale: string;
   game: GameDiscoveryCardData;
-  labels: {
-    mods: string;
-    downloads: string;
-    creators: string;
-    updated: string;
-    featured: string;
-  };
   priority?: boolean;
 };
 
-function formatRelativeDate(date: Date | null, locale: string): string | null {
+function parseDate(value: Date | string | null | undefined): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatRelativeDate(value: Date | string | null | undefined, locale: string): string | null {
+  const date = parseDate(value);
   if (!date) return null;
   const diff = Date.now() - date.getTime();
   const days = Math.floor(diff / 86_400_000);
@@ -33,9 +35,9 @@ function formatRelativeDate(date: Date | null, locale: string): string | null {
 export const GameDiscoveryCard = memo(function GameDiscoveryCard({
   locale,
   game,
-  labels,
   priority = false,
 }: Props) {
+  const t = useTranslations("games");
   const coverSrc = game.coverUrl ?? game.bannerUrl;
   const updated = formatRelativeDate(game.lastUpdated, locale);
 
@@ -60,7 +62,7 @@ export const GameDiscoveryCard = memo(function GameDiscoveryCard({
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
           {game.isFeatured && (
             <Badge variant="premium" className="absolute left-3 top-3 shadow-lg">
-              {labels.featured}
+              {t("featured")}
             </Badge>
           )}
           {game.logoUrl && (
@@ -80,20 +82,20 @@ export const GameDiscoveryCard = memo(function GameDiscoveryCard({
           <dl className="grid grid-cols-1 gap-1.5 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <Gamepad2 className="h-3.5 w-3.5 shrink-0 text-neon-blue" />
-              <dd>{labels.mods.replace("{count}", formatCompactCount(game.modCount))}</dd>
+              <dd>{t("modsCountShort", { count: formatCompactCount(game.modCount) })}</dd>
             </div>
             <div className="flex items-center gap-2">
               <Download className="h-3.5 w-3.5 shrink-0 text-neon-purple" />
-              <dd>{labels.downloads.replace("{count}", formatCompactCount(game.downloadCount))}</dd>
+              <dd>{t("downloadsCount", { count: formatCompactCount(game.downloadCount) })}</dd>
             </div>
             <div className="flex items-center gap-2">
               <Users className="h-3.5 w-3.5 shrink-0 text-neon-blue" />
-              <dd>{labels.creators.replace("{count}", String(game.creatorCount))}</dd>
+              <dd>{t("creatorsCountShort", { count: game.creatorCount })}</dd>
             </div>
             {updated && (
               <div className="flex items-center gap-2">
                 <Clock className="h-3.5 w-3.5 shrink-0" />
-                <dd>{labels.updated.replace("{date}", updated)}</dd>
+                <dd>{t("lastUpdated", { date: updated })}</dd>
               </div>
             )}
           </dl>

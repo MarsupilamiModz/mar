@@ -25,8 +25,6 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
   const t = await getTranslations("landing");
   const tm = await getTranslations("mods");
 
-  const tg = await getTranslations("games");
-
   const [games, primaryGame, announcements, cms] = await Promise.all([
     getGamesDiscoveryCards().catch(() => []),
     getGameBySlug(primaryGameSlug).catch(() => null),
@@ -114,13 +112,6 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
                 locale={locale}
                 game={game}
                 priority={i < 4}
-                labels={{
-                  mods: tg("modsCountShort"),
-                  downloads: tg("downloadsCount"),
-                  creators: tg("creatorsCountShort"),
-                  updated: tg("lastUpdated"),
-                  featured: tg("featured"),
-                }}
               />
             ))}
           </div>

@@ -37,13 +37,6 @@ export default async function GamesPage({ params }: { params: Promise<{ locale: 
               locale={locale}
               game={game}
               priority={i < 8}
-              labels={{
-                mods: t("modsCountShort"),
-                downloads: t("downloadsCount"),
-                creators: t("creatorsCountShort"),
-                updated: t("lastUpdated"),
-                featured: t("featured"),
-              }}
             />
           ))
         )}

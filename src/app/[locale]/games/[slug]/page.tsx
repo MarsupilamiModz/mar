@@ -94,12 +94,6 @@ export default async function GameDetailPage({
     PAID: t("paid"),
   };
 
-  const sidebarLabels = {
-    categories: tg("categories"),
-    all: tg("allCategories"),
-    mods: tg("modsCount"),
-  };
-
   const explorerLabels = {
     search: t("search"),
     filter: t("filter"),
@@ -154,7 +148,6 @@ export default async function GameDetailPage({
                   locale={locale}
                   gameSlug={slug}
                   categories={categories}
-                  labels={sidebarLabels}
                 />
               </Suspense>
             </aside>

@@ -15,7 +15,7 @@ export type GameDiscoveryCardData = {
   modCount: number;
   downloadCount: number;
   creatorCount: number;
-  lastUpdated: Date | null;
+  lastUpdated: Date | string | null;
 };
 
 export type CategoryDiscoveryNode = FlatCategory & {

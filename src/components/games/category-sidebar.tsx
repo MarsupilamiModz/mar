@@ -3,6 +3,7 @@
 import { memo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Layers } from "lucide-react";
 import { SafeImage } from "@/components/ui/safe-image";
 import { cn } from "@/lib/utils";
@@ -12,11 +13,6 @@ type Props = {
   locale: string;
   gameSlug: string;
   categories: CategoryDiscoveryNode[];
-  labels: {
-    categories: string;
-    all: string;
-    mods: string;
-  };
 };
 
 function buildHref(locale: string, gameSlug: string, params: URLSearchParams, patch: Record<string, string | null>) {
@@ -36,7 +32,6 @@ function CategoryRow({
   category,
   params,
   depth,
-  labels,
   parentSlug,
 }: {
   locale: string;
@@ -44,9 +39,9 @@ function CategoryRow({
   category: CategoryDiscoveryNode;
   params: URLSearchParams;
   depth: number;
-  labels: Props["labels"];
   parentSlug?: string;
 }) {
+  const t = useTranslations("games");
   const activeCategory = params.get("category");
   const activeSub = params.get("subcategory");
   const isRoot = depth === 0;
@@ -94,7 +89,7 @@ function CategoryRow({
             <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2">{category.description}</p>
           )}
           <p className="mt-1 text-xs text-neon-blue">
-            {labels.mods.replace("{count}", String(category.modCount))}
+            {t("modsCount", { count: category.modCount })}
           </p>
         </div>
       </Link>
@@ -106,7 +101,6 @@ function CategoryRow({
           category={child}
           params={params}
           depth={depth + 1}
-          labels={labels}
           parentSlug={category.slug}
         />
       ))}
@@ -118,15 +112,15 @@ export const CategorySidebar = memo(function CategorySidebar({
   locale,
   gameSlug,
   categories,
-  labels,
 }: Props) {
+  const t = useTranslations("games");
   const params = useSearchParams();
   const hasFilter = Boolean(params.get("category") || params.get("subcategory"));
 
   return (
-    <nav className="space-y-3" aria-label={labels.categories}>
+    <nav className="space-y-3" aria-label={t("categories")}>
       <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-        {labels.categories}
+        {t("categories")}
       </h2>
       <Link
         href={buildHref(locale, gameSlug, params, { category: null, subcategory: null })}
@@ -138,7 +132,7 @@ export const CategorySidebar = memo(function CategorySidebar({
             : "border-border/40 hover:border-neon-purple/30"
         )}
       >
-        {labels.all}
+        {t("allCategories")}
       </Link>
       <div className="space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
         {categories.map((cat) => (
@@ -149,7 +143,6 @@ export const CategorySidebar = memo(function CategorySidebar({
             category={cat}
             params={params}
             depth={0}
-            labels={labels}
           />
         ))}
       </div>
