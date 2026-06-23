@@ -86,7 +86,7 @@ if "large_client_header_buffers 8 32k" not in text:
             brace = text.find("{", idx)
             text = text[: brace + 1] + "\n    large_client_header_buffers 8 32k;\n" + text[brace + 1 :]
 
-if "proxy_buffer_size 128k" not in text:
+if "proxy_buffer_size 128k" not in text and "proxy_http_version 1.1" not in text:
     insert = snippet_path.read_text()
     insert = "\n".join("        " + line if line.strip() else line for line in insert.splitlines())
     needle = "location / {"
