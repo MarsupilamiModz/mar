@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { fail, ok, requireActionOwner } from "@/lib/action-utils";
+import { ok, requireActionOwner } from "@/lib/action-utils";
 import { auditTranslationKeys } from "@/lib/i18n-audit";
 import { clearTranslationCache, getTranslationCacheStats } from "@/lib/translation-cache";
 import {
