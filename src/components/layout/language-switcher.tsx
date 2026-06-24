@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import { useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { locales, localeLabels, localeFlags, type Locale } from "@/i18n/config";
 import { persistUserLocale } from "@/actions/locale";
@@ -37,16 +38,22 @@ export function LanguageSwitcher({
           isActive: true,
         }));
 
+  const [switching, startSwitch] = useTransition();
+
   function switchLocale(next: Locale) {
-    document.cookie = `NEXT_LOCALE=${next};path=/;max-age=31536000;sameSite=lax`;
-    const segments = pathname.split("/");
-    if (locales.includes(segments[1] as Locale)) {
-      segments[1] = next;
-    } else {
-      segments.splice(1, 0, next);
-    }
-    void persistUserLocale(next);
-    router.push(segments.join("/") || `/${next}`);
+    if (next === locale) return;
+    startSwitch(() => {
+      document.cookie = `NEXT_LOCALE=${next};path=/;max-age=31536000;sameSite=lax`;
+      const segments = pathname.split("/");
+      if (locales.includes(segments[1] as Locale)) {
+        segments[1] = next;
+      } else {
+        segments.splice(1, 0, next);
+      }
+      void persistUserLocale(next);
+      router.replace(segments.join("/") || `/${next}`);
+      router.refresh();
+    });
   }
 
   const current = options.find((l) => l.code === locale);
@@ -54,7 +61,7 @@ export function LanguageSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={tNav("language")} className="dark-reader-lock">
+        <Button variant="ghost" size="icon" aria-label={tNav("language")} className="dark-reader-lock" disabled={switching}>
           <span className="text-base leading-none" aria-hidden>
             {current?.flagIcon ?? "🌐"}
           </span>

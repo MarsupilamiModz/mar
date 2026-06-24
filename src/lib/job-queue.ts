@@ -1,7 +1,7 @@
 import { enqueueBackgroundJob } from "@/lib/background-jobs";
 
 export type UploadJobPayload = {
-  kind: "upload-process" | "scan-queue" | "media-repair";
+  kind: "upload-process" | "scan-queue" | "media-repair" | "translation";
   entityId: string;
   userId?: string;
   meta?: Record<string, unknown>;

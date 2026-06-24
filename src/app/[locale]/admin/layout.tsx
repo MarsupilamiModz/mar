@@ -51,6 +51,7 @@ const linkDefs = [
   { href: "/owner", labelKey: "ownerControl", permission: "analytics.read" as const, ownerOnly: true },
   { href: "/owner/users", labelKey: "ownerUserManagement", permission: "analytics.read" as const, ownerOnly: true },
   { href: "/owner/health", labelKey: "healthMonitor", permission: "analytics.read" as const, ownerOnly: true },
+  { href: "/owner/translations", labelKey: "translationCenter", permission: "analytics.read" as const, ownerOnly: true },
   { href: "/diagnostics", labelKey: "diagnostics", permission: "users.read" as const },
   { href: "/security", labelKey: "securityCenter", permission: "settings.write" as const },
   { href: "/api-keys", labelKey: "apiKeysNav", permission: "settings.write" as const },

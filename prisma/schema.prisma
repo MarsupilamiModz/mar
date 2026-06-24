@@ -836,6 +836,7 @@ model Mod {
   reviewCount     Int           @default(0)
   isFeatured      Boolean       @default(false)
   supportedVersions String[]
+  translations    Json?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   publishedAt     DateTime?

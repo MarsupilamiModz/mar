@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/db";
 import { getSiteSetting, setSiteSetting } from "@/lib/site-settings";
 import type { TranslationJob, Prisma } from "@prisma/client";
+import { translateText } from "@/lib/translation-service";
+import { CONTENT_TARGET_LOCALES } from "@/lib/content-translator";
+import { locales } from "@/i18n/config";
 
-const SUPPORTED_LOCALES = ["en", "de", "fr", "es", "tr", "pl"] as const;
+export const SUPPORTED_LOCALES = locales;
 
-export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
+export type SupportedLocale = (typeof locales)[number];
 
 export type EntityTranslationStore = Record<
   string,
@@ -17,6 +20,23 @@ export async function getEntityTranslations(): Promise<EntityTranslationStore> {
   return getSiteSetting(TRANSLATIONS_KEY, {} as EntityTranslationStore);
 }
 
+async function persistModTranslation(
+  modId: string,
+  locale: string,
+  field: string,
+  value: string
+) {
+  const mod = await prisma.mod.findUnique({ where: { id: modId }, select: { translations: true } });
+  if (!mod) return;
+  const translations = (mod.translations as Record<string, Record<string, string>> | null) ?? {};
+  if (!translations[locale]) translations[locale] = {};
+  translations[locale][field] = value;
+  await prisma.mod.update({
+    where: { id: modId },
+    data: { translations: translations as Prisma.InputJsonValue },
+  });
+}
+
 export async function applyApprovedTranslation(job: TranslationJob) {
   if (!job.translatedText) return;
 
@@ -26,6 +46,10 @@ export async function applyApprovedTranslation(job: TranslationJob) {
   if (!store[entityKey][job.targetLocale]) store[entityKey][job.targetLocale] = {};
   store[entityKey][job.targetLocale][job.field] = job.translatedText;
   await setSiteSetting(TRANSLATIONS_KEY, store);
+
+  if (job.entityType === "Mod") {
+    await persistModTranslation(job.entityId, job.targetLocale, job.field, job.translatedText);
+  }
 
   if (job.entityType === "MembershipPlan") {
     const plan = await prisma.membershipPlan.findUnique({ where: { id: job.entityId } });
@@ -39,13 +63,6 @@ export async function applyApprovedTranslation(job: TranslationJob) {
       });
     }
   }
-
-  if (job.entityType === "CreatorProfile" && job.field === "description") {
-    await prisma.creatorProfile.update({
-      where: { id: job.entityId },
-      data: { description: job.translatedText },
-    }).catch(() => null);
-  }
 }
 
 export async function getLocalizedField(
@@ -56,8 +73,22 @@ export async function getLocalizedField(
   fallback: string
 ) {
   if (locale === "en") return fallback;
+
+  if (entityType === "Mod") {
+    const mod = await prisma.mod.findUnique({
+      where: { id: entityId },
+      select: { translations: true },
+    });
+    const fromMod = (mod?.translations as Record<string, Record<string, string>> | null)?.[locale]?.[field];
+    if (fromMod) return fromMod;
+  }
+
   const store = await getEntityTranslations();
-  return store[`${entityType}:${entityId}`]?.[locale]?.[field] ?? fallback;
+  return (
+    store[`${entityType}:${entityId}`]?.[locale]?.[field] ??
+    store[`${entityType}:${entityId}`]?.["en"]?.[field] ??
+    fallback
+  );
 }
 
 export async function getLocalizedModContent(
@@ -76,7 +107,7 @@ export async function getLocalizedModContent(
 }
 
 export function isSupportedLocale(locale: string): locale is SupportedLocale {
-  return SUPPORTED_LOCALES.includes(locale as SupportedLocale);
+  return (SUPPORTED_LOCALES as readonly string[]).includes(locale);
 }
 
 export async function queueTranslation(params: {
@@ -96,13 +127,17 @@ export async function queueTranslation(params: {
       status: { in: ["PENDING", "PROCESSING", "COMPLETED", "APPROVED"] },
     },
   });
-  if (existing) return existing;
+
+  if (existing) {
+    if (existing.sourceText === params.sourceText) return existing;
+    await prisma.translationJob.update({
+      where: { id: existing.id },
+      data: { status: "FAILED", error: "Superseded by updated source text" },
+    });
+  }
 
   return prisma.translationJob.create({
-    data: {
-      ...params,
-      status: "PENDING",
-    },
+    data: { ...params, status: "PENDING" },
   });
 }
 
@@ -115,49 +150,22 @@ export async function processTranslationJob(jobId: string) {
     data: { status: "PROCESSING" },
   });
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    await prisma.translationJob.update({
-      where: { id: jobId },
-      data: { status: "FAILED", error: "OPENAI_API_KEY not configured" },
-    });
-    return null;
-  }
-
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_TRANSLATION_MODEL ?? "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `Translate gaming marketplace content from ${job.sourceLocale} to ${job.targetLocale}. Preserve formatting, mod names, and technical terms. Return only the translation.`,
-          },
-          { role: "user", content: job.sourceText },
-        ],
-        temperature: 0.3,
-      }),
+    const result = await translateText({
+      text: job.sourceText,
+      sourceLocale: job.sourceLocale,
+      targetLocale: job.targetLocale,
+      field: job.field,
+      entityType: job.entityType,
     });
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(err.slice(0, 500));
+    if (result.provider === "fallback" && result.text === job.sourceText && job.targetLocale !== job.sourceLocale) {
+      throw new Error("No translation provider configured");
     }
-
-    const data = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    const translated = data.choices?.[0]?.message?.content?.trim();
-    if (!translated) throw new Error("Empty translation response");
 
     return prisma.translationJob.update({
       where: { id: jobId },
-      data: { status: "COMPLETED", translatedText: translated },
+      data: { status: "COMPLETED", translatedText: result.text },
     });
   } catch (err) {
     await prisma.translationJob.update({
@@ -188,33 +196,26 @@ export async function getPendingTranslations(limit = 50) {
   });
 }
 
-export async function translateModContent(modId: string, sourceLocale = "en") {
+export async function translateModContent(modId: string, sourceLocale?: string) {
   const mod = await prisma.mod.findUnique({ where: { id: modId } });
   if (!mod) return [];
 
-  const jobs = [];
-  for (const locale of SUPPORTED_LOCALES) {
-    if (locale === sourceLocale) continue;
-    jobs.push(
-      queueTranslation({
-        entityType: "Mod",
-        entityId: modId,
-        field: "title",
-        sourceLocale,
-        targetLocale: locale,
-        sourceText: mod.title,
-      }),
-      queueTranslation({
-        entityType: "Mod",
-        entityId: modId,
-        field: "description",
-        sourceLocale,
-        targetLocale: locale,
-        sourceText: mod.description,
-      })
-    );
-  }
-  return Promise.all(jobs);
+  const { scheduleEntityTranslation } = await import("@/lib/translation-worker");
+  await scheduleEntityTranslation({
+    entityType: "Mod",
+    entityId: modId,
+    sourceLocale,
+    fields: {
+      title: mod.title,
+      description: mod.description,
+      shortDescription: mod.shortDescription,
+    },
+  });
+
+  return prisma.translationJob.findMany({
+    where: { entityType: "Mod", entityId: modId, status: "PENDING" },
+    take: CONTENT_TARGET_LOCALES.length * 3,
+  });
 }
 
-export { SUPPORTED_LOCALES };
+export { CONTENT_TARGET_LOCALES };

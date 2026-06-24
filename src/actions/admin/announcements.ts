@@ -97,6 +97,15 @@ export async function createAnnouncement(input: z.infer<typeof schema>) {
     },
   });
   revalidatePath("/");
+
+  void import("@/lib/translation-worker").then(({ scheduleEntityTranslation }) =>
+    scheduleEntityTranslation({
+      entityType: "Announcement",
+      entityId: item.id,
+      fields: { title: item.title, content: item.content },
+    })
+  );
+
   return ok(item);
 }
 

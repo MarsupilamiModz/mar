@@ -1,24 +1,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { locales, type Locale } from "@/i18n/config";
-
-const MESSAGE_MODULES = [
-  "common",
-  "landing",
-  "catalog",
-  "premium",
-  "auth",
-  "dashboard",
-  "admin",
-  "designer",
-  "creator",
-  "support",
-  "licenses",
-  "toast",
-  "ecosystem",
-  "media",
-  "shop",
-] as const;
+import { MESSAGE_MODULES } from "@/lib/translation-missing-keys";
 
 function flattenKeys(obj: Record<string, unknown>, prefix = ""): string[] {
   const keys: string[] = [];
@@ -34,11 +17,10 @@ function flattenKeys(obj: Record<string, unknown>, prefix = ""): string[] {
 }
 
 function loadLocaleKeys(locale: Locale): Set<string> {
-  const root = join(process.cwd(), "src", "messages", locale);
   const merged: Record<string, unknown> = {};
   for (const mod of MESSAGE_MODULES) {
     try {
-      const raw = readFileSync(join(root, `${mod}.json`), "utf8");
+      const raw = readFileSync(join(process.cwd(), "src", "messages", locale, `${mod}.json`), "utf8");
       Object.assign(merged, JSON.parse(raw) as Record<string, unknown>);
     } catch {
       /* missing module file */

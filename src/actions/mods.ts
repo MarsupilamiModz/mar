@@ -146,6 +146,19 @@ export async function createMod(input: z.infer<typeof modCreateSchema> & { autho
   revalidatePath("/creator");
   revalidatePath("/designer");
   revalidatePath("/admin/mods");
+
+  void import("@/lib/translation-worker").then(({ scheduleEntityTranslation }) =>
+    scheduleEntityTranslation({
+      entityType: "Mod",
+      entityId: mod.id,
+      fields: {
+        title: mod.title,
+        description: mod.description,
+        shortDescription: mod.shortDescription,
+      },
+    })
+  );
+
   return ok({ id: mod.id, slug: mod.slug });
 }
 
@@ -298,6 +311,21 @@ export async function updateMod(
     invalidateModCaches(updated.slug);
     revalidatePath(`/mods/${updated.slug}`);
     revalidatePath("/admin/mods");
+
+    if (data.title || data.description || data.shortDescription !== undefined) {
+      void import("@/lib/translation-worker").then(({ scheduleEntityTranslation }) =>
+        scheduleEntityTranslation({
+          entityType: "Mod",
+          entityId: modId,
+          fields: {
+            title: updated.title,
+            description: updated.description,
+            shortDescription: updated.shortDescription,
+          },
+        })
+      );
+    }
+
     return ok(updated);
   } catch (err) {
     console.error("[updateMod]", err);
