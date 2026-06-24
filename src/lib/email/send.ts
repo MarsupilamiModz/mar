@@ -6,6 +6,7 @@ import {
   getEmailSettings,
   resolveEmailPassword,
   type EmailSettings,
+  type SmtpProviderConfig,
 } from "@/lib/email/settings";
 
 export type SendEmailParams = {
@@ -18,18 +19,55 @@ export type SendEmailParams = {
   userId?: string;
 };
 
-function buildTransport(settings: EmailSettings) {
-  const password = resolveEmailPassword(settings);
-  const secure = settings.encryption === "SSL";
+function buildTransportFromConfig(config: {
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpPassword: string;
+  encryption: EmailSettings["encryption"];
+}) {
+  const secure = config.encryption === "SSL";
   return nodemailer.createTransport({
-    host: settings.smtpHost,
-    port: settings.smtpPort,
+    host: config.smtpHost,
+    port: config.smtpPort,
     secure,
-    requireTLS: settings.encryption === "TLS" || settings.encryption === "STARTTLS",
-    auth: settings.smtpUser
-      ? { user: settings.smtpUser, pass: password }
-      : undefined,
+    requireTLS: config.encryption === "TLS" || config.encryption === "STARTTLS",
+    auth: config.smtpUser ? { user: config.smtpUser, pass: config.smtpPassword } : undefined,
   });
+}
+
+function buildTransport(settings: EmailSettings) {
+  return buildTransportFromConfig({
+    smtpHost: settings.smtpHost,
+    smtpPort: settings.smtpPort,
+    smtpUser: settings.smtpUser,
+    smtpPassword: resolveEmailPassword(settings),
+    encryption: settings.encryption,
+  });
+}
+
+async function sendViaSmtpConfig(
+  config: SmtpProviderConfig,
+  settings: EmailSettings,
+  params: SendEmailParams
+): Promise<boolean> {
+  if (!config.enabled || !config.smtpHost || !settings.senderEmail) return false;
+  const transport = buildTransportFromConfig({
+    smtpHost: config.smtpHost,
+    smtpPort: config.smtpPort,
+    smtpUser: config.smtpUser,
+    smtpPassword: config.smtpPassword,
+    encryption: config.encryption,
+  });
+  await transport.sendMail({
+    from: `"${settings.senderName || SITE.name}" <${settings.senderEmail}>`,
+    to: params.to,
+    replyTo: settings.replyToEmail || undefined,
+    subject: params.subject,
+    html: params.html,
+    text: params.text,
+  });
+  return true;
 }
 
 async function sendViaResend(params: SendEmailParams): Promise<boolean> {
@@ -77,8 +115,10 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   const settings = await getEmailSettings();
   let sent = false;
   let lastError: string | null = null;
+  const providerAttempts: string[] = [];
 
   if (settings.enabled && (settings.authMode === "microsoft" || settings.authMode === "graph") && settings.senderEmail) {
+    providerAttempts.push("microsoft");
     try {
       const { sendViaMicrosoftGraph } = await import("@/lib/email/microsoft-graph");
       const { resolveMicrosoftSecret } = await import("@/lib/email/settings");
@@ -101,6 +141,7 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   }
 
   if (!sent && settings.enabled && settings.authMode === "smtp" && settings.smtpHost && settings.senderEmail) {
+    providerAttempts.push("smtp");
     try {
       const transport = buildTransport(settings);
       await transport.sendMail({
@@ -118,7 +159,28 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
     }
   }
 
+  if (!sent && settings.fallbackSes.enabled) {
+    providerAttempts.push("ses");
+    try {
+      sent = await sendViaSmtpConfig(settings.fallbackSes, settings, params);
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : "Amazon SES send failed";
+      console.error("[email] SES error:", lastError);
+    }
+  }
+
+  if (!sent && settings.fallbackBrevo.enabled) {
+    providerAttempts.push("brevo");
+    try {
+      sent = await sendViaSmtpConfig(settings.fallbackBrevo, settings, params);
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : "Brevo send failed";
+      console.error("[email] Brevo error:", lastError);
+    }
+  }
+
   if (!sent) {
+    providerAttempts.push("resend");
     try {
       sent = await sendViaResend(params);
     } catch (err) {
@@ -127,7 +189,7 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   }
 
   if (!sent && !settings.enabled && !process.env.RESEND_API_KEY) {
-    console.warn("[email] No provider configured — logging only");
+    console.warn("[email] No provider configured — logging only", { providers: providerAttempts });
     console.info("[email]", params.subject, "→", recipients);
     lastError = "No email provider configured";
   }

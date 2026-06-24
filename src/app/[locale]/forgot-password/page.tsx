@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
             onSubmit={(e) => {
               e.preventDefault();
               startTransition(async () => {
-                const r = await requestPasswordReset(email);
+                const r = await requestPasswordReset(email, locale);
                 if (r.success) {
                   setSent(true);
                   toast({ title: "Email sent" });

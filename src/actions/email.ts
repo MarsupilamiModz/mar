@@ -1,14 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { createAuditLog } from "@/lib/audit";
 import { fail, ok, requireActionUser } from "@/lib/action-utils";
-import { getAppUrl } from "@/lib/app-url";
-import { isPlaceholderEmail, isValidEmail, normalizeEmail } from "@/lib/email/address";
+import { sendAuthVerificationEmail } from "@/lib/auth-verification-email";
+import { userFriendlyAuthCodeMessage } from "@/lib/auth-errors";
+import { isValidEmail, isPlaceholderEmail, normalizeEmail } from "@/lib/email/address";
 import { sendEmail } from "@/lib/email/send";
+import { logPlatformError } from "@/lib/platform-log";
+import { rateLimit } from "@/lib/rate-limit";
 import { SITE } from "@/lib/site";
 
 const changeEmailSchema = z.object({
@@ -105,15 +109,25 @@ export async function resendVerificationEmail(locale = "en") {
   }
   if (user.emailVerified) return fail("Your email is already verified");
 
-  const supabase = await createClient();
-  const redirectTo = `${getAppUrl()}/api/auth/callback?locale=${locale}&next=/${locale}/dashboard/settings`;
+  const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rl = rateLimit(`verify-resend:${user.id}:${ip}`, 3, 60 * 60 * 1000);
+  if (!rl.success) {
+    return ok({ message: userFriendlyAuthCodeMessage("verification_error", locale) });
+  }
 
-  const { error: resendError } = await supabase.auth.resend({
-    type: "signup",
-    email: user.email,
-    options: { emailRedirectTo: redirectTo },
-  });
-  if (resendError) return fail(resendError.message);
+  try {
+    await sendAuthVerificationEmail({
+      email: user.email,
+      username: user.displayName ?? user.username,
+      locale,
+      type: "magiclink",
+      userId: user.id,
+      redirectPath: `/${locale}/dashboard/settings`,
+    });
+  } catch (err) {
+    void logPlatformError("auth:resend-verification", err);
+    return ok({ message: userFriendlyAuthCodeMessage("verification_error", locale) });
+  }
 
   await createAuditLog({
     actorId: user.id,
@@ -122,5 +136,5 @@ export async function resendVerificationEmail(locale = "en") {
     entityId: user.id,
   });
 
-  return ok({ message: "Verification email sent" });
+  return ok({ message: userFriendlyAuthCodeMessage("verification_error", locale) });
 }

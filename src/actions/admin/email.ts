@@ -14,7 +14,6 @@ import {
   getEmailSettings,
   getEmailSettingsPublic,
   saveEmailSettings,
-  type EmailSettings,
   type SmtpEncryption,
 } from "@/lib/email/settings";
 import { getEmailTemplates, saveEmailTemplate, type EmailTemplateKey } from "@/lib/email/templates";
@@ -41,6 +40,18 @@ const settingsSchema = z.object({
   paymentNotificationEmail: z.string().email().optional().or(z.literal("")),
   adminNotificationEmail: z.string().email().optional().or(z.literal("")),
   contactFormEmail: z.string().email().optional().or(z.literal("")),
+  fallbackSesEnabled: z.boolean().optional(),
+  fallbackSesHost: z.string().max(255).optional(),
+  fallbackSesPort: z.number().int().min(1).max(65535).optional(),
+  fallbackSesUser: z.string().max(255).optional(),
+  fallbackSesPassword: z.string().max(255).optional(),
+  fallbackSesEncryption: z.enum(["SSL", "TLS", "STARTTLS", "NONE"]).optional(),
+  fallbackBrevoEnabled: z.boolean().optional(),
+  fallbackBrevoHost: z.string().max(255).optional(),
+  fallbackBrevoPort: z.number().int().min(1).max(65535).optional(),
+  fallbackBrevoUser: z.string().max(255).optional(),
+  fallbackBrevoPassword: z.string().max(255).optional(),
+  fallbackBrevoEncryption: z.enum(["SSL", "TLS", "STARTTLS", "NONE"]).optional(),
 });
 
 const templateSchema = z.object({
@@ -63,7 +74,48 @@ export async function updateAdminEmailSettings(input: z.infer<typeof settingsSch
   if (!parsed.success) return fail(formatZodError(parsed.error));
 
   return actionTry(async () => {
-    const saved = await saveEmailSettings(parsed.data as Partial<EmailSettings>);
+    const current = await getEmailSettings();
+    const {
+      fallbackSesEnabled,
+      fallbackSesHost,
+      fallbackSesPort,
+      fallbackSesUser,
+      fallbackSesPassword,
+      fallbackSesEncryption,
+      fallbackBrevoEnabled,
+      fallbackBrevoHost,
+      fallbackBrevoPort,
+      fallbackBrevoUser,
+      fallbackBrevoPassword,
+      fallbackBrevoEncryption,
+      ...baseSettings
+    } = parsed.data;
+
+    const saved = await saveEmailSettings({
+      ...baseSettings,
+      fallbackSes: {
+        ...current.fallbackSes,
+        enabled: fallbackSesEnabled ?? current.fallbackSes.enabled,
+        smtpHost: fallbackSesHost ?? current.fallbackSes.smtpHost,
+        smtpPort: fallbackSesPort ?? current.fallbackSes.smtpPort,
+        smtpUser: fallbackSesUser ?? current.fallbackSes.smtpUser,
+        smtpPassword: fallbackSesPassword?.trim()
+          ? fallbackSesPassword
+          : current.fallbackSes.smtpPassword,
+        encryption: (fallbackSesEncryption ?? current.fallbackSes.encryption) as SmtpEncryption,
+      },
+      fallbackBrevo: {
+        ...current.fallbackBrevo,
+        enabled: fallbackBrevoEnabled ?? current.fallbackBrevo.enabled,
+        smtpHost: fallbackBrevoHost ?? current.fallbackBrevo.smtpHost,
+        smtpPort: fallbackBrevoPort ?? current.fallbackBrevo.smtpPort,
+        smtpUser: fallbackBrevoUser ?? current.fallbackBrevo.smtpUser,
+        smtpPassword: fallbackBrevoPassword?.trim()
+          ? fallbackBrevoPassword
+          : current.fallbackBrevo.smtpPassword,
+        encryption: (fallbackBrevoEncryption ?? current.fallbackBrevo.encryption) as SmtpEncryption,
+      },
+    });
     revalidatePath("/admin/email");
     return saved;
   }, "email:save-settings");

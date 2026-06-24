@@ -1,11 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { fail, ok, requireActionUser } from "@/lib/action-utils";
+import { sendAuthVerificationEmail } from "@/lib/auth-verification-email";
 import { uploadAsset } from "@/lib/asset-storage";
+import { isValidEmail, normalizeEmail } from "@/lib/email/address";
+import { logPlatformError } from "@/lib/platform-log";
+import { rateLimit } from "@/lib/rate-limit";
 import { extensionForMime, validateUploadFile } from "@/lib/upload-validation";
 import { slugify } from "@/lib/utils";
 import { revalidateProfileMedia } from "@/lib/media-revalidate";
@@ -105,12 +110,35 @@ export async function applyForCreator(tagline?: string) {
   return ok({ slug: uniqueSlug });
 }
 
-export async function requestPasswordReset(email: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/en/reset-password`,
+export async function requestPasswordReset(email: string, locale = "en") {
+  const normalized = normalizeEmail(email);
+  if (!isValidEmail(normalized)) {
+    return ok(undefined);
+  }
+
+  const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rl = rateLimit(`password-reset:${ip}`, 5, 60 * 60 * 1000);
+  if (!rl.success) return ok(undefined);
+
+  const user = await prisma.user.findFirst({
+    where: { email: normalized, deletedAt: null },
+    select: { id: true, username: true, displayName: true },
   });
-  if (error) return fail(error.message);
+
+  if (!user) return ok(undefined);
+
+  try {
+    await sendAuthVerificationEmail({
+      email: normalized,
+      username: user.displayName ?? user.username,
+      locale,
+      type: "recovery",
+      userId: user.id,
+    });
+  } catch (err) {
+    void logPlatformError("auth:password-reset", err);
+  }
+
   return ok(undefined);
 }
 

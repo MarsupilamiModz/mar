@@ -9,7 +9,8 @@ export type EmailTemplateKey =
   | "creator_approval"
   | "partner_approval"
   | "ticket_created"
-  | "ticket_reply";
+  | "ticket_reply"
+  | "email_verification";
 
 export type EmailTemplate = {
   key: EmailTemplateKey;
@@ -29,6 +30,7 @@ export const TEMPLATE_VARIABLES = [
   "{order_title}",
   "{discord}",
   "{email}",
+  "{verify_link}",
 ] as const;
 
 const KEY = "email_templates";
@@ -81,6 +83,12 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
     name: "Ticket reply notification",
     subject: "Update on ticket {ticket_id}",
     html: `<p>Hi {username},</p><p>There is a new reply on ticket <strong>{ticket_id}</strong>.</p><p>{message}</p>`,
+  },
+  {
+    key: "email_verification",
+    name: "Email verification",
+    subject: "Verify your email — {website_name}",
+    html: `<p>Hi {username},</p><p>Please verify your email address to activate your {website_name} account.</p><p><a href="{verify_link}" style="display:inline-block;padding:12px 20px;background:#a855f7;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">Verify email address</a></p><p style="font-size:12px;color:#71717a">If you did not create this account, you can ignore this email.</p>`,
   },
 ];
 

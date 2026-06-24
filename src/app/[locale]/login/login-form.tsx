@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import { userFriendlyAuthMessage } from "@/lib/auth-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -23,17 +24,20 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   const authError = searchParams.get("error");
+  const verifyPending = searchParams.get("verify") === "pending";
   const discordLinked = searchParams.get("discord") === "linked";
   const authErrorMessage =
-    discordLinked
-      ? "Discord account linked. Sign in with email or Discord to continue."
-      : authError === "db_sync"
-        ? "Account sync failed. Please try again or contact support."
-        : authError === "auth_exchange"
-          ? "Discord sign-in failed. Please try again."
-          : authError
-            ? "Sign-in failed. Please try again."
-            : "";
+    verifyPending
+      ? t("verifyPending")
+      : discordLinked
+        ? t("discordLinked")
+        : authError === "db_sync"
+          ? t("errors.dbSync")
+          : authError === "auth_exchange"
+            ? t("errors.authExchange")
+            : authError
+              ? t("errors.generic")
+              : "";
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +47,7 @@ export function LoginForm() {
     const { error: err } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (err) {
-      setError(err.message);
+      setError(userFriendlyAuthMessage(err.message, locale));
       return;
     }
     window.location.assign(
@@ -72,7 +76,7 @@ export function LoginForm() {
       },
     });
     if (err) {
-      setError(err.message);
+      setError(t("errors.generic"));
       setLoading(false);
     }
   }
@@ -98,7 +102,11 @@ export function LoginForm() {
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="mt-1" />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          {!error && authErrorMessage && <p className="text-sm text-destructive">{authErrorMessage}</p>}
+          {!error && authErrorMessage && (
+            <p className={`text-sm ${verifyPending ? "text-neon-purple" : "text-destructive"}`}>
+              {authErrorMessage}
+            </p>
+          )}
           <Button variant="neon" className="w-full" type="submit" disabled={loading}>
             {t("login")}
           </Button>

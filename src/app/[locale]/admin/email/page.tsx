@@ -25,6 +25,22 @@ const EMPTY_SETTINGS = {
   adminNotificationEmail: "",
   contactFormEmail: "",
   configured: false,
+  fallbackSes: {
+    enabled: false,
+    smtpHost: "",
+    smtpPort: 587,
+    smtpUser: "",
+    encryption: "STARTTLS" as const,
+    passwordSet: false,
+  },
+  fallbackBrevo: {
+    enabled: false,
+    smtpHost: "smtp-relay.brevo.com",
+    smtpPort: 587,
+    smtpUser: "",
+    encryption: "STARTTLS" as const,
+    passwordSet: false,
+  },
 };
 
 export default async function AdminEmailPage({ params }: { params: Promise<{ locale: Locale }> }) {

@@ -50,6 +50,18 @@ function readEmailForm(form: HTMLFormElement) {
     paymentNotificationEmail: fd.get("paymentNotificationEmail") as string,
     adminNotificationEmail: fd.get("adminNotificationEmail") as string,
     contactFormEmail: fd.get("contactFormEmail") as string,
+    fallbackSesEnabled: fd.get("fallbackSesEnabled") === "on",
+    fallbackSesHost: fd.get("fallbackSesHost") as string,
+    fallbackSesPort: Number(fd.get("fallbackSesPort") || 587),
+    fallbackSesUser: fd.get("fallbackSesUser") as string,
+    fallbackSesPassword: (fd.get("fallbackSesPassword") as string) || undefined,
+    fallbackSesEncryption: fd.get("fallbackSesEncryption") as "SSL" | "TLS" | "STARTTLS" | "NONE",
+    fallbackBrevoEnabled: fd.get("fallbackBrevoEnabled") === "on",
+    fallbackBrevoHost: fd.get("fallbackBrevoHost") as string,
+    fallbackBrevoPort: Number(fd.get("fallbackBrevoPort") || 587),
+    fallbackBrevoUser: fd.get("fallbackBrevoUser") as string,
+    fallbackBrevoPassword: (fd.get("fallbackBrevoPassword") as string) || undefined,
+    fallbackBrevoEncryption: fd.get("fallbackBrevoEncryption") as "SSL" | "TLS" | "STARTTLS" | "NONE",
   };
 }
 
@@ -75,7 +87,7 @@ export function EmailSettingsPanel({
           <div>
             <h3 className="font-semibold">Email providers</h3>
             <p className="text-xs text-muted-foreground mt-1">
-              SMTP, Microsoft 365 Business, or Graph API (OAuth2). Falls back to Resend if disabled.
+              Microsoft 365 → Primary SMTP → Amazon SES → Brevo → Resend fallback chain.
             </p>
           </div>
           <Badge variant={settings.configured ? "premium" : "outline"}>
@@ -120,6 +132,48 @@ export function EmailSettingsPanel({
           <Input name="senderName" defaultValue={settings.senderName} placeholder="Sender name" />
           <Input name="replyToEmail" type="email" defaultValue={settings.replyToEmail ?? ""} placeholder="Reply-To address" />
           <select name="encryption" defaultValue={settings.encryption} className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm">
+            <option value="STARTTLS">STARTTLS</option>
+            <option value="TLS">TLS</option>
+            <option value="SSL">SSL</option>
+            <option value="NONE">None</option>
+          </select>
+
+          <div className="sm:col-span-2 pt-2 border-t border-border/40">
+            <p className="text-sm font-medium mb-2">Fallback — Amazon SES</p>
+          </div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" name="fallbackSesEnabled" defaultChecked={settings.fallbackSes.enabled} /> Enable SES fallback
+          </label>
+          <Input name="fallbackSesHost" defaultValue={settings.fallbackSes.smtpHost} placeholder="email-smtp.region.amazonaws.com" />
+          <Input name="fallbackSesPort" type="number" defaultValue={settings.fallbackSes.smtpPort} placeholder="587" />
+          <Input name="fallbackSesUser" defaultValue={settings.fallbackSes.smtpUser} placeholder="SES SMTP username" />
+          <Input
+            name="fallbackSesPassword"
+            type="password"
+            placeholder={settings.fallbackSes.passwordSet ? "•••••••• (unchanged)" : "SES SMTP password"}
+          />
+          <select name="fallbackSesEncryption" defaultValue={settings.fallbackSes.encryption} className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm sm:col-span-2">
+            <option value="STARTTLS">STARTTLS</option>
+            <option value="TLS">TLS</option>
+            <option value="SSL">SSL</option>
+            <option value="NONE">None</option>
+          </select>
+
+          <div className="sm:col-span-2 pt-2 border-t border-border/40">
+            <p className="text-sm font-medium mb-2">Fallback — Brevo</p>
+          </div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" name="fallbackBrevoEnabled" defaultChecked={settings.fallbackBrevo.enabled} /> Enable Brevo fallback
+          </label>
+          <Input name="fallbackBrevoHost" defaultValue={settings.fallbackBrevo.smtpHost} placeholder="smtp-relay.brevo.com" />
+          <Input name="fallbackBrevoPort" type="number" defaultValue={settings.fallbackBrevo.smtpPort} placeholder="587" />
+          <Input name="fallbackBrevoUser" defaultValue={settings.fallbackBrevo.smtpUser} placeholder="Brevo SMTP login" />
+          <Input
+            name="fallbackBrevoPassword"
+            type="password"
+            placeholder={settings.fallbackBrevo.passwordSet ? "•••••••• (unchanged)" : "Brevo SMTP key"}
+          />
+          <select name="fallbackBrevoEncryption" defaultValue={settings.fallbackBrevo.encryption} className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm sm:col-span-2">
             <option value="STARTTLS">STARTTLS</option>
             <option value="TLS">TLS</option>
             <option value="SSL">SSL</option>
