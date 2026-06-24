@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Logo, type LogoBranding } from "@/components/brand/logo";
 import type { FooterSettings } from "@/lib/branding-cms";
+import { getLanguageDisplayCatalog } from "@/lib/language-catalog";
+import { LanguageFlagLabel } from "@/components/i18n/language-flag-label";
 
 function resolveHref(locale: string, href: string) {
   if (href.startsWith("http")) return href;
@@ -103,6 +105,21 @@ export function Footer({
             </div>
           </>
         )}
+      </div>
+      <div className="border-t border-border/40 py-4 px-4 sm:px-6">
+        <div className="mx-auto max-w-7xl flex flex-wrap justify-center gap-3">
+          {getLanguageDisplayCatalog()
+            .filter((l) => l.isActive)
+            .map((l) => (
+              <Link
+                key={l.code}
+                href={`/${l.code}`}
+                className={`rounded-md px-2 py-1 text-xs hover:bg-accent/30 transition-colors ${locale === l.code ? "text-neon-purple" : "text-muted-foreground"}`}
+              >
+                <LanguageFlagLabel language={l} compact />
+              </Link>
+            ))}
+        </div>
       </div>
       <div className="border-t border-border/40 py-6 text-center text-sm text-muted-foreground">
         © {new Date().getFullYear()} {siteName}. {copyright}

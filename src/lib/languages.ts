@@ -1,27 +1,17 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
+import { locales, type Locale } from "@/i18n/config";
 import {
-  extendedLocaleCatalog,
-  localeFlags,
-  localeLabels,
-  locales,
-  type Locale,
-} from "@/i18n/config";
+  enrichLanguageOption,
+  getLanguageDisplayCatalog,
+  type LanguageDisplayOption,
+} from "@/lib/language-catalog";
 
-export type PlatformLanguageOption = {
-  code: string;
-  name: string;
-  flagIcon: string;
-  isActive: boolean;
-};
+export type PlatformLanguageOption = LanguageDisplayOption;
+export { getLanguageDisplayCatalog };
 
 function fallbackLanguages(): PlatformLanguageOption[] {
-  return locales.map((code) => ({
-    code,
-    name: localeLabels[code],
-    flagIcon: localeFlags[code],
-    isActive: true,
-  }));
+  return getLanguageDisplayCatalog([...locales]).filter((l) => l.isActive);
 }
 
 async function fetchPlatformLanguages(): Promise<PlatformLanguageOption[]> {
@@ -32,7 +22,9 @@ async function fetchPlatformLanguages(): Promise<PlatformLanguageOption[]> {
       select: { code: true, name: true, flagIcon: true, isActive: true },
     });
     if (rows.length === 0) return fallbackLanguages();
-    return rows.filter((row) => locales.includes(row.code as Locale));
+    return rows
+      .filter((row) => locales.includes(row.code as Locale))
+      .map((row) => enrichLanguageOption(row));
   } catch {
     return fallbackLanguages();
   }
@@ -40,15 +32,10 @@ async function fetchPlatformLanguages(): Promise<PlatformLanguageOption[]> {
 
 export const getPlatformLanguages = unstable_cache(
   fetchPlatformLanguages,
-  ["platform-languages"],
+  ["platform-languages-v2"],
   { revalidate: 300, tags: ["platform-languages"] }
 );
 
 export function getExtendedLanguageCatalog(): PlatformLanguageOption[] {
-  return Object.entries(extendedLocaleCatalog).map(([code, meta]) => ({
-    code,
-    name: meta.name,
-    flagIcon: meta.flag,
-    isActive: locales.includes(code as Locale),
-  }));
+  return getLanguageDisplayCatalog();
 }

@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LanguageFlagLabel } from "@/components/i18n/language-flag-label";
 import type { PlatformLanguageOption } from "@/lib/languages";
 
 export function LanguageSwitcher({
@@ -30,6 +31,8 @@ export function LanguageSwitcher({
       : locales.map((l) => ({
           code: l,
           name: localeLabels[l],
+          nativeName: localeLabels[l],
+          countryName: "",
           flagIcon: localeFlags[l],
           isActive: true,
         }));
@@ -64,10 +67,7 @@ export function LanguageSwitcher({
             onClick={() => switchLocale(l.code as Locale)}
             className={locale === l.code ? "text-neon-purple font-medium" : ""}
           >
-            <span className="mr-2 text-base leading-none" aria-hidden>
-              {l.flagIcon}
-            </span>
-            {l.name}
+            <LanguageFlagLabel language={l} showCountry />
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

@@ -35,7 +35,9 @@ fi
 
 echo "==> Patching $TARGET"
 
-BACKUP="${TARGET}.bak.$(date +%Y%m%d%H%M%S)"
+BACKUP_DIR="${NGINX_BACKUP_DIR:-/root/nginx-backups}"
+mkdir -p "$BACKUP_DIR"
+BACKUP="${BACKUP_DIR}/$(basename "$TARGET").bak.$(date +%Y%m%d%H%M%S)"
 cp "$TARGET" "$BACKUP"
 echo "Backup: $BACKUP"
 

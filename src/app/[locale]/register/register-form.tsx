@@ -8,6 +8,7 @@ import { sendRegistrationWelcomeEmail } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { AuthLanguagePicker } from "@/components/auth/auth-language-picker";
 import { useState } from "react";
 
 export function RegisterForm() {
@@ -65,6 +66,7 @@ export function RegisterForm() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-16">
+      <AuthLanguagePicker locale={locale} />
       <Card className="glass p-8">
         <h1 className="text-2xl font-bold text-gradient">{t("register")}</h1>
         <form onSubmit={handleRegister} className="mt-6 space-y-4">

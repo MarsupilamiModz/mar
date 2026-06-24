@@ -1,3 +1,5 @@
+import { GLOBAL_LANGUAGE_CATALOG } from "@/lib/language-catalog";
+
 export const locales = ["en", "de", "fr", "es", "tr", "pl"] as const;
 export type Locale = (typeof locales)[number];
 export const defaultLocale: Locale = "en";
@@ -15,16 +17,13 @@ export const localeFlags: Record<Locale, string> = {
 };
 
 /** Extended catalog for admin language management (may use EN fallback until translated). */
-export const extendedLocaleCatalog: Record<string, { name: string; flag: string }> = {
-  en: { name: "English", flag: "🇺🇸" },
-  de: { name: "Deutsch", flag: "🇩🇪" },
-  fr: { name: "Français", flag: "🇫🇷" },
-  es: { name: "Español", flag: "🇪🇸" },
-  it: { name: "Italiano", flag: "🇮🇹" },
-  pl: { name: "Polski", flag: "🇵🇱" },
-  tr: { name: "Türkçe", flag: "🇹🇷" },
-  nl: { name: "Nederlands", flag: "🇳🇱" },
-};
+export const extendedLocaleCatalog: Record<string, { name: string; flag: string; nativeName?: string; countryName?: string }> =
+  Object.fromEntries(
+    GLOBAL_LANGUAGE_CATALOG.map((e) => [
+      e.code,
+      { name: e.name, flag: e.flag, nativeName: e.nativeName, countryName: e.countryName },
+    ])
+  );
 
 export const localeLabels: Record<Locale, string> = {
   en: "English",

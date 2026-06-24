@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Logo } from "@/components/brand/logo";
+import { AuthLanguagePicker } from "@/components/auth/auth-language-picker";
 import { resolveLoginRedirect } from "@/lib/auth-redirect";
 import { useState } from "react";
 
@@ -78,6 +79,7 @@ export function LoginForm() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-16">
+      <AuthLanguagePicker locale={locale} />
       <div className="mb-8 flex justify-center"><Logo /></div>
       <Card className="glass p-8">
         <h1 className="text-2xl font-bold text-gradient">{t("login")}</h1>

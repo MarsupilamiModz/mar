@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionPermission } from "@/lib/action-utils";
+import { fail, ok, requireActionPermission, requireActionUser } from "@/lib/action-utils";
 import type { ModStatus, ProductType } from "@prisma/client";
+import { logSecurityEvent } from "@/lib/security/audit";
 
 export type MediaSection =
   | "mods"
@@ -12,7 +13,57 @@ export type MediaSection =
   | "modpacks"
   | "screenshots"
   | "videos"
-  | "downloads";
+  | "downloads"
+  | "avatars"
+  | "banners"
+  | "files";
+
+export type BulkMediaAction =
+  | "approve"
+  | "reject"
+  | "feature"
+  | "archive"
+  | "delete"
+  | "changeGame"
+  | "changeOwner";
+
+async function approveModsWithManualScan(modIds: string[], adminId: string) {
+  const versions = await prisma.modVersion.findMany({
+    where: { modId: { in: modIds }, isPrimary: true },
+    include: { mod: { select: { slug: true } } },
+  });
+
+  for (const version of versions) {
+    if (version.scanStatus === "MALWARE") continue;
+    await prisma.$transaction(async (tx) => {
+      await tx.modVersion.update({
+        where: { id: version.id },
+        data: { scanStatus: "APPROVED", scannedAt: new Date(), isPrimary: true },
+      });
+      await tx.mod.update({
+        where: { id: version.modId },
+        data: { status: "PUBLISHED" },
+      });
+      await tx.securityReview.create({
+        data: {
+          modVersionId: version.id,
+          status: "approved",
+          approvedById: adminId,
+          approvedAt: new Date(),
+          reason: "Manual media center approval",
+          notes: "Manually reviewed and approved via Media Center",
+        },
+      });
+    });
+    await logSecurityEvent({
+      action: "APPROVAL",
+      modVersionId: version.id,
+      modId: version.modId,
+      userId: adminId,
+      metadata: { source: "media-center-bulk" },
+    });
+  }
+}
 
 export async function getAdminMediaCenter(input: {
   section?: MediaSection;
@@ -49,9 +100,19 @@ export async function getAdminMediaCenter(input: {
         skip,
         take: limit,
         orderBy: { updatedAt: "desc" },
-        include: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          status: true,
+          isFeatured: true,
           game: { select: { name: true } },
           author: { select: { username: true } },
+          versions: {
+            where: { isPrimary: true },
+            take: 1,
+            select: { id: true, scanStatus: true, version: true },
+          },
         },
       }),
       prisma.mod.count({ where }),
@@ -95,6 +156,49 @@ export async function getAdminMediaCenter(input: {
     return ok({ section, items, total, pages: Math.ceil(total / limit), page });
   }
 
+  if (section === "avatars") {
+    const [items, total] = await Promise.all([
+      prisma.mediaFile.findMany({
+        where: { entityType: "USER_AVATAR" },
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: { uploadedBy: { select: { username: true } } },
+      }),
+      prisma.mediaFile.count({ where: { entityType: "USER_AVATAR" } }),
+    ]);
+    return ok({ section, items, total, pages: Math.ceil(total / limit), page });
+  }
+
+  if (section === "banners") {
+    const [items, total] = await Promise.all([
+      prisma.mediaFile.findMany({
+        where: { entityType: { in: ["CREATOR_BANNER", "PARTNER_LOGO"] } },
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: { uploadedBy: { select: { username: true } } },
+      }),
+      prisma.mediaFile.count({
+        where: { entityType: { in: ["CREATOR_BANNER", "PARTNER_LOGO"] } },
+      }),
+    ]);
+    return ok({ section, items, total, pages: Math.ceil(total / limit), page });
+  }
+
+  if (section === "files") {
+    const [items, total] = await Promise.all([
+      prisma.mediaFile.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: { uploadedBy: { select: { username: true } } },
+      }),
+      prisma.mediaFile.count(),
+    ]);
+    return ok({ section, items, total, pages: Math.ceil(total / limit), page });
+  }
+
   if (section === "videos") {
     const [items, total] = await Promise.all([
       prisma.modVideo.findMany({
@@ -130,10 +234,14 @@ export async function getAdminMediaCenter(input: {
 export async function bulkMediaAction(input: {
   section: MediaSection;
   ids: string[];
-  action: "approve" | "reject" | "feature" | "archive" | "delete";
+  action: BulkMediaAction;
+  gameId?: string;
+  ownerId?: string;
 }) {
-  const { error } = await requireActionPermission("mods.write");
+  const { user, error } = await requireActionUser();
   if (error) return error;
+  const perm = await requireActionPermission("mods.write");
+  if (perm.error) return perm.error;
   if (!input.ids.length) return fail("No items selected");
 
   const { section, ids, action } = input;
@@ -144,15 +252,29 @@ export async function bulkMediaAction(input: {
         where: { id: { in: ids } },
         data: { status: "ARCHIVED", visibility: "PRIVATE" },
       });
+    } else if (action === "approve") {
+      await prisma.mod.updateMany({
+        where: { id: { in: ids } },
+        data: { status: "PUBLISHED" },
+      });
+      await approveModsWithManualScan(ids, user!.id);
+    } else if (action === "changeGame" && input.gameId) {
+      await prisma.mod.updateMany({
+        where: { id: { in: ids } },
+        data: { gameId: input.gameId },
+      });
+    } else if (action === "changeOwner" && input.ownerId) {
+      await prisma.mod.updateMany({
+        where: { id: { in: ids } },
+        data: { authorId: input.ownerId },
+      });
     } else {
       const data =
-        action === "approve"
-          ? { status: "PUBLISHED" as ModStatus }
-          : action === "reject"
-            ? { status: "REJECTED" as ModStatus }
-            : action === "archive"
-              ? { status: "ARCHIVED" as ModStatus }
-              : { isFeatured: true };
+        action === "reject"
+          ? { status: "REJECTED" as ModStatus }
+          : action === "archive"
+            ? { status: "ARCHIVED" as ModStatus }
+            : { isFeatured: true };
       await prisma.mod.updateMany({ where: { id: { in: ids } }, data });
     }
   } else if (section === "collections") {
@@ -170,14 +292,22 @@ export async function bulkMediaAction(input: {
       });
     } else if (action === "feature") {
       await prisma.modCollection.updateMany({ where: { id: { in: ids } }, data: { isFeatured: true } });
+    } else if (action === "changeOwner" && input.ownerId) {
+      await prisma.modCollection.updateMany({
+        where: { id: { in: ids } },
+        data: { ownerId: input.ownerId },
+      });
     }
   } else if (section === "screenshots") {
-    if (action === "delete") await prisma.modScreenshot.deleteMany({ where: { id: { in: ids } } });
+    if (action === "delete") await prisma.modMedia.deleteMany({ where: { id: { in: ids } } });
   } else if (section === "videos") {
     if (action === "delete") await prisma.modVideo.deleteMany({ where: { id: { in: ids } } });
+  } else if (section === "avatars" || section === "banners" || section === "files") {
+    if (action === "delete") await prisma.mediaFile.deleteMany({ where: { id: { in: ids } } });
   }
 
   revalidatePath("/admin/media");
   revalidatePath("/admin/mods");
+  revalidatePath("/admin/security");
   return ok(undefined);
 }

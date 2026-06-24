@@ -12,7 +12,7 @@ if [[ ! -f "$TARGET" ]]; then
   exit 1
 fi
 
-cp "$TARGET" "${TARGET}.bak.fix-$(date +%Y%m%d%H%M%S)"
+cp "$TARGET" "${BACKUP_DIR}/$(basename "$TARGET").bak.fix-$(date +%Y%m%d%H%M%S)"
 
 python3 - "$TARGET" <<'PY'
 import sys
