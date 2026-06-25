@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSoundStreamInfo } from "@/actions/sounds";
+import { mimeFromFileName } from "@/lib/sound-storage";
 
 /** Same-origin audio proxy — avoids CORS issues with presigned R2 URLs. */
 export async function GET(
@@ -22,8 +23,10 @@ export async function GET(
   }
 
   const headers = new Headers();
-  const contentType = upstream.headers.get("content-type") ?? "audio/mpeg";
-  headers.set("Content-Type", contentType);
+  const contentType =
+    result.data.contentType ??
+    (result.data.previewFileName ? mimeFromFileName(result.data.previewFileName) : "audio/mpeg");
+  headers.set("Content-Type", contentType.startsWith("audio/") ? contentType : "audio/mpeg");
   headers.set("Accept-Ranges", "bytes");
   headers.set("Cache-Control", "private, max-age=300");
 

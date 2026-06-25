@@ -35,6 +35,7 @@ import { getInlineBadgesForUsers } from "@/lib/user-badges";
 import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import { ModPurchaseButton } from "@/components/mods/mod-purchase-button";
 import { ModSecurityPanel } from "@/components/security/mod-security-panel";
+import { SoundApprovalPanel } from "@/components/sounds/sound-approval-panel";
 import { SoundProductPlayer } from "@/components/sounds/sound-product-player";
 import { resolveSoundScanStatus } from "@/lib/sound-security";
 import { formatCreditsFromCents } from "@/lib/credits";
@@ -308,11 +309,19 @@ export default async function ModDetailPage({
             )}
 
             <div className="mt-4">
+              {isSound && soundProfile ? (
+              <SoundApprovalPanel
+                approvalStatus={soundProfile.approvalStatus}
+                previewScanStatus={soundProfile.previewScanStatus}
+                approvedAt={soundProfile.approvedAt}
+              />
+            ) : (
               <ModSecurityPanel
                 scanStatus={securityStatus}
                 scannedAt={securityScannedAt}
                 isTrusted={isTrustedFile}
               />
+            )}
             </div>
           </Card>
         </div>

@@ -226,6 +226,19 @@ export async function getUserAchievements(userId: string, locale = "en") {
     include: { achievement: true },
     orderBy: [{ isShowcased: "desc" }, { showcaseOrder: "asc" }, { unlockedAt: "desc" }],
   });
+
+  const granterIds = Array.from(
+    new Set(rows.map((r) => r.grantedById).filter((id): id is string => Boolean(id)))
+  );
+  const granters =
+    granterIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: granterIds } },
+          select: { id: true, username: true, displayName: true },
+        })
+      : [];
+  const granterMap = new Map(granters.map((g) => [g.id, g]));
+
   return rows.map((r) => ({
     ...r,
     ...localizedAchievement(r.achievement, locale),
@@ -233,6 +246,7 @@ export async function getUserAchievements(userId: string, locale = "en") {
     icon: r.achievement.icon,
     animated: r.achievement.animated,
     glowEffect: r.achievement.glowEffect,
+    grantedBy: r.grantedById ? granterMap.get(r.grantedById) ?? null : null,
   }));
 }
 

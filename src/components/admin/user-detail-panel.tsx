@@ -58,6 +58,19 @@ type UserDetail = {
   _count: { downloads: number; favorites: number; mods: number };
 };
 
+import { UserAchievementsPanel } from "@/components/admin/user-achievements-panel";
+import type { getAdminAchievements, getUserAchievementsAdmin } from "@/actions/admin/achievements";
+
+type UserAchievementAdmin = Extract<
+  Awaited<ReturnType<typeof getUserAchievementsAdmin>>,
+  { success: true }
+>["data"][number];
+
+type AchievementOption = Extract<
+  Awaited<ReturnType<typeof getAdminAchievements>>,
+  { success: true }
+>["data"][number];
+
 export function UserDetailPanel({
   locale,
   user,
@@ -67,6 +80,8 @@ export function UserDetailPanel({
   membershipState = null,
   billingHistory = [],
   emailLogs = [],
+  userAchievements = [],
+  allAchievements = [],
 }: {
   locale: string;
   user: UserDetail;
@@ -104,6 +119,8 @@ export function UserDetailPanel({
     sentAt: Date | null;
     createdAt: Date;
   }[];
+  userAchievements?: UserAchievementAdmin[];
+  allAchievements?: AchievementOption[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -381,6 +398,14 @@ export function UserDetailPanel({
             )}
           </CardContent>
         </Card>
+
+        {allAchievements.length > 0 && (
+          <UserAchievementsPanel
+            userId={user.id}
+            initialAchievements={userAchievements}
+            allAchievements={allAchievements}
+          />
+        )}
 
         <Card className="glass lg:col-span-2">
           <CardHeader><CardTitle>Audit Log</CardTitle></CardHeader>

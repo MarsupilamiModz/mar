@@ -24,6 +24,8 @@ import { ASSIGNABLE_ROLES } from "@/lib/permission-types";
 import { formatDisplayName } from "@/lib/display-name";
 import { formatRoleLabel, roleBadgeVariant } from "@/lib/role-display";
 import { safeToLocaleDateString } from "@/lib/i18n/safe-locale";
+import { UserAchievementsPanel } from "@/components/admin/user-achievements-panel";
+import type { getAdminAchievements, getUserAchievementsAdmin } from "@/actions/admin/achievements";
 
 type OwnerUserDetail = {
   id: string;
@@ -73,10 +75,22 @@ type OwnerUserDetail = {
   _count: { downloads: number; favorites: number; mods: number; supportTickets: number };
 };
 
+type UserAchievementAdmin = Extract<
+  Awaited<ReturnType<typeof getUserAchievementsAdmin>>,
+  { success: true }
+>["data"][number];
+
+type AchievementOption = Extract<
+  Awaited<ReturnType<typeof getAdminAchievements>>,
+  { success: true }
+>["data"][number];
+
 export function OwnerUserDetailPanel({
   locale,
   user,
   auditLogs,
+  userAchievements,
+  allAchievements,
 }: {
   locale: string;
   user: OwnerUserDetail;
@@ -86,6 +100,8 @@ export function OwnerUserDetailPanel({
     createdAt: Date;
     actor: { username: string; role: string } | null;
   }[];
+  userAchievements: UserAchievementAdmin[];
+  allAchievements: AchievementOption[];
 }) {
   const router = useRouter();
   const appToast = useAppToast();
@@ -257,6 +273,12 @@ export function OwnerUserDetailPanel({
           ))}
         </div>
       </Card>
+
+      <UserAchievementsPanel
+        userId={user.id}
+        initialAchievements={userAchievements}
+        allAchievements={allAchievements}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="glass p-4">

@@ -34,6 +34,7 @@ export default async function AchievementsPage({ params }: { params: Promise<{ l
             unlockedAt: a.unlockedAt,
             isShowcased: a.isShowcased,
             showcaseOrder: a.showcaseOrder,
+            grantedBy: a.grantedBy,
           }))}
           xp={progress?.xp ?? 0}
           level={progress?.level ?? 1}

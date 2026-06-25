@@ -16,7 +16,7 @@ import { getMediaSettings } from "@/lib/media-settings";
 import { assertCollectionCoverAccess } from "@/lib/api-auth";
 import { isAudioFileName, MAX_PREVIEW_BYTES } from "@/lib/sound";
 import { parseUploadFileName } from "@/lib/archive-meta";
-import { createSoundFileId, soundPreviewStorageKey } from "@/lib/sound-storage";
+import { createSoundFileId, mimeFromFileName, soundPreviewStorageKey } from "@/lib/sound-storage";
 
 const purposeSchema = z.enum([
   "mod-version",
@@ -154,7 +154,16 @@ export async function POST(req: Request) {
     }
 
     const parsedFile = parseUploadFileName(fileName, contentType);
-    const { safeName, originalFileName, originalExtension, mimeType: resolvedMime } = parsedFile;
+    const { safeName, originalFileName, originalExtension } = parsedFile;
+    let resolvedMime = parsedFile.mimeType;
+    if (purpose === "sound-preview" || purpose === "sound-cover") {
+      const audioMime = mimeFromFileName(fileName);
+      if (audioMime !== "application/octet-stream") {
+        resolvedMime = audioMime;
+      } else if (contentType.startsWith("audio/")) {
+        resolvedMime = contentType;
+      }
+    }
     let fileKey: string;
     let soundFileId: string | undefined;
 

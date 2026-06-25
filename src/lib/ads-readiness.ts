@@ -17,6 +17,9 @@ export type AdSenseReadinessReport = {
   publisherId: string;
   allOk: boolean;
   warnings: string[];
+  lastCheckedAt: string;
+  adsTxtUrl: string;
+  adsTxtReachable: boolean;
 };
 
 export async function getAdSenseReadinessReport(): Promise<AdSenseReadinessReport> {
@@ -24,14 +27,17 @@ export async function getAdSenseReadinessReport(): Promise<AdSenseReadinessRepor
   const publisherId = resolveAdsenseClientId(settings);
   const checks: AdSenseReadinessCheck[] = [];
   const warnings: string[] = [];
+  const lastCheckedAt = new Date().toISOString();
+  const appUrl = getAppUrl();
+  const adsTxtUrl = `${appUrl.replace(/\/$/, "")}/ads.txt`;
 
   const scriptEnabled = settings.adsenseGlobalScriptEnabled !== false;
   checks.push({
     id: "script",
-    label: "Script configured",
+    label: "AdSense script configured",
     ok: scriptEnabled && Boolean(publisherId),
     detail: scriptEnabled
-      ? `Publisher ${publisherId} — loaded globally via next/script`
+      ? `Publisher ${publisherId} — loaded globally`
       : "Global AdSense script disabled in settings",
   });
 
@@ -44,32 +50,58 @@ export async function getAdSenseReadinessReport(): Promise<AdSenseReadinessRepor
 
   let adsTxtOk = false;
   let adsTxtDetail = "Not found";
+  let adsTxtReachable = false;
+
   try {
     const filePath = path.join(process.cwd(), "public", "ads.txt");
     const content = await readFile(filePath, "utf8");
     const expectedLine = buildAdsTxtLine(publisherId);
     adsTxtOk = content.includes("google.com") && content.includes("pub-");
     adsTxtDetail = adsTxtOk
-      ? `/ads.txt present (${content.trim().split("\n").length} line(s))`
+      ? `public/ads.txt (${content.trim().split("\n").length} line(s))`
       : "ads.txt missing google.com entry";
     if (adsTxtOk && !content.includes(publisherId.replace("ca-pub-", "pub-"))) {
       warnings.push("ads.txt publisher ID may not match current AdSense client ID");
     }
-    if (!content.includes(expectedLine.split(",")[1]?.trim() ?? "pub-")) {
-      warnings.push(`Expected ads.txt line: ${expectedLine}`);
+    if (!content.trim().includes(expectedLine)) {
+      warnings.push(`Expected: ${expectedLine}`);
     }
   } catch {
-    adsTxtDetail = "public/ads.txt not readable";
+    adsTxtDetail = "public/ads.txt not readable — save AdSense settings to regenerate";
+  }
+
+  try {
+    const res = await fetch(adsTxtUrl, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const body = await res.text();
+      adsTxtReachable = body.includes("google.com") && body.includes("pub-");
+      if (adsTxtReachable) {
+        adsTxtOk = true;
+        adsTxtDetail = `Live ${adsTxtUrl} reachable`;
+      } else {
+        warnings.push("Live ads.txt response missing google.com publisher line");
+      }
+    } else {
+      warnings.push(`Live ads.txt returned HTTP ${res.status}`);
+    }
+  } catch {
+    warnings.push(`Could not fetch live ${adsTxtUrl} — verify nginx/static serving`);
   }
 
   checks.push({
     id: "ads_txt",
-    label: "ads.txt found",
-    ok: adsTxtOk,
+    label: "ads.txt reachable",
+    ok: adsTxtOk && adsTxtReachable,
     detail: adsTxtDetail,
   });
 
-  const appUrl = getAppUrl();
+  checks.push({
+    id: "ads_txt_live",
+    label: "No auth redirect on ads.txt",
+    ok: adsTxtReachable,
+    detail: adsTxtReachable ? "Public text response confirmed" : "Fetch failed or blocked",
+  });
+
   const httpsOk = appUrl.startsWith("https://");
   checks.push({
     id: "https",
@@ -80,7 +112,7 @@ export async function getAdSenseReadinessReport(): Promise<AdSenseReadinessRepor
 
   checks.push({
     id: "domain",
-    label: "Domain reachable",
+    label: "Domain configured",
     ok: Boolean(SITE.url),
     detail: SITE.url || appUrl,
   });
@@ -100,5 +132,5 @@ export async function getAdSenseReadinessReport(): Promise<AdSenseReadinessRepor
   }
 
   const allOk = checks.every((c) => c.ok);
-  return { checks, publisherId, allOk, warnings };
+  return { checks, publisherId, allOk, warnings, lastCheckedAt, adsTxtUrl, adsTxtReachable };
 }

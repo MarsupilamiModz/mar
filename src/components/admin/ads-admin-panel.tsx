@@ -148,7 +148,14 @@ export function AdsAdminPanel({ data }: Props) {
             </div>
           )}
           <p className="text-xs text-muted-foreground">
-            ads.txt: <a className="underline" href="/ads.txt" target="_blank" rel="noreferrer">/ads.txt</a>
+            Last check: {new Date(data.readiness.lastCheckedAt).toLocaleString()} ·{" "}
+            <a className="underline" href={data.readiness.adsTxtUrl} target="_blank" rel="noreferrer">
+              {data.readiness.adsTxtUrl}
+            </a>
+            {data.readiness.adsTxtReachable ? " · ✓ reachable" : " · ✗ not reachable"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Static file: <a className="underline" href="/ads.txt" target="_blank" rel="noreferrer">/ads.txt</a>
           </p>
         </Card>
       )}

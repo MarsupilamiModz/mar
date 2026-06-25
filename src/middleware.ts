@@ -76,6 +76,14 @@ function withPathnameHeader(request: NextRequest, pathname: string) {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
+  if (
+    pathname === "/ads.txt" ||
+    pathname === "/robots.txt" ||
+    pathname.startsWith("/sitemap")
+  ) {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/api")) {
     if (pathname.startsWith("/api/auth/callback") || isStatelessApi(pathname)) {
       return NextResponse.next();

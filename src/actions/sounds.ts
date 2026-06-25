@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { fail, ok, requireActionUser } from "@/lib/action-utils";
+import { fail, ok, requireActionOwner, requireActionUser } from "@/lib/action-utils";
 import { hasPermission } from "@/lib/permissions";
 import { getSignedDownloadUrl } from "@/lib/r2";
 import { resolveAssetUrl } from "@/lib/assets";
@@ -231,7 +231,13 @@ export async function getSoundStreamInfo(modId: string) {
     durationSeconds
   );
 
-  const url = await getSignedDownloadUrl(profile.previewFileKey!, 600);
+  if (!profile.previewFileKey) {
+    return fail("Sound preview file missing");
+  }
+
+  const previewFileKey = profile.previewFileKey;
+  const url = await getSignedDownloadUrl(previewFileKey, 600);
+  const previewFileName = previewFileKey.split("/").pop() ?? "preview.mp3";
 
   return ok({
     modId: mod.id,
@@ -241,9 +247,12 @@ export async function getSoundStreamInfo(modId: string) {
     coverUrl: profile.coverImageKey ? resolveAssetUrl(profile.coverImageKey) : null,
     streamUrl: url,
     playbackUrl: `/api/sounds/${modId}/audio`,
+    contentType: mimeFromFileName(previewFileName),
+    previewFileName,
     durationSeconds,
     previewLimitSeconds: limit,
     waveformPeaks: (profile.waveformPeaks as number[] | null) ?? null,
+    approvalStatus: profile.approvalStatus,
   });
 }
 
@@ -270,6 +279,70 @@ export async function recordSoundPlay(modId: string, ipHash?: string) {
     ]);
   }
   return ok(undefined);
+}
+
+export async function getOwnerSoundAnalytics() {
+  const { error } = await requireActionOwner();
+  if (error) return error;
+
+  const weekAgo = new Date(Date.now() - 7 * 86400000);
+
+  const [topPlayed, playAgg, playsLast7Days, topDownloads, pendingReview, invalidAudio] = await Promise.all([
+    prisma.mod.findMany({
+      where: { productType: "SOUND", status: "PUBLISHED", soundProfile: { isNot: null } },
+      orderBy: { soundProfile: { playCount: "desc" } },
+      take: 10,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        downloadCount: true,
+        author: { select: { username: true, displayName: true } },
+        soundProfile: { select: { playCount: true, durationSeconds: true, previewDurationSeconds: true } },
+      },
+    }),
+    prisma.soundProfile.aggregate({ _sum: { playCount: true }, _count: { id: true } }),
+    prisma.soundPlay.count({ where: { createdAt: { gte: weekAgo } } }),
+    prisma.mod.findMany({
+      where: { productType: "SOUND", status: "PUBLISHED" },
+      orderBy: { downloadCount: "desc" },
+      take: 5,
+      select: { title: true, slug: true, downloadCount: true },
+    }),
+    prisma.soundProfile.count({
+      where: { approvalStatus: { in: ["PENDING_REVIEW", "REVIEW_REQUIRED"] } },
+    }),
+    prisma.soundProfile.count({
+      where: {
+        OR: [
+          { AND: [{ durationSeconds: null }, { previewDurationSeconds: null }] },
+          { previewScanStatus: "FAILED" },
+        ],
+      },
+    }),
+  ]);
+
+  const totalPlays = playAgg._sum.playCount ?? 0;
+  const soundCount = playAgg._count.id;
+
+  return ok({
+    totalPlays,
+    soundCount,
+    playsLast7Days,
+    avgPlaysPerSound: soundCount > 0 ? Math.round(totalPlays / soundCount) : 0,
+    pendingReview,
+    invalidAudio,
+    topPlayed: topPlayed.map((m) => ({
+      id: m.id,
+      title: m.title,
+      slug: m.slug,
+      plays: m.soundProfile?.playCount ?? 0,
+      downloads: m.downloadCount,
+      author: m.author.displayName ?? m.author.username,
+      durationSeconds: m.soundProfile?.previewDurationSeconds ?? m.soundProfile?.durationSeconds ?? null,
+    })),
+    topDownloads,
+  });
 }
 
 export async function getCreatorSoundAnalytics(userId: string) {

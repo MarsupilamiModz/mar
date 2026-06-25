@@ -63,7 +63,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       const a = audioRef.current;
       if (!a) return;
       setProgress(a.currentTime);
-      setDuration(a.duration || 0);
+      const metaDuration =
+        a.duration && Number.isFinite(a.duration) && a.duration > 0
+          ? a.duration
+          : current?.durationSeconds ?? 0;
+      setDuration(metaDuration);
       const limit = current?.previewLimitSeconds;
       if (limit && a.currentTime >= limit) {
         a.pause();
@@ -109,6 +113,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     setQueue(q);
     setQueueIndex(idx >= 0 ? idx : 0);
     setCurrent(track);
+    setDuration(track.durationSeconds ?? 0);
     a.src = track.streamUrl;
     a.currentTime = 0;
     void a.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));

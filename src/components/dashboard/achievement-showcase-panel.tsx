@@ -35,6 +35,7 @@ type AchievementRow = {
   unlockedAt: Date;
   isShowcased: boolean;
   showcaseOrder: number | null;
+  grantedBy?: { username: string; displayName: string | null } | null;
 };
 
 const RARITY_RANK: Record<AchievementRarity, number> = {
@@ -199,7 +200,8 @@ export function AchievementShowcasePanel({
                   <p className="text-sm font-medium truncate">{a.name}</p>
                   {a.description && <p className="text-xs text-muted-foreground line-clamp-2">{a.description}</p>}
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Unlocked {safeToLocaleDateString(new Date(a.unlockedAt))}
+                    {a.rarity} · Unlocked {safeToLocaleDateString(new Date(a.unlockedAt))}
+                    {a.grantedBy && ` · by @${a.grantedBy.username}`}
                   </p>
                 </div>
                 <Button

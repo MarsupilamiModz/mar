@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getUserDetail, getUserEmailLogs } from "@/actions/admin/users";
+import { getUserAchievementsAdmin, getAdminAchievements } from "@/actions/admin/achievements";
 import { getAdminMembershipPlans } from "@/actions/admin/memberships";
 import { getAdminUserMembership } from "@/actions/admin/user-membership";
 import { getAdminPermissionGroups } from "@/actions/admin/branding";
@@ -15,12 +16,15 @@ export default async function AdminUserDetailPage({
 }) {
   const { locale, id } = await params;
 
-  const [result, plansResult, groupsResult, membershipResult, emailLogsResult] = await Promise.all([
+  const [result, plansResult, groupsResult, membershipResult, emailLogsResult, userAchievements, allAchievements] =
+    await Promise.all([
     getUserDetail(id),
     getAdminMembershipPlans(),
     getAdminPermissionGroups(),
     getAdminUserMembership(id),
     getUserEmailLogs(id),
+    getUserAchievementsAdmin(id),
+    getAdminAchievements(),
   ]);
   if (!result.success) notFound();
   const plans = plansResult.success ? plansResult.data : [];
@@ -48,6 +52,8 @@ export default async function AdminUserDetailPage({
         membershipState={membership?.state ?? null}
         billingHistory={membership?.billingHistory ?? []}
         emailLogs={emailLogs}
+        userAchievements={userAchievements.success ? userAchievements.data : []}
+        allAchievements={allAchievements.success ? allAchievements.data : []}
       />
     </div>
   );
