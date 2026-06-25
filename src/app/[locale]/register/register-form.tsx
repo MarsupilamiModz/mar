@@ -1,28 +1,61 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
-import { registerUser } from "@/actions/register";
+import { registerUser, validateReferralCode } from "@/actions/register";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { AuthLanguagePicker } from "@/components/auth/auth-language-picker";
 import { TurnstileWidget, getDeviceFingerprint, isTurnstileConfigured } from "@/components/auth/turnstile-widget";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { normalizeReferralCode } from "@/lib/referral-cookie";
 
 export function RegisterForm() {
   const t = useTranslations("auth");
   const params = useParams();
+  const searchParams = useSearchParams();
   const locale = params.locale as string;
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const [promoHint, setPromoHint] = useState<string | null>(null);
+  const [promoValidating, setPromoValidating] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const turnstileRequired = isTurnstileConfigured();
+
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref?.trim()) {
+      setPromoCode(normalizeReferralCode(ref));
+    }
+  }, [searchParams]);
+
+  async function checkPromoCode(code: string) {
+    const normalized = normalizeReferralCode(code);
+    if (!normalized) {
+      setPromoHint(null);
+      return;
+    }
+    setPromoValidating(true);
+    const result = await validateReferralCode(normalized);
+    setPromoValidating(false);
+    if (result.success) {
+      setPromoHint(
+        t("promoCodeValid", {
+          days: result.data.premiumDays,
+          tier: result.data.premiumType.replace("_", " "),
+        })
+      );
+    } else {
+      setPromoHint(t("promoCodeInvalid"));
+    }
+  }
 
   async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,6 +72,7 @@ export function RegisterForm() {
       turnstileToken: turnstileToken || undefined,
       website,
       fingerprint: getDeviceFingerprint(),
+      promoCode: promoCode.trim() || undefined,
     });
 
     setLoading(false);
@@ -91,6 +125,28 @@ export function RegisterForm() {
           <div>
             <label className="text-sm">{t("password")}</label>
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className="mt-1" />
+          </div>
+          <div>
+            <label className="text-sm">{t("promoCode")}</label>
+            <Input
+              value={promoCode}
+              onChange={(e) => {
+                setPromoCode(e.target.value.toUpperCase());
+                setPromoHint(null);
+              }}
+              onBlur={(e) => void checkPromoCode(e.target.value)}
+              placeholder={t("promoCodePlaceholder")}
+              className="mt-1 font-mono uppercase tracking-wider"
+              autoComplete="off"
+            />
+            {promoValidating && (
+              <p className="mt-1 text-xs text-muted-foreground">{t("promoCodeChecking")}</p>
+            )}
+            {promoHint && !promoValidating && (
+              <p className={`mt-1 text-xs ${promoHint === t("promoCodeInvalid") ? "text-destructive" : "text-emerald-400"}`}>
+                {promoHint}
+              </p>
+            )}
           </div>
           {turnstileRequired && (
             <TurnstileWidget

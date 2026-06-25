@@ -5,6 +5,10 @@ export type CroppedAreaPixels = {
   height: number;
 };
 
+export type CropOutputSize =
+  | number
+  | { width: number; height: number };
+
 function createImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -15,14 +19,22 @@ function createImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Crop image to blob via canvas (square output). Supports rotation in degrees. */
+function resolveOutputSize(outputSize: CropOutputSize) {
+  if (typeof outputSize === "number") {
+    return { width: outputSize, height: outputSize };
+  }
+  return outputSize;
+}
+
+/** Crop image to blob via canvas. Supports rotation in degrees and non-square output. */
 export async function getCroppedImageBlob(
   imageSrc: string,
   pixelCrop: CroppedAreaPixels,
-  outputSize = 512,
+  outputSize: CropOutputSize = 512,
   mime: "image/jpeg" | "image/png" | "image/webp" = "image/jpeg",
   rotation = 0
 ): Promise<Blob> {
+  const { width: outputWidth, height: outputHeight } = resolveOutputSize(outputSize);
   const image = await createImage(imageSrc);
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
@@ -40,8 +52,8 @@ export async function getCroppedImageBlob(
     ctx.translate(-image.width / 2, -image.height / 2);
     ctx.drawImage(image, 0, 0);
   } else {
-    canvas.width = outputSize;
-    canvas.height = outputSize;
+    canvas.width = outputWidth;
+    canvas.height = outputHeight;
     ctx.drawImage(
       image,
       pixelCrop.x,
@@ -50,8 +62,8 @@ export async function getCroppedImageBlob(
       pixelCrop.height,
       0,
       0,
-      outputSize,
-      outputSize
+      outputWidth,
+      outputHeight
     );
     return new Promise((resolve, reject) => {
       canvas.toBlob(
@@ -63,8 +75,8 @@ export async function getCroppedImageBlob(
   }
 
   const croppedCanvas = document.createElement("canvas");
-  croppedCanvas.width = outputSize;
-  croppedCanvas.height = outputSize;
+  croppedCanvas.width = outputWidth;
+  croppedCanvas.height = outputHeight;
   const croppedCtx = croppedCanvas.getContext("2d");
   if (!croppedCtx) throw new Error("Canvas not supported");
 
@@ -76,8 +88,8 @@ export async function getCroppedImageBlob(
     pixelCrop.height,
     0,
     0,
-    outputSize,
-    outputSize
+    outputWidth,
+    outputHeight
   );
 
   return new Promise((resolve, reject) => {

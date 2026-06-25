@@ -774,6 +774,8 @@ model PartnerProfile {
   discordInviteUrl    String?
   discordWidgetUrl    String?
   discordServerId     String?
+  discordWidgetEnabled Boolean       @default(true)
+  discordDescription  String?        @db.Text
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 

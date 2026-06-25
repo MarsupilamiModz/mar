@@ -61,12 +61,19 @@ export const getTopPartners = unstable_cache(
   { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.partners] }
 );
 
+const getCachedPartnerBySlug = unstable_cache(
+  async (slug: string) =>
+    prisma.partnerProfile.findFirst({
+      where: { slug, isBanned: false, isSuspended: false },
+      include: {
+        user: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
+        socialLinks: { orderBy: { sortOrder: "asc" } },
+      },
+    }),
+  ["public-partner-slug"],
+  { revalidate: 60, tags: [CACHE_TAGS.partners] }
+);
+
 export async function getPublicPartnerBySlug(slug: string) {
-  return prisma.partnerProfile.findFirst({
-    where: { slug, isBanned: false, isSuspended: false },
-    include: {
-      user: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
-      socialLinks: { orderBy: { sortOrder: "asc" } },
-    },
-  });
+  return getCachedPartnerBySlug(slug);
 }

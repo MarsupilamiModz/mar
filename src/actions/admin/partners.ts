@@ -9,6 +9,11 @@ import { generateAffiliateCode } from "@/lib/affiliate";
 import { resolveSlug, ensureUniqueSlug, zSlugInput } from "@/lib/slug";
 import { CREATOR_LEVELS } from "@/lib/creator-levels";
 import { sendPartnerApprovalEmail } from "@/lib/email/send";
+import {
+  normalizeDiscordInviteUrl,
+  normalizeDiscordServerId,
+  validatePartnerDiscordInput,
+} from "@/lib/discord-validation";
 import type { PublisherLevel, SocialPlatform } from "@prisma/client";
 
 const profileSchema = z.object({
@@ -28,6 +33,9 @@ const profileSchema = z.object({
   isBanned: z.boolean().optional(),
   discordInviteUrl: z.string().url().optional().or(z.literal("")).nullable(),
   discordWidgetUrl: z.string().url().optional().or(z.literal("")).nullable(),
+  discordServerId: z.string().max(32).optional().or(z.literal("")).nullable(),
+  discordWidgetEnabled: z.boolean().optional(),
+  discordDescription: z.string().max(2000).optional().or(z.literal("")).nullable(),
 });
 
 export async function setPartnerLevel(id: string, level: PublisherLevel) {
@@ -202,6 +210,37 @@ export async function updatePartnerProfile(id: string, input: Partial<z.infer<ty
   });
   if (!existing) return fail("Partner not found");
 
+  const discordInviteUrl =
+    input.discordInviteUrl !== undefined
+      ? normalizeDiscordInviteUrl(input.discordInviteUrl || null)
+      : undefined;
+  const discordServerId =
+    input.discordServerId !== undefined
+      ? normalizeDiscordServerId(input.discordServerId || null)
+      : undefined;
+
+  if (input.discordInviteUrl !== undefined && input.discordInviteUrl && !discordInviteUrl) {
+    return fail("Invalid Discord invite link. Use https://discord.gg/… or discord.com/invite/…");
+  }
+  if (input.discordServerId !== undefined && input.discordServerId && !discordServerId) {
+    return fail("Invalid Discord Server ID (17–20 digits)");
+  }
+
+  const widgetEnabled =
+    input.discordWidgetEnabled ?? existing.discordWidgetEnabled ?? true;
+
+  if (
+    discordServerId ||
+    (input.discordServerId === undefined && existing.discordServerId && widgetEnabled)
+  ) {
+    const validation = await validatePartnerDiscordInput({
+      discordInviteUrl: discordInviteUrl ?? existing.discordInviteUrl,
+      discordServerId: discordServerId ?? existing.discordServerId,
+      discordWidgetEnabled: widgetEnabled,
+    });
+    if (!validation.ok) return fail(validation.error);
+  }
+
   const profile = await prisma.partnerProfile.update({
     where: { id },
     data: {
@@ -214,6 +253,17 @@ export async function updatePartnerProfile(id: string, input: Partial<z.infer<ty
       ...(input.isSuspended !== undefined && { isSuspended: input.isSuspended }),
       ...(input.isBanned !== undefined && { isBanned: input.isBanned }),
       ...(input.slug && { slug: input.slug }),
+      ...(input.discordInviteUrl !== undefined && { discordInviteUrl }),
+      ...(input.discordWidgetUrl !== undefined && {
+        discordWidgetUrl: input.discordWidgetUrl?.trim() || null,
+      }),
+      ...(input.discordServerId !== undefined && { discordServerId }),
+      ...(input.discordWidgetEnabled !== undefined && {
+        discordWidgetEnabled: input.discordWidgetEnabled,
+      }),
+      ...(input.discordDescription !== undefined && {
+        discordDescription: input.discordDescription?.trim() || null,
+      }),
     },
   });
 

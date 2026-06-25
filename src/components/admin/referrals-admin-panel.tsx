@@ -6,6 +6,7 @@ import {
   createReferralLink,
   toggleReferralLink,
   updateReferralLink,
+  deleteReferralLink,
 } from "@/actions/admin/referrals";
 import { buildReferralRegisterUrl } from "@/lib/referral-url";
 import type { getAdminReferrals } from "@/actions/admin/referrals";
@@ -61,7 +62,7 @@ export function ReferralsAdminPanel({ data, locale }: { data: ReferralData; loca
               const r = await createReferralLink({
                 code: fd.get("code") as string,
                 name: fd.get("name") as string,
-                premiumType: (fd.get("premiumType") as MembershipTier) || "PREMIUM",
+                premiumType: (fd.get("premiumType") as MembershipTier) || "PREMIUM_LITE",
                 premiumDays: Number(fd.get("premiumDays") || 3),
                 maxUses: fd.get("maxUses") ? Number(fd.get("maxUses")) : null,
                 trackingEnabled: fd.get("trackingEnabled") === "on",
@@ -80,7 +81,7 @@ export function ReferralsAdminPanel({ data, locale }: { data: ReferralData; loca
           <Input name="maxUses" type="number" min={1} placeholder="Max uses (optional)" />
           <select
             name="premiumType"
-            defaultValue="PREMIUM"
+            defaultValue="PREMIUM_LITE"
             className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm"
           >
             <option value="PREMIUM_LITE">Premium Lite</option>
@@ -120,7 +121,7 @@ export function ReferralsAdminPanel({ data, locale }: { data: ReferralData; loca
                 {link.maxUses != null && <span>max {link.maxUses}</span>}
                 {link.expiresAt && <span>expires {formatDateTime(link.expiresAt, locale)}</span>}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -151,7 +152,37 @@ export function ReferralsAdminPanel({ data, locale }: { data: ReferralData; loca
                 >
                   Edit days
                 </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={pending}
+                  onClick={() => {
+                    if (!confirm(`Delete referral "${link.code}"?`)) return;
+                    startTransition(async () => {
+                      const r = await deleteReferralLink(link.id);
+                      if (r.success) {
+                        appToast.saved();
+                        router.refresh();
+                      } else appToast.error(r.error);
+                    });
+                  }}
+                >
+                  Delete
+                </Button>
               </div>
+              {link.signups.length > 0 && (
+                <div className="pt-2 border-t border-border/30">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Recent registrations</p>
+                  <ul className="space-y-1 text-xs text-muted-foreground">
+                    {link.signups.map((signup) => (
+                      <li key={signup.id}>
+                        {signup.user.displayName ?? signup.user.username} ·{" "}
+                        {formatDateTime(signup.createdAt, locale)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ))}
           {data.links.length === 0 && (

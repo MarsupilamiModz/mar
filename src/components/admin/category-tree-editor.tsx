@@ -17,6 +17,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SafeImage } from "@/components/ui/safe-image";
 import { toast } from "@/hooks/use-toast";
+import { CategoryImageCropUpload } from "@/components/upload/category-image-crop-upload";
 import { ChevronDown, ChevronUp, Plus, Trash2, ImageIcon } from "lucide-react";
 
 type AdminCategory = FlatCategory & {
@@ -243,16 +244,25 @@ export function CategoryTreeEditor({
                       </div>
                       {(["thumbnail", "icon", "banner"] as const).map((type) => (
                         <div key={type}>
-                          <label className="text-xs text-muted-foreground capitalize">{type}</label>
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            className="mt-1 max-w-[140px] text-xs"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) void uploadCategoryAsset(cat.id, type, file);
-                            }}
-                          />
+                          <label className="text-xs text-muted-foreground capitalize block mb-1">{type}</label>
+                          {type === "thumbnail" ? (
+                            <CategoryImageCropUpload
+                              label="Upload & crop"
+                              categoryName={cat.name}
+                              onCropped={(file) => uploadCategoryAsset(cat.id, type, file)}
+                              disabled={pending}
+                            />
+                          ) : (
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              className="max-w-[140px] text-xs"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) void uploadCategoryAsset(cat.id, type, file);
+                              }}
+                            />
+                          )}
                         </div>
                       ))}
                     </div>

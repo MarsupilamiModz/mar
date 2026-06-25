@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { safeToLocaleString } from "@/lib/i18n/safe-locale";
 import { SafeImage } from "@/components/ui/safe-image";
@@ -13,7 +14,8 @@ import { FollowButton } from "@/components/creator/follow-button";
 import { CreatorLevelBadge } from "@/components/creator/creator-level-badge";
 import { getShowcasedAchievements } from "@/lib/achievements";
 import { ProfileShowcase } from "@/components/achievements/profile-showcase";
-import { PartnerDiscordEmbed } from "@/components/partners/partner-discord-embed";
+import { PartnerDiscordSection } from "@/components/partners/partner-discord-embed";
+import { resolvePartnerDiscord } from "@/lib/partner-discord";
 import { buildReferralRegisterUrl } from "@/lib/referral-url";
 import type { Locale } from "@/i18n/config";
 
@@ -38,11 +40,7 @@ export default async function PartnerProfilePage({
     ? buildReferralRegisterUrl(locale, profile.affiliateCode)
     : null;
 
-  const discordWidgetUrl =
-    profile.discordWidgetUrl ??
-    (profile.discordServerId
-      ? `https://discord.com/widget?id=${profile.discordServerId}&theme=dark`
-      : null);
+  const discordConfig = resolvePartnerDiscord(profile);
 
   return (
     <div>
@@ -100,12 +98,15 @@ export default async function PartnerProfilePage({
           )}
         </div>
       )}
-      {(profile.discordInviteUrl || discordWidgetUrl) && (
+      {discordConfig && (
         <div className="mx-auto max-w-7xl px-4 pb-8 sm:px-6">
-          <PartnerDiscordEmbed
-            inviteUrl={profile.discordInviteUrl}
-            widgetUrl={discordWidgetUrl}
-          />
+          <Suspense
+            fallback={
+              <div className="h-48 animate-pulse rounded-xl border border-border/40 bg-muted/20" />
+            }
+          >
+            <PartnerDiscordSection config={discordConfig} />
+          </Suspense>
         </div>
       )}
     </div>

@@ -22,7 +22,7 @@ import { normalizeReferralCode } from "@/lib/referral-cookie";
 const referralSchema = z.object({
   code: z.string().min(3).max(32),
   name: z.string().min(2).max(120),
-  premiumType: z.nativeEnum(MembershipTier).default("PREMIUM"),
+  premiumType: z.nativeEnum(MembershipTier).default("PREMIUM_LITE"),
   premiumDays: z.number().int().min(1).max(365).default(3),
   maxUses: z.number().int().min(1).nullable().optional(),
   active: z.boolean().optional(),
@@ -97,6 +97,16 @@ export async function toggleReferralLink(id: string, active: boolean) {
     await prisma.referralLink.update({ where: { id }, data: { active } });
     revalidatePath("/admin/referrals");
   }, "referral:toggle");
+}
+
+export async function deleteReferralLink(id: string) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+
+  return actionTry(async () => {
+    await prisma.referralLink.delete({ where: { id } });
+    revalidatePath("/admin/referrals");
+  }, "referral:delete");
 }
 
 export async function captureReferralClick(code: string) {

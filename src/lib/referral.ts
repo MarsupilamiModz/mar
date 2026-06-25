@@ -103,6 +103,13 @@ export async function getReferralAnalytics(referralId?: string) {
       include: {
         createdBy: { select: { username: true, displayName: true } },
         _count: { select: { signups: true } },
+        signups: {
+          take: 5,
+          orderBy: { createdAt: "desc" },
+          include: {
+            user: { select: { username: true, displayName: true, createdAt: true } },
+          },
+        },
       },
     }),
     prisma.referralSignup.count({

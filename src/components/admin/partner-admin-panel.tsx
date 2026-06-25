@@ -37,6 +37,9 @@ type PartnerData = {
   totalRevenueCents: number;
   discordInviteUrl?: string | null;
   discordWidgetUrl?: string | null;
+  discordServerId?: string | null;
+  discordWidgetEnabled?: boolean;
+  discordDescription?: string | null;
   user: { id: string; username: string; displayName: string | null; email: string };
 };
 
@@ -59,6 +62,9 @@ export function PartnerAdminPanel({ locale, partner }: { locale: string; partner
         isSuspended: formData.get("isSuspended") === "on",
         discordInviteUrl: (formData.get("discordInviteUrl") as string) || null,
         discordWidgetUrl: (formData.get("discordWidgetUrl") as string) || null,
+        discordServerId: (formData.get("discordServerId") as string) || null,
+        discordWidgetEnabled: formData.get("discordWidgetEnabled") === "on",
+        discordDescription: (formData.get("discordDescription") as string) || null,
       });
       if (r.success) { appToast.saved(); router.refresh(); }
       else appToast.error(r.error);
@@ -84,13 +90,35 @@ export function PartnerAdminPanel({ locale, partner }: { locale: string; partner
           <Input name="tagline" defaultValue={partner.tagline ?? ""} placeholder="Tagline" />
           <Textarea name="description" defaultValue={partner.description ?? ""} rows={4} placeholder="Bio" />
           <Input name="website" defaultValue={partner.website ?? ""} placeholder="Website URL" />
-          <Input name="discordInviteUrl" defaultValue={partner.discordInviteUrl ?? ""} placeholder="Discord invite URL (https://discord.gg/…)" />
-          <Input name="discordWidgetUrl" defaultValue={partner.discordWidgetUrl ?? ""} placeholder="Discord widget URL" className="font-mono text-xs" />
           <Input name="commissionRateBps" type="number" defaultValue={partner.commissionRateBps} placeholder="Commission bps" />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isVerified" defaultChecked={partner.isVerified} /> Verified</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isFeatured" defaultChecked={partner.isFeatured} /> Featured</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isSuspended" defaultChecked={partner.isSuspended} /> Suspended</label>
           <Button type="submit" variant="neon" disabled={pending}>Save partner</Button>
+        </form>
+      </Card>
+
+      <Card className="glass p-6 space-y-4">
+        <h3 className="font-semibold">Discord community</h3>
+        <p className="text-xs text-muted-foreground">
+          Invite link, server ID, and widget are validated on save. Enable the widget in Discord Server Settings → Widget.
+        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            save(new FormData(e.currentTarget));
+          }}
+          className="space-y-3"
+        >
+          <Input name="discordInviteUrl" defaultValue={partner.discordInviteUrl ?? ""} placeholder="Discord invite URL (https://discord.gg/…)" />
+          <Input name="discordServerId" defaultValue={partner.discordServerId ?? ""} placeholder="Discord Server ID (17–20 digits)" className="font-mono text-xs" />
+          <Input name="discordWidgetUrl" defaultValue={partner.discordWidgetUrl ?? ""} placeholder="Custom widget URL (optional — auto-generated from server ID)" className="font-mono text-xs" />
+          <Textarea name="discordDescription" defaultValue={partner.discordDescription ?? ""} rows={3} placeholder="Community description shown on partner page" />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="discordWidgetEnabled" defaultChecked={partner.discordWidgetEnabled !== false} />
+            Show Discord widget on partner page
+          </label>
+          <Button type="submit" variant="outline" disabled={pending}>Save Discord settings</Button>
         </form>
       </Card>
 
@@ -118,22 +146,26 @@ export function PartnerAdminPanel({ locale, partner }: { locale: string; partner
             else appToast.error(r.error);
           })}>Assign code</Button>
         </div>
+        <div className="grid grid-cols-3 gap-4 text-center text-sm">
+          <div><p className="text-2xl font-bold">{partner.totalClicks}</p><p className="text-muted-foreground">Clicks</p></div>
+          <div><p className="text-2xl font-bold">{partner.totalConversions}</p><p className="text-muted-foreground">Conversions</p></div>
+          <div><p className="text-2xl font-bold">{formatCents(partner.totalRevenueCents)}</p><p className="text-muted-foreground">Revenue</p></div>
+        </div>
+        <Button
+          variant="destructive"
+          disabled={pending}
+          onClick={() => {
+            if (!confirm("Delete this partner profile?")) return;
+            startTransition(async () => {
+              const r = await deletePartnerProfile(partner.id);
+              if (r.success) router.push(`/${locale}/admin/partners`);
+              else appToast.error(r.error);
+            });
+          }}
+        >
+          Delete partner
+        </Button>
       </Card>
-
-      <Card className="glass p-6 grid grid-cols-3 gap-4 text-sm">
-        <div><p className="text-muted-foreground">Clicks</p><p className="text-xl font-bold">{partner.totalClicks}</p></div>
-        <div><p className="text-muted-foreground">Conversions</p><p className="text-xl font-bold">{partner.totalConversions}</p></div>
-        <div><p className="text-muted-foreground">Revenue</p><p className="text-xl font-bold">{formatCents(partner.totalRevenueCents, locale)}</p></div>
-      </Card>
-
-      <Button variant="destructive" disabled={pending} onClick={() => {
-        if (!confirm("Delete this partner profile?")) return;
-        startTransition(async () => {
-          const r = await deletePartnerProfile(partner.id);
-          if (r.success) router.push(`/${locale}/admin/partners`);
-          else appToast.error(r.error);
-        });
-      }}>Delete partner</Button>
     </div>
   );
 }

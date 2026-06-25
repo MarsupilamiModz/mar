@@ -16,8 +16,8 @@ import { logPlatformError } from "@/lib/platform-log";
 import { rateLimit } from "@/lib/rate-limit";
 import { isTurnstileEnabled, verifyTurnstileToken } from "@/lib/turnstile";
 import { uniqueUsername } from "@/lib/user-sync";
-import { REFERRAL_COOKIE } from "@/lib/referral-cookie";
-import { redeemReferralForUser } from "@/lib/referral";
+import { REFERRAL_COOKIE, normalizeReferralCode } from "@/lib/referral-cookie";
+import { findActiveReferral, redeemReferralForUser } from "@/lib/referral";
 
 const registerSchema = z.object({
   email: z.string().email().max(255),
@@ -26,6 +26,7 @@ const registerSchema = z.object({
   turnstileToken: z.string().optional(),
   website: z.string().optional(),
   fingerprint: z.string().max(128).optional(),
+  promoCode: z.string().max(32).optional(),
 });
 
 function clientIp() {
@@ -79,6 +80,24 @@ async function resendForExistingUser(params: {
   return ok({ status: "pending_verification" as const });
 }
 
+export async function validateReferralCode(
+  code: string
+): Promise<ActionResult<{ name: string; premiumDays: number; premiumType: string }>> {
+  const normalized = normalizeReferralCode(code);
+  if (!normalized) return fail("Invalid promo code format");
+
+  const referral = await findActiveReferral(normalized);
+  if (!referral) {
+    return fail("This promo code is invalid, expired, or has reached its usage limit.");
+  }
+
+  return ok({
+    name: referral.name,
+    premiumDays: referral.premiumDays,
+    premiumType: referral.premiumType,
+  });
+}
+
 export async function registerUser(
   input: z.infer<typeof registerSchema>
 ): Promise<ActionResult<{ status: "pending_verification" | "active" }>> {
@@ -87,7 +106,8 @@ export async function registerUser(
     return fail(userFriendlyAuthCodeMessage("weak_password", input.locale ?? "en"));
   }
 
-  const { email: rawEmail, password, locale, turnstileToken, website, fingerprint } = parsed.data;
+  const { email: rawEmail, password, locale, turnstileToken, website, fingerprint, promoCode } =
+    parsed.data;
 
   if (website?.trim()) {
     return ok({ status: "pending_verification" });
@@ -141,6 +161,23 @@ export async function registerUser(
     return ok({ status: "pending_verification" });
   }
 
+  const cookieStore = await cookies();
+  const manualCode = promoCode?.trim();
+  const referralCode = manualCode
+    ? normalizeReferralCode(manualCode)
+    : cookieStore.get(REFERRAL_COOKIE)?.value ?? null;
+
+  if (manualCode && !referralCode) {
+    return fail("Invalid promo code format");
+  }
+
+  if (manualCode) {
+    const referral = await findActiveReferral(referralCode!);
+    if (!referral) {
+      return fail("This promo code is invalid, expired, or has reached its usage limit.");
+    }
+  }
+
   const admin = await createServiceClient();
   const username = await uniqueUsername(email.split("@")[0] ?? "user");
 
@@ -185,10 +222,8 @@ export async function registerUser(
 
   void queueVerification({ email, password, locale, username, userId: dbUser.id });
 
-  const cookieStore = await cookies();
-  const refCode = cookieStore.get(REFERRAL_COOKIE)?.value;
-  if (refCode) {
-    void redeemReferralForUser(dbUser.id, refCode).finally(() => {
+  if (referralCode) {
+    void redeemReferralForUser(dbUser.id, referralCode).finally(() => {
       try {
         cookieStore.delete(REFERRAL_COOKIE);
       } catch {
