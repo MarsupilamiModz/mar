@@ -82,6 +82,17 @@ export function OwnerControlCenter({ data }: { data: OwnerData }) {
         </div>
       </section>
 
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Registrations & users</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <StatCard label="Registrations today" value={formatNumber(data.registrations.today)} />
+          <StatCard label="Registrations (7d)" value={formatNumber(data.registrations.week)} />
+          <StatCard label="Registrations (30d)" value={formatNumber(data.registrations.month)} />
+          <StatCard label="Active users (30d)" value={formatNumber(data.users.active30d)} />
+          <StatCard label="Total users" value={formatNumber(data.users.total)} />
+        </div>
+      </section>
+
       <section className="grid gap-4 lg:grid-cols-2">
         <div>
           <h2 className="text-lg font-semibold mb-3">Downloads</h2>
@@ -200,6 +211,8 @@ export function OwnerControlCenter({ data }: { data: OwnerData }) {
       <section>
         <h2 className="text-lg font-semibold mb-3">Quick links</h2>
         <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm"><Link href="/admin/owner/users">User management</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link href="/admin/owner/features">Feature flags</Link></Button>
           <Button asChild variant="outline" size="sm"><Link href="/admin/referrals">Referrals</Link></Button>
           <Button asChild variant="outline" size="sm"><Link href="/admin/banners">Banners</Link></Button>
           <Button asChild variant="outline" size="sm"><Link href="/admin/owner/health">Health monitor</Link></Button>

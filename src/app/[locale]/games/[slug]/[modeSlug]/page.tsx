@@ -49,6 +49,7 @@ export default async function GameModePage({
   searchParams: Promise<{
     q?: string;
     pricing?: string;
+    type?: string;
     category?: string;
     subcategory?: string;
     sort?: string;
@@ -78,7 +79,7 @@ export default async function GameModePage({
     : undefined;
 
   const hasActiveFilter = Boolean(
-    sp.q || sp.category || sp.subcategory || sp.pricing || sp.verified || sp.sort
+    sp.q || sp.category || sp.subcategory || sp.pricing || sp.type || sp.verified || sp.sort
   );
 
   const { mods: filteredMods, total } = await getMods({
@@ -86,6 +87,7 @@ export default async function GameModePage({
     modeSlug,
     search: sp.q,
     pricing: sp.pricing,
+    productType: sp.type,
     categorySlug: sp.category,
     subcategorySlug: sp.subcategory,
     sort: sp.sort,
@@ -110,6 +112,9 @@ export default async function GameModePage({
     search: t("search"),
     filter: t("filter"),
     allTypes: tg("allTypes"),
+    allPricing: tg("allPricing"),
+    typeMod: tg("typeMod"),
+    typeSound: tg("typeSound"),
     free: t("free"),
     premium: t("premium"),
     paid: t("paid"),

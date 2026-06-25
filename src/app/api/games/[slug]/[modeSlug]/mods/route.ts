@@ -16,6 +16,7 @@ export async function GET(
     modeSlug,
     search: sp.get("q") ?? undefined,
     pricing: sp.get("pricing") ?? undefined,
+    productType: sp.get("type") ?? undefined,
     categorySlug: sp.get("category") ?? undefined,
     subcategorySlug: sp.get("subcategory") ?? undefined,
     sort: sp.get("sort") ?? undefined,

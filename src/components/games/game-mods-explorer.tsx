@@ -19,6 +19,9 @@ type Props = {
     search: string;
     filter: string;
     allTypes: string;
+    allPricing: string;
+    typeMod: string;
+    typeSound: string;
     free: string;
     premium: string;
     paid: string;
@@ -138,6 +141,7 @@ export const GameModsExplorer = memo(function GameModsExplorer({
   }, [hasMore, loadMore]);
 
   const sort = params.get("sort") ?? "downloads";
+  const productType = params.get("type") ?? "";
 
   const filterFields = useMemo(
     () => (
@@ -150,11 +154,20 @@ export const GameModsExplorer = memo(function GameModsExplorer({
           onChange={(e) => debouncedSearch(e.target.value)}
         />
         <select
+          defaultValue={productType}
+          className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm"
+          onChange={(e) => pushParams({ type: e.target.value || null })}
+        >
+          <option value="">{labels.allTypes}</option>
+          <option value="MOD">{labels.typeMod}</option>
+          <option value="SOUND">{labels.typeSound}</option>
+        </select>
+        <select
           defaultValue={params.get("pricing") ?? ""}
           className="h-10 rounded-md border border-input bg-background/50 px-3 text-sm"
           onChange={(e) => pushParams({ pricing: e.target.value || null })}
         >
-          <option value="">{labels.allTypes}</option>
+          <option value="">{labels.allPricing}</option>
           <option value="FREE">{labels.free}</option>
           <option value="PREMIUM">{labels.premium}</option>
           <option value="PAID">{labels.paid}</option>
@@ -179,7 +192,7 @@ export const GameModsExplorer = memo(function GameModsExplorer({
         {pending && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground self-center" />}
       </div>
     ),
-    [debouncedSearch, filterKey, labels, params, pending, pushParams, sort]
+    [debouncedSearch, filterKey, labels, params, pending, productType, pushParams, sort]
   );
 
   return (

@@ -28,6 +28,11 @@ import {
   type SeoSettings,
   type PageContentStore,
 } from "@/lib/branding-cms";
+import {
+  getAuthBrandingSettings,
+  saveAuthBrandingSettings,
+  type AuthBrandingSettings,
+} from "@/lib/auth-branding";
 import { getHeadScriptsSettings } from "@/lib/head-scripts";
 
 function revalidateBrandingPaths() {
@@ -40,16 +45,28 @@ export async function getAdminBrandingCenter() {
   const { error } = await requireActionPermission("settings.write");
   if (error) return error;
 
-  const [branding, header, footer, seo, pageContent, headScripts] = await Promise.all([
+  const [branding, header, footer, seo, pageContent, headScripts, authBranding] = await Promise.all([
     getBrandingAssetSettings(),
     getHeaderSettings(),
     getFooterSettings(),
     getSeoSettings(),
     getPageContentStore(),
     getHeadScriptsSettings(),
+    getAuthBrandingSettings(),
   ]);
 
-  return ok({ branding, header, footer, seo, pageContent, headScripts });
+  return ok({ branding, header, footer, seo, pageContent, headScripts, authBranding });
+}
+
+export async function saveAdminAuthBranding(settings: AuthBrandingSettings) {
+  const { error } = await requireActionPermission("settings.write");
+  if (error) return error;
+  return actionTry(async () => {
+    await saveAuthBrandingSettings(settings);
+    revalidatePath("/login");
+    revalidatePath("/register");
+    revalidatePath("/admin/branding");
+  }, "branding:auth");
 }
 
 export async function getAdminBranding() {

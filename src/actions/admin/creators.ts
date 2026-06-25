@@ -10,6 +10,7 @@ import { resolveSlug, ensureUniqueSlug, zSlugInput } from "@/lib/slug";
 import { CREATOR_LEVELS } from "@/lib/creator-levels";
 import { applyLevelRevenueShare, syncCreatorStats } from "@/lib/creators";
 import { CACHE_TAGS } from "@/lib/cache";
+import { getCreatorAdminAnalytics } from "@/lib/creator-admin-analytics";
 import { sendCreatorApprovalEmail } from "@/lib/email/send";
 import type { PublisherLevel, SocialPlatform } from "@prisma/client";
 
@@ -97,15 +98,16 @@ export async function getCreatorAdmin(id: string) {
   });
   if (!profile) return fail("Creator not found");
 
-  const [payouts, commissions] = await Promise.all([
+  const [payouts, commissions, analytics] = await Promise.all([
     prisma.payout.findMany({ where: { userId: profile.userId }, orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.commissionEntry.aggregate({
       where: { userId: profile.userId },
       _sum: { amountCents: true },
     }),
+    getCreatorAdminAnalytics(profile.userId, profile.id, profile.followerCount),
   ]);
 
-  return ok({ ...profile, payouts, totalCommission: commissions._sum.amountCents ?? 0 });
+  return ok({ ...profile, payouts, totalCommission: commissions._sum.amountCents ?? 0, analytics });
 }
 
 export async function createCreatorProfile(input: z.infer<typeof profileSchema>) {

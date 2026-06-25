@@ -61,6 +61,11 @@ export async function getOwnerControlCenterData() {
     trustRecommendationClicks,
     trustDependencyLinks,
     topSearchQueries,
+    registrationsToday,
+    registrationsWeek,
+    registrationsMonth,
+    activeUsers30d,
+    totalUsers,
   ] = await Promise.all([
     getVisitorMetrics(periods.today),
     getVisitorMetrics(periods.d7),
@@ -132,6 +137,19 @@ export async function getOwnerControlCenterData() {
       orderBy: { _count: { query: "desc" } },
       take: 10,
     }).catch(() => []),
+    prisma.user.count({ where: { createdAt: { gte: periods.today }, deletedAt: null } }),
+    prisma.user.count({ where: { createdAt: { gte: periods.d7 }, deletedAt: null } }),
+    prisma.user.count({ where: { createdAt: { gte: periods.d30 }, deletedAt: null } }),
+    prisma.user.count({
+      where: {
+        deletedAt: null,
+        OR: [
+          { downloads: { some: { createdAt: { gte: periods.d30 } } } },
+          { updatedAt: { gte: periods.d30 } },
+        ],
+      },
+    }),
+    prisma.user.count({ where: { deletedAt: null } }),
   ]);
 
   const revenueChart = await prisma.modPurchase.groupBy({
@@ -162,6 +180,8 @@ export async function getOwnerControlCenterData() {
       daily: visitors30d.daily,
     },
     downloads: { today: downloadsToday, week: downloadsWeek, month: downloadsMonth },
+    registrations: { today: registrationsToday, week: registrationsWeek, month: registrationsMonth },
+    users: { active30d: activeUsers30d, total: totalUsers },
     memberships: {
       premiumLite: membershipLite,
       premium: membershipPremium,

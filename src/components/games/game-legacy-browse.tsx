@@ -26,6 +26,7 @@ export async function GameLegacyBrowse({
     category?: string;
     subcategory?: string;
     sort?: string;
+    type?: string;
     verified?: string;
   };
 }) {
@@ -50,6 +51,7 @@ export async function GameLegacyBrowse({
       searchParams.category ||
       searchParams.subcategory ||
       searchParams.pricing ||
+      searchParams.type ||
       searchParams.verified ||
       searchParams.sort
   );
@@ -58,6 +60,7 @@ export async function GameLegacyBrowse({
     gameSlug: slug,
     search: searchParams.q,
     pricing: searchParams.pricing,
+    productType: searchParams.type,
     categorySlug: searchParams.category,
     subcategorySlug: searchParams.subcategory,
     sort: searchParams.sort,
@@ -75,6 +78,9 @@ export async function GameLegacyBrowse({
     search: t("search"),
     filter: t("filter"),
     allTypes: tg("allTypes"),
+    allPricing: tg("allPricing"),
+    typeMod: tg("typeMod"),
+    typeSound: tg("typeSound"),
     free: t("free"),
     premium: t("premium"),
     paid: t("paid"),

@@ -8,12 +8,13 @@ import { userFriendlyAuthMessage } from "@/lib/auth-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Logo } from "@/components/brand/logo";
+import { AuthLogo } from "@/components/auth/auth-page-shell";
+import type { AuthBrandingSettings } from "@/lib/auth-branding";
 import { AuthLanguagePicker } from "@/components/auth/auth-language-picker";
 import { resolveLoginRedirect } from "@/lib/auth-redirect";
 import { useState } from "react";
 
-export function LoginForm() {
+export function LoginForm({ authBranding }: { authBranding?: AuthBrandingSettings }) {
   const t = useTranslations("auth");
   const params = useParams();
   const locale = params.locale as string;
@@ -84,9 +85,14 @@ export function LoginForm() {
   return (
     <div className="mx-auto max-w-md px-4 py-16">
       <AuthLanguagePicker locale={locale} />
-      <div className="mb-8 flex justify-center"><Logo /></div>
+      {authBranding ? <AuthLogo branding={authBranding} variant="login" /> : null}
       <Card className="glass p-8">
-        <h1 className="text-2xl font-bold text-gradient">{t("login")}</h1>
+        <h1 className="text-2xl font-bold text-gradient">{authBranding?.loginTitle ?? t("login")}</h1>
+        {(authBranding?.loginDescription || t("loginSubtitle")) && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {authBranding?.loginDescription ?? t("loginSubtitle")}
+          </p>
+        )}
         <form onSubmit={handleLogin} className="mt-6 space-y-4">
           <div>
             <label className="text-sm">{t("email")}</label>
@@ -112,7 +118,7 @@ export function LoginForm() {
           </Button>
         </form>
         <Button variant="outline" className="w-full mt-4" onClick={loginWithDiscord} disabled={loading}>
-          {t("discord")}
+          {authBranding?.discordButtonText ?? t("discord")}
         </Button>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           <Link href={`/${locale}/register`} className="text-neon-purple hover:underline">Create account</Link>

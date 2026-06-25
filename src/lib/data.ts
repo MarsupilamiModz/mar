@@ -276,29 +276,55 @@ export async function getMods(filters: {
 }) {
   const page = filters.page ?? 1;
   const limit = filters.limit ?? 24;
+  const productType = normalizeProductTypeFilter(filters.productType);
+  const normalizedFilters = { ...filters, productType };
+
   const cacheable =
     page === 1 &&
     limit === 24 &&
-    !filters.search &&
-    !filters.categorySlug &&
-    !filters.audioCategory &&
-    !filters.genre &&
-    (!filters.productType || filters.productType === "ALL");
+    !normalizedFilters.search &&
+    !normalizedFilters.audioCategory &&
+    !normalizedFilters.genre;
 
   if (cacheable) {
     return unstable_cache(
-      () => queryMods(filters),
-      [
-        "mods-catalog",
-        filters.gameSlug ?? "all",
-        filters.pricing ?? "all",
-        filters.productType ?? "ALL",
-      ],
+      () => queryMods(normalizedFilters),
+      buildModsCacheKey(normalizedFilters),
       { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.mods] }
     )();
   }
 
-  return queryMods(filters);
+  return queryMods(normalizedFilters);
+}
+
+function normalizeProductTypeFilter(value?: string | null): string | undefined {
+  if (!value || value.toUpperCase() === "ALL") return undefined;
+  if (value === "MOD" || value === "SOUND") return value;
+  return undefined;
+}
+
+function buildModsCacheKey(filters: {
+  gameSlug?: string;
+  modeSlug?: string;
+  modeId?: string;
+  pricing?: string;
+  categorySlug?: string;
+  subcategorySlug?: string;
+  productType?: string;
+  sort?: string;
+  verified?: boolean;
+}) {
+  return [
+    "mods-catalog",
+    filters.gameSlug ?? "all",
+    filters.modeSlug ?? filters.modeId ?? "all",
+    filters.categorySlug ?? "all",
+    filters.subcategorySlug ?? "all",
+    filters.pricing ?? "all",
+    filters.productType ?? "ALL",
+    filters.sort ?? "downloads",
+    filters.verified ? "1" : "0",
+  ];
 }
 
 async function queryMods(filters: {
@@ -369,7 +395,7 @@ async function queryMods(filters: {
   const where = {
     status: "PUBLISHED" as const,
     visibility: "PUBLIC" as const,
-    ...(filters.productType && filters.productType !== "ALL" && {
+    ...(filters.productType && {
       productType: filters.productType as "MOD" | "SOUND",
     }),
     ...(filters.pricing && { pricing: filters.pricing as "FREE" | "PREMIUM" | "PAID" }),

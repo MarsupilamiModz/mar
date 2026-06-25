@@ -25,7 +25,9 @@ import { SocialLinks } from "@/components/social/social-links";
 import { SOCIAL_PLATFORMS } from "@/lib/affiliate";
 import { LEVEL_OPTIONS, CREATOR_LEVELS, effectiveRevenueShareBps } from "@/lib/creator-levels";
 import { formatCents } from "@/lib/affiliate";
+import { formatNumber } from "@/lib/format-locale";
 import { useAppToast } from "@/hooks/use-app-toast";
+import type { CreatorAdminAnalytics } from "@/lib/creator-admin-analytics";
 
 type CreatorData = {
   id: string;
@@ -62,6 +64,7 @@ type CreatorData = {
     isBanned: boolean;
   };
   socialLinks: { platform: SocialPlatform; url: string }[];
+  analytics?: CreatorAdminAnalytics;
 };
 
 export function CreatorAdminPanel({ locale, creator }: { locale: string; creator: CreatorData }) {
@@ -103,6 +106,80 @@ export function CreatorAdminPanel({ locale, creator }: { locale: string; creator
           </Card>
         ))}
       </div>
+
+      {creator.analytics && (
+        <>
+          <Card className="glass p-6 space-y-4">
+            <h3 className="font-semibold">Creator overview</h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {[
+                { label: "Uploads", value: formatNumber(creator.analytics.overview.totalUploads) },
+                { label: "Downloads", value: formatNumber(creator.analytics.overview.totalDownloads) },
+                { label: "Likes", value: formatNumber(creator.analytics.overview.totalLikes) },
+                { label: "Reviews", value: formatNumber(creator.analytics.overview.totalReviews) },
+                { label: "Comments", value: formatNumber(creator.analytics.overview.totalComments) },
+                { label: "Followers", value: formatNumber(creator.analytics.overview.followers) },
+                { label: "Revenue", value: formatCents(creator.analytics.overview.totalRevenueCents, locale) },
+                { label: "Premium sales", value: formatNumber(creator.analytics.overview.premiumSales) },
+                { label: "Shop sales", value: formatNumber(creator.analytics.overview.shopSales) },
+              ].map((s) => (
+                <div key={s.label} className="rounded-lg border border-border/40 p-3">
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                  <p className="text-lg font-bold tabular-nums">{s.value}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="glass p-6 space-y-4">
+            <h3 className="font-semibold">Creator revenue</h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {[
+                { label: "Today", value: formatCents(creator.analytics.revenue.today, locale) },
+                { label: "7 days", value: formatCents(creator.analytics.revenue.week, locale) },
+                { label: "30 days", value: formatCents(creator.analytics.revenue.month, locale) },
+                { label: "90 days", value: formatCents(creator.analytics.revenue.quarter, locale) },
+                { label: "Total", value: formatCents(creator.analytics.revenue.total, locale) },
+              ].map((s) => (
+                <div key={s.label} className="rounded-lg border border-border/40 p-3">
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                  <p className="text-lg font-bold tabular-nums">{s.value}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {creator.analytics.topMods.length > 0 && (
+            <Card className="glass p-6 space-y-4">
+              <h3 className="font-semibold">Top mods</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-muted-foreground border-b border-border/40">
+                      <th className="pb-2 pr-4">Mod</th>
+                      <th className="pb-2 pr-4">Downloads</th>
+                      <th className="pb-2 pr-4">Revenue</th>
+                      <th className="pb-2">Rating</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {creator.analytics.topMods.map((mod) => (
+                      <tr key={mod.id} className="border-b border-border/20">
+                        <td className="py-2 pr-4 font-medium">{mod.title}</td>
+                        <td className="py-2 pr-4 tabular-nums">{formatNumber(mod.downloadCount)}</td>
+                        <td className="py-2 pr-4 tabular-nums">{formatCents(mod.revenueCents, locale)}</td>
+                        <td className="py-2 tabular-nums">
+                          {mod.reviewCount > 0 ? `${mod.averageRating?.toFixed(1)} (${mod.reviewCount})` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </>
+      )}
 
       <Card className="glass p-6 space-y-4">
         <h3 className="font-medium">{t("editCreator")}</h3>

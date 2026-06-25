@@ -10,10 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { AuthLanguagePicker } from "@/components/auth/auth-language-picker";
 import { TurnstileWidget, getDeviceFingerprint, isTurnstileConfigured } from "@/components/auth/turnstile-widget";
+import { AuthLogo } from "@/components/auth/auth-page-shell";
+import type { AuthBrandingSettings } from "@/lib/auth-branding";
 import { useEffect, useState } from "react";
 import { normalizeReferralCode } from "@/lib/referral-cookie";
 
-export function RegisterForm() {
+export function RegisterForm({ authBranding }: { authBranding?: AuthBrandingSettings }) {
   const t = useTranslations("auth");
   const params = useParams();
   const searchParams = useSearchParams();
@@ -106,9 +108,12 @@ export function RegisterForm() {
   return (
     <div className="mx-auto max-w-md px-4 py-16">
       <AuthLanguagePicker locale={locale} />
+      {authBranding ? <AuthLogo branding={authBranding} variant="register" /> : null}
       <Card className="glass p-8">
-        <h1 className="text-2xl font-bold text-gradient">{t("register")}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{t("registerSubtitle")}</p>
+        <h1 className="text-2xl font-bold text-gradient">{authBranding?.registerTitle ?? t("register")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {authBranding?.registerDescription ?? t("registerSubtitle")}
+        </p>
         <form onSubmit={handleRegister} className="mt-6 space-y-4">
           <input
             type="text"
@@ -165,7 +170,7 @@ export function RegisterForm() {
           </Button>
         </form>
         <Button variant="outline" className="w-full mt-4" onClick={registerWithDiscord} disabled={loading}>
-          {t("discord")}
+          {authBranding?.discordButtonText ?? t("discord")}
         </Button>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           <Link href={`/${locale}/login`}>{t("login")}</Link>
