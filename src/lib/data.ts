@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { FileScanStatus } from "@prisma/client";
-import { prisma } from "@/lib/db";
+import { prisma, runCachedQuery } from "@/lib/db";
 import { CACHE_TAGS, REVALIDATE } from "@/lib/cache";
 import { collectDescendantIds, type FlatCategory } from "@/lib/categories";
 
@@ -60,28 +60,30 @@ const modListSelectMinimal = {
 };
 
 export async function findModsListing(args: NonNullable<Parameters<typeof prisma.mod.findMany>[0]> = {}) {
-  const { include: _include, select: _select, ...rest } = args;
+  return runCachedQuery("mod-listing", async () => {
+    const { include: _include, select: _select, ...rest } = args;
 
-  try {
-    return await prisma.mod.findMany({
-      ...rest,
-      select: modListSelectWithMedia,
-    });
-  } catch (err) {
-    console.error("[findModsListing] media select failed", err);
     try {
       return await prisma.mod.findMany({
         ...rest,
-        select: modListSelect,
+        select: modListSelectWithMedia,
       });
-    } catch (err2) {
-      console.error("[findModsListing] standard select failed", err2);
-      return prisma.mod.findMany({
-        ...rest,
-        select: modListSelectMinimal,
-      });
+    } catch (err) {
+      console.error("[findModsListing] media select failed", err);
+      try {
+        return await prisma.mod.findMany({
+          ...rest,
+          select: modListSelect,
+        });
+      } catch (err2) {
+        console.error("[findModsListing] standard select failed", err2);
+        return prisma.mod.findMany({
+          ...rest,
+          select: modListSelectMinimal,
+        });
+      }
     }
-  }
+  });
 }
 
 export type ModListingItem = Awaited<ReturnType<typeof findModsListing>>[number];
@@ -140,36 +142,37 @@ const modDetailIncludeNoMedia = {
 };
 
 export const getHomepageGames = unstable_cache(
-  async () => {
-    const select = {
-      id: true,
-      slug: true,
-      name: true,
-      description: true,
-      shortDescription: true,
-      iconUrl: true,
-      bannerUrl: true,
-      coverUrl: true,
-      isFeatured: true,
-      _count: { select: { mods: { where: { status: "PUBLISHED" as const } } } },
-    };
+  async () =>
+    runCachedQuery("homepage-games", async () => {
+      const select = {
+        id: true,
+        slug: true,
+        name: true,
+        description: true,
+        shortDescription: true,
+        iconUrl: true,
+        bannerUrl: true,
+        coverUrl: true,
+        isFeatured: true,
+        _count: { select: { mods: { where: { status: "PUBLISHED" as const } } } },
+      };
 
-    const featured = await prisma.game.findMany({
-      where: { isActive: true, isFeatured: true },
-      orderBy: { sortOrder: "asc" },
-      take: 6,
-      select,
-    });
+      const featured = await prisma.game.findMany({
+        where: { isActive: true, isFeatured: true },
+        orderBy: { sortOrder: "asc" },
+        take: 6,
+        select,
+      });
 
-    if (featured.length > 0) return featured;
+      if (featured.length > 0) return featured;
 
-    return prisma.game.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: "asc" },
-      take: 6,
-      select,
-    });
-  },
+      return prisma.game.findMany({
+        where: { isActive: true },
+        orderBy: { sortOrder: "asc" },
+        take: 6,
+        select,
+      });
+    }),
   ["homepage-games"],
   { revalidate: REVALIDATE.homepage, tags: [CACHE_TAGS.games, CACHE_TAGS.featured] }
 );
@@ -179,20 +182,22 @@ export const getFeaturedGames = getHomepageGames;
 
 export const getAllGames = unstable_cache(
   async () =>
-    prisma.game.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: "asc" },
-      select: {
-        id: true,
-        slug: true,
-        name: true,
-        description: true,
-        iconUrl: true,
-        bannerUrl: true,
-        coverUrl: true,
-        _count: { select: { mods: { where: { status: "PUBLISHED" } } } },
-      },
-    }),
+    runCachedQuery("all-games", () =>
+      prisma.game.findMany({
+        where: { isActive: true },
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          description: true,
+          iconUrl: true,
+          bannerUrl: true,
+          coverUrl: true,
+          _count: { select: { mods: { where: { status: "PUBLISHED" } } } },
+        },
+      })
+    ),
   ["all-games"],
   { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.games] }
 );
@@ -475,7 +480,7 @@ async function fetchModBySlug(slug: string) {
 
 export function getModBySlug(slug: string) {
   return unstable_cache(
-    () => fetchModBySlug(slug),
+    () => runCachedQuery(`mod-by-slug-${slug}`, () => fetchModBySlug(slug)),
     ["mod-by-slug", slug],
     { revalidate: REVALIDATE.modDetail, tags: [CACHE_TAGS.mods, CACHE_TAGS.mod(slug)] }
   )();
@@ -484,16 +489,18 @@ export function getModBySlug(slug: string) {
 export async function getGameBySlug(slug: string) {
   return unstable_cache(
     async () =>
-      prisma.game.findUnique({
-        where: { slug, isActive: true },
-        include: {
-          categories: {
-            where: { isVisible: true },
-            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      runCachedQuery(`game-by-slug-${slug}`, () =>
+        prisma.game.findUnique({
+          where: { slug, isActive: true },
+          include: {
+            categories: {
+              where: { isVisible: true },
+              orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+            },
+            _count: { select: { mods: { where: { status: "PUBLISHED" } } } },
           },
-          _count: { select: { mods: { where: { status: "PUBLISHED" } } } },
-        },
-      }),
+        })
+      ),
     [`game-${slug}`],
     { revalidate: REVALIDATE.catalog, tags: [CACHE_TAGS.games, `game-${slug}`] }
   )();
