@@ -527,6 +527,8 @@ model User {
   exclusiveApplications ExclusiveApplication[]
   exclusivePrograms   ExclusiveProgram[] @relation("ExclusiveAuthor")
   translationJobs     TranslationJob[] @relation("TranslationApprover")
+  referralLinksCreated ReferralLink[]  @relation("ReferralCreator")
+  referralSignup       ReferralSignup?
   commissionEntries CommissionEntry[]
   payouts           Payout[]
   profileFollowers  ProfileFollow[]    @relation("Follower")
@@ -628,6 +630,7 @@ model Game {
   categories GameCategory[]
   modes      GameMode[]
   mods       Mod[]
+  siteBanners SiteBanner[]
 
   @@index([isActive, isFeatured])
   @@index([sortOrder])
@@ -679,6 +682,7 @@ model GameCategory {
   isVisible   Boolean @default(true)
 
   mods Mod[]
+  siteBanners SiteBanner[]
 
   @@unique([gameId, slug])
   @@index([gameId, sortOrder])
@@ -769,10 +773,12 @@ model PartnerProfile {
   followerCount       Int            @default(0)
   discordInviteUrl    String?
   discordWidgetUrl    String?
+  discordServerId     String?
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 
   socialLinks SocialLink[]
+  siteBanners SiteBanner[]
 
   @@index([isVerified, isFeatured])
   @@index([isPublic, sortOrder])
@@ -862,6 +868,7 @@ model Mod {
   soundProfile SoundProfile?
   soundPlays   SoundPlay[]
   platformEvents PlatformEvent[]
+  siteBanners    SiteBanner[]
 
   @@index([status, visibility, downloadCount])
   @@index([status, visibility, updatedAt(sort: Desc)])
@@ -2844,4 +2851,83 @@ model PlatformLanguage {
   updatedAt DateTime @updatedAt
 
   @@index([isActive, sortOrder])
+}
+
+enum SiteBannerType {
+  GLOBAL
+  GAME
+  CATEGORY
+  MOD
+  PARTNER
+}
+
+enum SiteBannerFrequency {
+  ALWAYS
+  EVERY_5_MIN
+  EVERY_15_MIN
+  ONCE_SESSION
+  ONCE_DAY
+}
+
+model ReferralLink {
+  id              String         @id @default(cuid())
+  code            String         @unique
+  name            String
+  premiumType     MembershipTier @default(PREMIUM)
+  premiumDays     Int            @default(3)
+  maxUses         Int?
+  currentUses     Int            @default(0)
+  clickCount      Int            @default(0)
+  active          Boolean        @default(true)
+  trackingEnabled Boolean        @default(true)
+  expiresAt       DateTime?
+  createdById     String?
+  createdBy       User?          @relation("ReferralCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  signups         ReferralSignup[]
+
+  @@index([active, expiresAt])
+  @@index([code])
+}
+
+model ReferralSignup {
+  id             String       @id @default(cuid())
+  referralId     String
+  referral       ReferralLink @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  userId         String       @unique
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  premiumGranted Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+
+  @@index([referralId, createdAt])
+}
+
+model SiteBanner {
+  id               String              @id @default(cuid())
+  type             SiteBannerType      @default(GLOBAL)
+  title            String
+  description      String?             @db.Text
+  imageUrl         String?
+  linkUrl          String?
+  buttonText       String?
+  frequency        SiteBannerFrequency @default(ALWAYS)
+  isActive         Boolean             @default(true)
+  priority         Int                 @default(0)
+  gameId           String?
+  game             Game?               @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  gameCategoryId   String?
+  gameCategory     GameCategory?       @relation(fields: [gameCategoryId], references: [id], onDelete: SetNull)
+  modId            String?
+  mod              Mod?                @relation(fields: [modId], references: [id], onDelete: SetNull)
+  partnerProfileId String?
+  partnerProfile   PartnerProfile?     @relation(fields: [partnerProfileId], references: [id], onDelete: SetNull)
+  startsAt         DateTime            @default(now())
+  endsAt           DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([isActive, type, priority])
+  @@index([gameId])
+  @@index([gameCategoryId])
 }

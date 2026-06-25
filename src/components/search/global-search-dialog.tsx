@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Gamepad2, Loader2, Search, X } from "lucide-react";
+import { Gamepad2, Loader2, X } from "lucide-react";
 import {
   globalSearchAction,
   type GlobalSearchGroups,
@@ -118,10 +118,9 @@ export const GlobalSearchDialog = memo(function GlobalSearchDialog({ locale }: {
 
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : close())}>
-      <DialogContent className="max-w-2xl gap-0 overflow-hidden p-0 sm:rounded-2xl">
+      <DialogContent hideClose className="max-w-2xl gap-0 overflow-hidden p-0 sm:rounded-2xl">
         <DialogTitle className="sr-only">{t("title")}</DialogTitle>
         <div className="flex items-center gap-2 border-b border-border/50 px-4 py-3">
-          <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
           <Input
             ref={inputRef}
             value={query}
@@ -129,11 +128,8 @@ export const GlobalSearchDialog = memo(function GlobalSearchDialog({ locale }: {
             placeholder={t("placeholder")}
             className="border-0 bg-transparent shadow-none focus-visible:ring-0"
           />
-          {pending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-          <kbd className="hidden rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline">
-            ESC
-          </kbd>
-          <button type="button" onClick={close} className="rounded-md p-1 hover:bg-white/5" aria-label={t("close")}>
+          {pending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />}
+          <button type="button" onClick={close} className="rounded-md p-1 hover:bg-white/5 shrink-0" aria-label={t("close")}>
             <X className="h-4 w-4" />
           </button>
         </div>

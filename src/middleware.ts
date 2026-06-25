@@ -2,6 +2,11 @@ import createMiddleware from "next-intl/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { locales, defaultLocale, localeRegex } from "@/i18n/config";
+import {
+  REFERRAL_COOKIE,
+  REFERRAL_COOKIE_MAX_AGE,
+  normalizeReferralCode,
+} from "@/lib/referral-cookie";
 
 const intlMiddleware = createMiddleware({
   locales: [...locales],
@@ -115,6 +120,33 @@ export async function middleware(request: NextRequest) {
     const redirect = NextResponse.redirect(loginUrl);
     mergeSessionCookies(redirect, sessionResult?.response ?? null);
     return redirect;
+  }
+
+  const refParam = request.nextUrl.searchParams.get("ref");
+  if (refParam?.trim()) {
+    const code = normalizeReferralCode(refParam);
+    const registerPath = `/${locale}/register`;
+    const onRegister = pathWithoutLocale === "/register" || pathWithoutLocale.startsWith("/register/");
+
+    let response: NextResponse;
+    if (!onRegister) {
+      const registerUrl = new URL(registerPath, request.url);
+      registerUrl.searchParams.set("ref", refParam.trim());
+      response = NextResponse.redirect(registerUrl);
+    } else {
+      response = intlMiddleware(withPathnameHeader(request, pathname));
+    }
+
+    if (code) {
+      response.cookies.set(REFERRAL_COOKIE, code, {
+        maxAge: REFERRAL_COOKIE_MAX_AGE,
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+      });
+    }
+    mergeSessionCookies(response, sessionResult?.response ?? null);
+    return response;
   }
 
   const intlResponse = intlMiddleware(withPathnameHeader(request, pathname));

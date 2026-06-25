@@ -17,6 +17,7 @@ import { AdLocationSlot } from "@/components/ads/ad-location-slot";
 import { getCmsSeo } from "@/lib/page-content";
 import { PlatformVisitTracker } from "@/components/analytics/platform-visit-tracker";
 import { GlobalSearchShell } from "@/components/search/global-search-shell";
+import { GlobalSiteBanners } from "@/components/banners/global-site-banners";
 import { isDynamicServerUsageError } from "@/lib/is-dynamic-server-error";
 
 const PlatformAudioShell = dynamic(
@@ -88,6 +89,7 @@ export default async function LocaleLayout({
       <GlobalSearchShell locale={locale}>
         <div className="flex min-h-screen flex-col">
           <AsyncHeader locale={locale} />
+          <GlobalSiteBanners />
           <PlatformAudioShell>
             <main className="flex-1">{children}</main>
           </PlatformAudioShell>

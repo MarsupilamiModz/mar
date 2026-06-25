@@ -1,6 +1,6 @@
 "use server";
 
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -16,6 +16,8 @@ import { logPlatformError } from "@/lib/platform-log";
 import { rateLimit } from "@/lib/rate-limit";
 import { isTurnstileEnabled, verifyTurnstileToken } from "@/lib/turnstile";
 import { uniqueUsername } from "@/lib/user-sync";
+import { REFERRAL_COOKIE } from "@/lib/referral-cookie";
+import { redeemReferralForUser } from "@/lib/referral";
 
 const registerSchema = z.object({
   email: z.string().email().max(255),
@@ -182,6 +184,18 @@ export async function registerUser(
   }
 
   void queueVerification({ email, password, locale, username, userId: dbUser.id });
+
+  const cookieStore = await cookies();
+  const refCode = cookieStore.get(REFERRAL_COOKIE)?.value;
+  if (refCode) {
+    void redeemReferralForUser(dbUser.id, refCode).finally(() => {
+      try {
+        cookieStore.delete(REFERRAL_COOKIE);
+      } catch {
+        // cookie cleanup best-effort
+      }
+    });
+  }
 
   void import("@/lib/notifications-service")
     .then(({ notifyOwnerPlatformEvent }) =>

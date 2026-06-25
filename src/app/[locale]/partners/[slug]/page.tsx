@@ -11,10 +11,10 @@ import { REVALIDATE } from "@/lib/cache";
 import { formatDisplayName } from "@/lib/display-name";
 import { FollowButton } from "@/components/creator/follow-button";
 import { CreatorLevelBadge } from "@/components/creator/creator-level-badge";
-import { getAppUrl } from "@/lib/app-url";
 import { getShowcasedAchievements } from "@/lib/achievements";
 import { ProfileShowcase } from "@/components/achievements/profile-showcase";
 import { PartnerDiscordEmbed } from "@/components/partners/partner-discord-embed";
+import { buildReferralRegisterUrl } from "@/lib/referral-url";
 import type { Locale } from "@/i18n/config";
 
 export const revalidate = REVALIDATE.catalog;
@@ -35,8 +35,14 @@ export default async function PartnerProfilePage({
   const showcased = await getShowcasedAchievements(profile.userId, locale);
 
   const referralLink = profile.affiliateCode
-    ? `${getAppUrl()}/${locale}?ref=${profile.affiliateCode}`
+    ? buildReferralRegisterUrl(locale, profile.affiliateCode)
     : null;
+
+  const discordWidgetUrl =
+    profile.discordWidgetUrl ??
+    (profile.discordServerId
+      ? `https://discord.com/widget?id=${profile.discordServerId}&theme=dark`
+      : null);
 
   return (
     <div>
@@ -88,16 +94,18 @@ export default async function PartnerProfilePage({
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-6">
           {showcased.length > 0 && <ProfileShowcase achievements={showcased} />}
           {profile.description && (
-          <Card className="glass p-6">
-            <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{profile.description}</p>
-          </Card>
+            <Card className="glass p-6">
+              <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{profile.description}</p>
+            </Card>
           )}
-          {(profile.discordInviteUrl || profile.discordWidgetUrl) && (
-            <PartnerDiscordEmbed
-              inviteUrl={profile.discordInviteUrl}
-              widgetUrl={profile.discordWidgetUrl}
-            />
-          )}
+        </div>
+      )}
+      {(profile.discordInviteUrl || discordWidgetUrl) && (
+        <div className="mx-auto max-w-7xl px-4 pb-8 sm:px-6">
+          <PartnerDiscordEmbed
+            inviteUrl={profile.discordInviteUrl}
+            widgetUrl={discordWidgetUrl}
+          />
         </div>
       )}
     </div>

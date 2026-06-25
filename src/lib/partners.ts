@@ -63,7 +63,7 @@ export const getTopPartners = unstable_cache(
 
 export async function getPublicPartnerBySlug(slug: string) {
   return prisma.partnerProfile.findFirst({
-    where: { slug, ...publicPartnerWhere },
+    where: { slug, isBanned: false, isSuspended: false },
     include: {
       user: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
       socialLinks: { orderBy: { sortOrder: "asc" } },

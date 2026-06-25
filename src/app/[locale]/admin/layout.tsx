@@ -33,6 +33,8 @@ const linkDefs = [
   { href: "/orders", labelKey: "orders", permission: "orders.read" as const },
   { href: "/audit", labelKey: "audit", permission: "audit.read" as const },
   { href: "/announcements", labelKey: "announcements", permission: "settings.write" as const },
+  { href: "/banners", labelKey: "banners", permission: "settings.write" as const },
+  { href: "/referrals", labelKey: "referrals", permission: "settings.write" as const },
   { href: "/memberships", labelKey: "memberships", permission: "settings.write" as const },
   { href: "/shop", labelKey: "shop", permission: "shop.view" as const },
   { href: "/payments", labelKey: "payments", permission: "settings.write" as const },
