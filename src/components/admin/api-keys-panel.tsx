@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { createApiKeyAdmin, revokeApiKeyAdmin } from "@/actions/admin/api-keys";
-import { API_KEY_PRESETS, API_SCOPES } from "@/lib/api-auth";
+import { API_KEY_PRESETS } from "@/lib/api-auth";
 import { formatNumber } from "@/lib/format-locale";
 
 type ApiKeyRow = {
