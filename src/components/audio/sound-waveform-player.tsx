@@ -34,7 +34,6 @@ export function SoundWaveformPlayer({
   useGlobalPlayer = true,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<{
     destroy: () => void;
     playPause: () => void;
@@ -61,44 +60,18 @@ export function SoundWaveformPlayer({
     setLocalDuration(durationSeconds ?? 0);
   }, [durationSeconds]);
 
-  useEffect(() => {
-    if (isGlobalActive || !streamUrl) return;
-    const audio = new Audio();
-    audio.preload = "metadata";
-    audio.src = streamUrl;
-    audioRef.current = audio;
-
-    const onMeta = () => {
-      if (audio.duration && Number.isFinite(audio.duration)) {
-        setLocalDuration(Math.floor(audio.duration));
-      }
-    };
-    const onTime = () => setLocalTime(audio.currentTime);
-    const onEnded = () => {
-      setLocalPlaying(false);
-      setLocalTime(0);
-    };
-
-    audio.addEventListener("loadedmetadata", onMeta);
-    audio.addEventListener("timeupdate", onTime);
-    audio.addEventListener("ended", onEnded);
-
-    return () => {
-      audio.pause();
-      audio.removeEventListener("loadedmetadata", onMeta);
-      audio.removeEventListener("timeupdate", onTime);
-      audio.removeEventListener("ended", onEnded);
-      audioRef.current = null;
-    };
-  }, [streamUrl, isGlobalActive]);
-
+  // WaveSurfer — visual only; playback goes through global HTMLAudioElement.
   useEffect(() => {
     let cancelled = false;
     const el = containerRef.current;
     if (!el || !streamUrl) return;
 
+    setWaveReady(false);
+    setWaveError(false);
+
     void import("wavesurfer.js").then(({ default: WaveSurfer }) => {
       if (cancelled || !containerRef.current) return;
+
       const ws = WaveSurfer.create({
         container: containerRef.current!,
         height: 72,
@@ -108,15 +81,19 @@ export function SoundWaveformPlayer({
         cursorWidth: 2,
         normalize: true,
         interact: true,
+        mediaControls: false,
         waveColor: "rgba(168, 85, 247, 0.35)",
         progressColor: "rgba(168, 85, 247, 0.95)",
         cursorColor: "#a855f7",
-        ...(waveformPeaks?.length ? { peaks: [waveformPeaks], duration: durationSeconds ?? undefined } : {}),
+        ...(waveformPeaks?.length
+          ? { peaks: [waveformPeaks], duration: durationSeconds ?? undefined }
+          : {}),
         url: streamUrl,
       });
       wsRef.current = ws;
 
       ws.on("ready", () => {
+        if (cancelled) return;
         setWaveReady(true);
         setWaveError(false);
         const d = ws.getDuration();
@@ -124,33 +101,18 @@ export function SoundWaveformPlayer({
       });
 
       ws.on("error", () => {
+        if (cancelled) return;
         setWaveError(true);
         setWaveReady(false);
       });
 
-      ws.on("audioprocess", () => {
-        if (!isGlobalActive) setLocalTime(ws.getCurrentTime());
-      });
-
       ws.on("interaction", () => {
         const t = ws.getCurrentTime();
+        const total = duration || durationSeconds || ws.getDuration() || 1;
         if (useGlobalPlayer && global?.current?.id === modId) {
-          global.seek(duration > 0 ? t / duration : 0);
+          global.seek(total > 0 ? t / total : 0);
         } else {
-          const a = audioRef.current;
-          if (a) a.currentTime = t;
           setLocalTime(t);
-        }
-      });
-
-      ws.on("play", () => {
-        if (!useGlobalPlayer || !global?.current?.id || global.current.id !== modId) {
-          setLocalPlaying(true);
-        }
-      });
-      ws.on("pause", () => {
-        if (!useGlobalPlayer || !global?.current?.id || global.current.id !== modId) {
-          setLocalPlaying(false);
         }
       });
     });
@@ -160,7 +122,17 @@ export function SoundWaveformPlayer({
       wsRef.current?.destroy();
       wsRef.current = null;
     };
-  }, [waveformPeaks, durationSeconds, streamUrl, modId, global, useGlobalPlayer, isGlobalActive, duration]);
+  }, [waveformPeaks, durationSeconds, streamUrl, modId, useGlobalPlayer]);
+
+  // Sync waveform cursor with global player progress.
+  useEffect(() => {
+    if (!isGlobalActive || !waveReady) return;
+    const ws = wsRef.current;
+    const total = duration || durationSeconds || 0;
+    if (ws && total > 0 && typeof ws.seekTo === "function") {
+      ws.seekTo(Math.min(1, progress / total));
+    }
+  }, [progress, duration, durationSeconds, isGlobalActive, waveReady]);
 
   function togglePlay() {
     const track: AudioTrack = {
@@ -184,37 +156,16 @@ export function SoundWaveformPlayer({
       return;
     }
 
-    const a = audioRef.current;
-    if (a) {
-      if (localPlaying) {
-        a.pause();
-        wsRef.current?.playPause();
-        setLocalPlaying(false);
-      } else {
-        void a.play().then(() => {
-          setLocalPlaying(true);
-          wsRef.current?.playPause();
-        });
-      }
-      return;
-    }
-
     wsRef.current?.playPause();
     setLocalPlaying((p) => !p);
   }
-
-  useEffect(() => {
-    if (!useGlobalPlayer || !global?.current?.id || global.current.id !== modId) return;
-    const ws = wsRef.current;
-    if (ws?.setTime && duration > 0) {
-      ws.setTime(progress);
-    }
-  }, [progress, duration, global, modId, useGlobalPlayer]);
 
   const displayDuration =
     previewLimitSeconds && previewLimitSeconds < duration
       ? previewLimitSeconds
       : duration;
+
+  const errorMessage = global?.playError ?? (waveError ? "Audio failed to load" : null);
 
   return (
     <div className={cn("rounded-xl border border-border/50 bg-background/40 p-4 space-y-3", className)}>
@@ -242,12 +193,11 @@ export function SoundWaveformPlayer({
             Loading waveform…
           </div>
         )}
-        {waveError && (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-destructive/90">
-            Audio failed to load
-          </div>
-        )}
       </div>
+
+      {errorMessage && (
+        <p className="text-xs text-destructive/90">{errorMessage}</p>
+      )}
 
       <div className="flex items-center gap-2 text-muted-foreground">
         <Volume2 className="h-4 w-4" />
@@ -260,7 +210,6 @@ export function SoundWaveformPlayer({
           onChange={(e) => {
             const v = Number(e.target.value);
             setVolume(v);
-            if (audioRef.current) audioRef.current.volume = v;
             global?.setVolume(v);
           }}
           className="flex-1 accent-neon-purple"

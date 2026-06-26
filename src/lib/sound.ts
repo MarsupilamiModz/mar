@@ -1,6 +1,6 @@
 import type { SoundAudioCategory, SoundPreviewType } from "@prisma/client";
 
-export const AUDIO_EXTENSIONS = [".mp3", ".wav", ".ogg", ".flac", ".m4a"] as const;
+export const AUDIO_EXTENSIONS = [".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac"] as const;
 
 export const SOUND_ARCHIVE_EXTENSIONS = [".zip", ".rar", ".7z"] as const;
 

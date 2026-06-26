@@ -79,6 +79,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname === "/ads.txt" ||
     pathname === "/robots.txt" ||
+    pathname === "/favicon.ico" ||
     pathname.startsWith("/sitemap")
   ) {
     return NextResponse.next();

@@ -11,6 +11,7 @@ import { registerMediaFromSession } from "@/lib/media-files";
 import { getPreviewLimitSeconds, isAudioFileName, MAX_PREVIEW_BYTES } from "@/lib/sound";
 import { fileSizeNumber } from "@/lib/file-size";
 import { probeAudioFromStorage } from "@/lib/audio-probe";
+import { canStreamSoundPreview, resolveStreamContentType } from "@/lib/sound-security";
 import { mimeFromFileName } from "@/lib/sound-storage";
 import { pickPrismaModelFields } from "@/lib/prisma-schema";
 import { z } from "zod";
@@ -128,6 +129,19 @@ export async function attachSoundPreviewFromSession(
     audioMeta.durationSeconds
   );
 
+  if (!durationSeconds || durationSeconds <= 0) {
+    return fail("Could not read audio duration — file may be corrupt or unsupported.");
+  }
+
+  if (!audioMeta.mimeType && !mimeType.startsWith("audio/")) {
+    return fail("Unsupported audio format.");
+  }
+
+  const peaks = meta?.waveformPeaks;
+  if (!peaks?.length) {
+    return fail("Waveform preview required — re-upload the audio file.");
+  }
+
   await registerMediaFromSession(session, "SOUND_PREVIEW", user.id, modId);
 
   const soundExtras = pickPrismaModelFields("SoundProfile", {
@@ -145,7 +159,7 @@ export async function attachSoundPreviewFromSession(
     previewDurationSeconds: durationSeconds,
     durationSeconds: durationSeconds,
     previewScanStatus: "PENDING",
-    waveformPeaks: meta?.waveformPeaks as Prisma.InputJsonValue,
+    waveformPeaks: peaks as Prisma.InputJsonValue,
     ...soundExtras,
   });
 
@@ -156,7 +170,7 @@ export async function attachSoundPreviewFromSession(
     previewDurationSeconds: durationSeconds,
     durationSeconds: durationSeconds ?? undefined,
     previewScanStatus: "PENDING",
-    waveformPeaks: meta?.waveformPeaks as Prisma.InputJsonValue,
+    waveformPeaks: peaks as Prisma.InputJsonValue,
     ...soundExtras,
   });
 
@@ -210,9 +224,8 @@ export async function getSoundStreamInfo(modId: string) {
     return fail("Sound is not published");
   }
 
-  const approvedStatuses = ["MANUALLY_APPROVED", "VIRUS_TOTAL_VERIFIED"];
-  if (!approvedStatuses.includes(mod.soundProfile.approvalStatus)) {
-    return fail("Sound pending security approval");
+  if (!canStreamSoundPreview(mod.soundProfile, mod.status)) {
+    return fail("Sound preview not available");
   }
 
   const { ensureSoundProfileMetadata } = await import("@/lib/audio-probe");
@@ -238,6 +251,11 @@ export async function getSoundStreamInfo(modId: string) {
   const previewFileKey = profile.previewFileKey;
   const url = await getSignedDownloadUrl(previewFileKey, 600);
   const previewFileName = previewFileKey.split("/").pop() ?? "preview.mp3";
+  const contentType = resolveStreamContentType(
+    profile.previewMimeType,
+    previewFileName,
+    mimeFromFileName
+  );
 
   return ok({
     modId: mod.id,
@@ -247,7 +265,7 @@ export async function getSoundStreamInfo(modId: string) {
     coverUrl: profile.coverImageKey ? resolveAssetUrl(profile.coverImageKey) : null,
     streamUrl: url,
     playbackUrl: `/api/sounds/${modId}/audio`,
-    contentType: mimeFromFileName(previewFileName),
+    contentType,
     previewFileName,
     durationSeconds,
     previewLimitSeconds: limit,

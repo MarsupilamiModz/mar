@@ -192,6 +192,35 @@ export async function POST(req: Request) {
             update: {},
           });
 
+          const grossCents = session.amount_total ?? 0;
+          if (grossCents > 0) {
+            const mod = await prisma.mod.findUnique({
+              where: { id: modId },
+              select: {
+                title: true,
+                authorId: true,
+                author: { select: { creatorProfile: { select: { commissionOverrideBps: true, commissionRateBps: true } } } },
+              },
+            });
+            if (mod?.authorId) {
+              const { getRevenueShareSettings, resolveCreatorShareBps } = await import("@/lib/revenue-sharing");
+              const shareSettings = await getRevenueShareSettings();
+              const bps = resolveCreatorShareBps(shareSettings, mod.author.creatorProfile);
+              const commissionCents = Math.round((grossCents * bps) / 10000);
+              if (commissionCents > 0) {
+                await prisma.commissionEntry.create({
+                  data: {
+                    userId: mod.authorId,
+                    source: "MOD_SALE",
+                    sourceId: modId,
+                    amountCents: commissionCents,
+                    description: `Mod sale: ${mod.title}`,
+                  },
+                });
+              }
+            }
+          }
+
           const { evaluateUserAchievements } = await import("@/lib/achievements");
           void evaluateUserAchievements(userId);
 

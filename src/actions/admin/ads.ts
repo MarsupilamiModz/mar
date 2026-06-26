@@ -77,9 +77,10 @@ export async function saveAdminAdSettings(settings: AdProviderSettings) {
   } catch (err) {
     console.error("[ads] ads.txt write failed", err);
   }
+  const readiness = await getAdSenseReadinessReport();
   revalidatePath("/admin/ads");
   revalidatePath("/", "layout");
-  return ok(undefined);
+  return ok({ readiness });
 }
 
 export async function saveAdminSiteVerification(settings: SiteVerificationSettings) {

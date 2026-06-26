@@ -5,7 +5,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -31,6 +30,7 @@ type AudioPlayerContextValue = {
   duration: number;
   volume: number;
   playbackRate: number;
+  playError: string | null;
   playTrack: (track: AudioTrack, queue?: AudioTrack[]) => void;
   toggle: () => void;
   pause: () => void;
@@ -45,6 +45,7 @@ const AudioPlayerContext = createContext<AudioPlayerContextValue | null>(null);
 
 export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentRef = useRef<AudioTrack | null>(null);
   const [current, setCurrent] = useState<AudioTrack | null>(null);
   const [queue, setQueue] = useState<AudioTrack[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
@@ -53,22 +54,27 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.85);
   const [playbackRate, setPlaybackRateState] = useState(1);
+  const [playError, setPlayError] = useState<string | null>(null);
+
+  currentRef.current = current;
 
   useEffect(() => {
     const audio = new Audio();
-    audio.preload = "metadata";
+    audio.preload = "auto";
+    audio.crossOrigin = "anonymous";
     audioRef.current = audio;
 
     const onTime = () => {
       const a = audioRef.current;
       if (!a) return;
       setProgress(a.currentTime);
+      const track = currentRef.current;
       const metaDuration =
         a.duration && Number.isFinite(a.duration) && a.duration > 0
           ? a.duration
-          : current?.durationSeconds ?? 0;
+          : track?.durationSeconds ?? 0;
       setDuration(metaDuration);
-      const limit = current?.previewLimitSeconds;
+      const limit = track?.previewLimitSeconds;
       if (limit && a.currentTime >= limit) {
         a.pause();
         setIsPlaying(false);
@@ -76,22 +82,31 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         setProgress(0);
       }
     };
+
     const onEnded = () => {
       setIsPlaying(false);
       setProgress(0);
     };
 
+    const onError = () => {
+      setIsPlaying(false);
+      setPlayError("Audio failed to load — try refreshing the page.");
+    };
+
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("loadedmetadata", onTime);
     audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
+
     return () => {
       audio.pause();
       audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("loadedmetadata", onTime);
       audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onError);
       audioRef.current = null;
     };
-  }, [current?.previewLimitSeconds]);
+  }, []);
 
   useEffect(() => {
     const a = audioRef.current;
@@ -114,21 +129,40 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     setQueueIndex(idx >= 0 ? idx : 0);
     setCurrent(track);
     setDuration(track.durationSeconds ?? 0);
+    setPlayError(null);
     a.src = track.streamUrl;
+    a.load();
     a.currentTime = 0;
-    void a.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+    void a
+      .play()
+      .then(() => setIsPlaying(true))
+      .catch((err: DOMException) => {
+        setIsPlaying(false);
+        setPlayError(
+          err.name === "NotAllowedError"
+            ? "Tap play to start audio (browser blocked autoplay)."
+            : "Playback failed — audio may be unavailable."
+        );
+      });
   }, []);
 
   const toggle = useCallback(() => {
     const a = audioRef.current;
-    if (!a || !current) return;
+    if (!a || !currentRef.current) return;
     if (isPlaying) {
       a.pause();
       setIsPlaying(false);
     } else {
-      void a.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      setPlayError(null);
+      void a
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {
+          setIsPlaying(false);
+          setPlayError("Playback failed.");
+        });
     }
-  }, [current, isPlaying]);
+  }, [isPlaying]);
 
   const pause = useCallback(() => {
     audioRef.current?.pause();
@@ -157,8 +191,13 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const seek = useCallback((ratio: number) => {
     const a = audioRef.current;
-    if (!a || !a.duration) return;
-    a.currentTime = Math.max(0, Math.min(1, ratio)) * a.duration;
+    const track = currentRef.current;
+    const total =
+      a?.duration && Number.isFinite(a.duration) && a.duration > 0
+        ? a.duration
+        : track?.durationSeconds ?? 0;
+    if (!a || !total) return;
+    a.currentTime = Math.max(0, Math.min(1, ratio)) * total;
     setProgress(a.currentTime);
   }, []);
 
@@ -170,42 +209,24 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     setPlaybackRateState(r);
   }, []);
 
-  const value = useMemo(
-    () => ({
-      current,
-      queue,
-      isPlaying,
-      progress,
-      duration,
-      volume,
-      playbackRate,
-      playTrack,
-      toggle,
-      pause,
-      next,
-      previous,
-      seek,
-      setVolume,
-      setPlaybackRate,
-    }),
-    [
-      current,
-      queue,
-      isPlaying,
-      progress,
-      duration,
-      volume,
-      playbackRate,
-      playTrack,
-      toggle,
-      pause,
-      next,
-      previous,
-      seek,
-      setVolume,
-      setPlaybackRate,
-    ]
-  );
+  const value: AudioPlayerContextValue = {
+    current,
+    queue,
+    isPlaying,
+    progress,
+    duration,
+    volume,
+    playbackRate,
+    playError,
+    playTrack,
+    toggle,
+    pause,
+    next,
+    previous,
+    seek,
+    setVolume,
+    setPlaybackRate,
+  };
 
   return <AudioPlayerContext.Provider value={value}>{children}</AudioPlayerContext.Provider>;
 }

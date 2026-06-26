@@ -29,6 +29,7 @@ const linkDefs = [
   { href: "/applications", labelKey: "applications", permission: "users.read" as const },
   { href: "/partners", labelKey: "partners", permission: "users.read" as const },
   { href: "/commissions", labelKey: "commissions", permission: "settings.write" as const },
+  { href: "/payout-settings", labelKey: "payoutSettings", permission: "settings.write" as const },
   { href: "/licenses", labelKey: "licenses", permission: "licenses.write" as const },
   { href: "/orders", labelKey: "orders", permission: "orders.read" as const },
   { href: "/audit", labelKey: "audit", permission: "audit.read" as const },

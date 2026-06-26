@@ -42,7 +42,7 @@ export function SoundApprovalPanel({ approvalStatus, previewScanStatus, approved
           </div>
         )}
         {isPending && (
-          <p className="text-amber-400">Review in progress — preview may be limited until approval.</p>
+          <p className="text-amber-400">Awaiting moderation review — preview is available.</p>
         )}
         {isRejected && (
           <p className="text-destructive">This sound was rejected and is not available for playback.</p>
