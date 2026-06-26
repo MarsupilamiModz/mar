@@ -20,6 +20,7 @@ export default async function DevelopersPage({
     { method: "GET", path: "/api/v1/collections/{slug}", scope: "collections:read" },
     { method: "GET", path: "/api/v1/creators/{slug}", scope: "creators:read" },
     { method: "GET", path: "/api/v1/download-meta?modId=&versionId=", scope: "downloads:meta" },
+    { method: "POST", path: "/api/v1/upload (multipart file)", scope: "upload:write" },
     { method: "POST", path: "/api/graphql", scope: "varies" },
   ];
 
@@ -33,9 +34,9 @@ export default async function DevelopersPage({
       <Card className="glass mb-6">
         <CardHeader><CardTitle>Authentication</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <p>Include your API key in the Authorization header:</p>
-          <code className="block p-3 rounded bg-muted text-xs">
-            Authorization: Bearer xm_&lt;your_api_key&gt;
+          <p>Include your API key in the Authorization header or as <code>x-api-key</code>:</p>
+          <code className="block p-3 rounded bg-muted text-xs whitespace-pre">
+            Authorization: Bearer xm_&lt;your_api_key&gt;{"\n"}x-api-key: xm_&lt;your_api_key&gt;
           </code>
           <p className="text-muted-foreground">
             Request keys from an administrator via Admin → API Keys. Rate limits apply per key.

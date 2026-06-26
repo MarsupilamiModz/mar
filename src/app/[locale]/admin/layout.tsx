@@ -57,7 +57,7 @@ const linkDefs = [
   { href: "/owner/translations", labelKey: "translationCenter", permission: "analytics.read" as const, ownerOnly: true },
   { href: "/diagnostics", labelKey: "diagnostics", permission: "users.read" as const },
   { href: "/security", labelKey: "securityCenter", permission: "settings.write" as const },
-  { href: "/api-keys", labelKey: "apiKeysNav", permission: "settings.write" as const },
+  { href: "/api-keys", labelKey: "apiCenter", permission: "settings.write" as const },
 ] as const;
 
 async function filterLinks(user: { id: string; role: Parameters<typeof userHasPermission>[0]["role"]; permissionGroupId?: string | null }) {

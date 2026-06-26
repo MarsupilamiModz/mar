@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { onProfileAvatarUpdated } from "@/lib/profile-media-events";
+import { getMediaUrl } from "@/lib/media-url";
+import { DEFAULT_AVATAR_DATA_URI } from "@/lib/assets";
 import { Button } from "@/components/ui/button";
 import { UserNav, type NavUser } from "@/components/layout/user-nav";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -64,14 +66,21 @@ export function AuthButtons({
       /* fall through to session fallback */
     }
 
-    setUser({
+    const oauthAvatar =
+      getMediaUrl(authUser.user_metadata?.avatar_url as string | undefined) ?? DEFAULT_AVATAR_DATA_URI;
+
+    setUser((prev) => ({
       id: authUser.id,
-      username: authUser.email?.split("@")[0] ?? "user",
-      displayName: (authUser.user_metadata?.full_name as string | undefined) ?? null,
-      avatarUrl: null,
-      role: "USER" as UserRole,
-      isPremium: false,
-    });
+      username: prev?.username ?? authUser.email?.split("@")[0] ?? "user",
+      displayName:
+        prev?.displayName ??
+        (authUser.user_metadata?.full_name as string | undefined) ??
+        null,
+      avatarUrl: prev?.avatarUrl ?? oauthAvatar,
+      role: prev?.role ?? ("USER" as UserRole),
+      isPremium: prev?.isPremium ?? false,
+      permissions: prev?.permissions,
+    }));
     setReady(true);
   }, []);
 
@@ -86,7 +95,10 @@ export function AuthButtons({
     });
 
     const stopAvatarListener = onProfileAvatarUpdated(({ avatarUrl }) => {
-      setUser((prev) => (prev ? { ...prev, avatarUrl } : prev));
+      const busted = avatarUrl
+        ? `${avatarUrl.split("?")[0]}?v=${Date.now()}`
+        : DEFAULT_AVATAR_DATA_URI;
+      setUser((prev) => (prev ? { ...prev, avatarUrl: busted } : prev));
       void syncUser();
     });
 

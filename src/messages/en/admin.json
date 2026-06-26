@@ -63,6 +63,7 @@
     "systemHealth": "System Health",
     "securityCenter": "Security Center",
     "apiKeysNav": "API Keys",
+    "apiCenter": "API Center",
     "modManagement": "Mod management",
     "modTotal": "{count} mods in catalog",
     "uploadMod": "Upload mod",

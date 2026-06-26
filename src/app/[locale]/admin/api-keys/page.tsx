@@ -1,26 +1,22 @@
-import { requirePagePermission } from "@/lib/auth";
 import { listApiKeysAdmin } from "@/actions/admin/api-keys";
 import { ApiKeysPanel } from "@/components/admin/api-keys-panel";
-import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/config";
 
-export default async function AdminApiKeysPage({ params }: { params: Promise<{ locale: Locale }> }) {
-  const { locale } = await params;
+export const dynamic = "force-dynamic";
 
-  setRequestLocale(locale);
-  await requirePagePermission("settings.write");
-  const t = await getTranslations("admin.apiKeys");
+export default async function AdminApiKeysPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  await params;
 
   const result = await listApiKeysAdmin();
-  const keys = result.success ? result.data : [];
+  if (!result.success) {
+    return <p className="text-destructive">Failed to load API center.</p>;
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
-        <p className="text-muted-foreground text-sm mt-1">{t("subtitle")}</p>
-      </div>
-      <ApiKeysPanel keys={keys} />
-    </div>
+    <ApiKeysPanel
+      keys={result.data.keys}
+      totals={result.data.totals}
+      recentLogs={result.data.recentLogs}
+    />
   );
 }

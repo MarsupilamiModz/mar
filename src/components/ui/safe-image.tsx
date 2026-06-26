@@ -46,6 +46,11 @@ export function SafeImage({
   const [failed, setFailed] = useState(false);
   const [useProxy, setUseProxy] = useState(false);
 
+  useEffect(() => {
+    setFailed(false);
+    setUseProxy(false);
+  }, [src]);
+
   const primary = getMediaUrl(src);
   const proxy = useProxy ? getMediaProxyFallback(src) : null;
   const resolved = proxy ?? primary;

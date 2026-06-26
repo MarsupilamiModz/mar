@@ -2424,18 +2424,24 @@ model ModCollectionFollow {
 }
 
 model ApiKey {
-  id          String    @id @default(cuid())
-  name        String
-  keyHash     String    @unique
-  keyPrefix   String
-  scopes      String[]
-  rateLimit   Int       @default(1000)
-  isActive    Boolean   @default(true)
-  lastUsedAt  DateTime?
-  expiresAt   DateTime?
-  createdById String
-  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
+  id            String    @id @default(cuid())
+  name          String
+  description   String?   @db.Text
+  keyHash       String    @unique
+  keyPrefix     String
+  scopes        String[]
+  rateLimit     Int       @default(1000)
+  ipWhitelist   String[]  @default([])
+  isActive      Boolean   @default(true)
+  requestCount  Int       @default(0)
+  errorCount    Int       @default(0)
+  uploadCount   Int       @default(0)
+  uploadBytes   BigInt    @default(0)
+  lastUsedAt    DateTime?
+  expiresAt     DateTime?
+  createdById   String
+  createdBy     User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
 
   @@index([keyHash])
   @@index([isActive])
