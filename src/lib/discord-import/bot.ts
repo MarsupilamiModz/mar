@@ -87,6 +87,13 @@ export async function startDiscordImportBot() {
     throw new Error("DISCORD_BOT_TOKEN missing");
   }
 
+  if (!GatewayIntentBits?.Guilds) {
+    throw new Error(
+      "discord.js failed to load (GatewayIntentBits missing). " +
+        "On the server run: git checkout package.json package-lock.json && rm -rf node_modules && npm ci && npm run build"
+    );
+  }
+
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,

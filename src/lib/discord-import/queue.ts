@@ -1,9 +1,16 @@
 import { prisma } from "@/lib/db";
 import type { DiscordImportJobStatus } from "@prisma/client";
-import { processDiscordImportEntry } from "@/lib/discord-import/processor";
 import type { DiscordMessagePayload } from "@/lib/discord-import/processor";
 
 let processing = false;
+
+async function processDiscordImportEntry(
+  entryId: string,
+  payload: DiscordMessagePayload
+) {
+  const { processDiscordImportEntry: run } = await import("@/lib/discord-import/processor");
+  return run(entryId, payload);
+}
 
 export async function queueDiscordImportMessage(payload: DiscordMessagePayload) {
   const existing = await prisma.discordImportEntry.findUnique({
