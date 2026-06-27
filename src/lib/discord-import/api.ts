@@ -1,5 +1,3 @@
-import "server-only";
-
 const DISCORD_API = "https://discord.com/api/v10";
 
 function botHeaders() {

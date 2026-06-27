@@ -1,5 +1,3 @@
-import "server-only";
-
 import { buildAssetPublicUrl } from "@/lib/assets";
 import { uploadToR2 } from "@/lib/r2";
 import { storageKey } from "@/lib/storage";

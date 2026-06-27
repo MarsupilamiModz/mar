@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { DiscordImportType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { notifyUser } from "@/lib/notifications-service";

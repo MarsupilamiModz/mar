@@ -1,5 +1,3 @@
-import "server-only";
-
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { getObjectBufferFromR2 } from "@/lib/r2";
