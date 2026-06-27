@@ -8,6 +8,7 @@ import {
 import { prisma } from "@/lib/db";
 import { inferImportTypeFromChannelName } from "@/lib/discord-import/parser";
 import { queueDiscordImportMessage, startImportQueuePoller } from "@/lib/discord-import/queue";
+import { syncAllGuildsFromBot } from "@/lib/discord-import/guild-sync";
 import type { DiscordImportType } from "@prisma/client";
 
 function attachmentInput(att: Attachment) {
@@ -35,7 +36,13 @@ async function handleMessage(message: Message) {
   const config = channels.find(
     (c) => c.channelId === message.channelId && c.guild.guildId === message.guildId
   );
-  if (!config) return;
+  if (!config) {
+    console.info(
+      `[discord-import-bot] skip channel ${message.channelId} — not in import list. ` +
+        `Add it in Owner → Discord Import → Import channels.`
+    );
+    return;
+  }
 
   const importType: DiscordImportType =
     config.importType ??
@@ -94,22 +101,17 @@ export async function startDiscordImportBot() {
     if (readyHandled) return;
     readyHandled = true;
     console.log(`[discord-import-bot] Logged in as ${client.user?.tag}`);
-    const guildId = process.env.DISCORD_GUILD_ID;
-    if (guildId) {
-      await prisma.discordImportGuild.upsert({
-        where: { guildId },
-        create: {
-          guildId,
-          guildName: client.guilds.cache.get(guildId)?.name ?? "Discord Server",
-          botConnected: true,
-          enabled: true,
-        },
-        update: {
-          botConnected: true,
-          guildName: client.guilds.cache.get(guildId)?.name ?? undefined,
-        },
-      });
+
+    const synced = await syncAllGuildsFromBot(client.guilds.cache.values());
+    if (synced.length) {
+      console.log(`[discord-import-bot] Synced guild(s): ${synced.join(", ")}`);
+      console.log(
+        `[discord-import-bot] Set DISCORD_GUILD_ID=${client.guilds.cache.first()?.id ?? "?"} in .env if not set`
+      );
+    } else {
+      console.warn("[discord-import-bot] Bot is not in any Discord server — invite the bot first");
     }
+
     startImportQueuePoller(3000);
     console.log("[discord-import-bot] Import queue poller started");
   };

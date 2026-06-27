@@ -12,6 +12,7 @@ import {
   fetchDiscordGuild,
   fetchDiscordGuildChannels,
 } from "@/lib/discord-import/api";
+import { resolveActiveGuildId } from "@/lib/discord-import/guild-sync";
 import { notifyDiscordImportReviewed } from "@/lib/discord-import/notifications";
 import {
   getDiscordImportSettings,
@@ -110,16 +111,37 @@ export async function getDiscordImportCenterData() {
   ]);
 
   let discordChannels: { id: string; name: string }[] = [];
-  const guildId = process.env.DISCORD_GUILD_ID;
-  if (guildId && process.env.DISCORD_BOT_TOKEN) {
+  let channelFetchError: string | null = null;
+  const activeGuildId =
+    guilds.find((g) => g.botConnected)?.guildId ?? (await resolveActiveGuildId());
+  const envGuildId = process.env.DISCORD_GUILD_ID?.trim() ?? null;
+
+  if (activeGuildId && process.env.DISCORD_BOT_TOKEN) {
     try {
-      discordChannels = await fetchDiscordGuildChannels(guildId);
-    } catch {
-      discordChannels = [];
+      discordChannels = await fetchDiscordGuildChannels(activeGuildId);
+    } catch (err) {
+      channelFetchError =
+        err instanceof Error ? err.message : "Could not load Discord channel list";
     }
+  } else if (!guilds.some((g) => g.botConnected)) {
+    channelFetchError =
+      "Start the discord-import bot (PM2) — it auto-registers your server. Wrong DISCORD_GUILD_ID also causes 404.";
   }
 
-  return ok({ guilds, channels, rules, queue, stats, mappings, games, discordChannels, guildId, settings });
+  return ok({
+    guilds,
+    channels,
+    rules,
+    queue,
+    stats,
+    mappings,
+    games,
+    discordChannels,
+    guildId: activeGuildId ?? envGuildId,
+    envGuildId,
+    channelFetchError,
+    settings,
+  });
 }
 
 async function getImportStats() {
@@ -178,12 +200,23 @@ export async function saveDiscordImportLinkSettings(input: DiscordImportSettings
   return ok(undefined);
 }
 
-export async function connectDiscordGuild() {
+export async function connectDiscordGuild(guildRecordId?: string) {
   const { user, error } = await requireOwnerAction();
   if (error) return error;
 
-  const guildId = process.env.DISCORD_GUILD_ID;
-  if (!guildId) return fail("DISCORD_GUILD_ID not configured");
+  const dbGuild = guildRecordId
+    ? await prisma.discordImportGuild.findUnique({ where: { id: guildRecordId } })
+    : await prisma.discordImportGuild.findFirst({
+        where: { botConnected: true },
+        orderBy: { updatedAt: "desc" },
+      });
+
+  const guildId = dbGuild?.guildId ?? (await resolveActiveGuildId());
+  if (!guildId) {
+    return fail(
+      "No Discord server found. Restart discord-import bot (pm2 restart discord-import) — it registers your server automatically."
+    );
+  }
 
   try {
     const guild = await fetchDiscordGuild(guildId);
@@ -213,7 +246,18 @@ export async function connectDiscordGuild() {
     revalidatePath("/owner/discord-import");
     return ok(record);
   } catch (err) {
-    return fail(err instanceof Error ? err.message : "Failed to connect guild");
+    if (dbGuild?.botConnected) {
+      revalidatePath("/owner/discord-import");
+      return ok(dbGuild);
+    }
+    const envHint = process.env.DISCORD_GUILD_ID
+      ? ` DISCORD_GUILD_ID in .env is "${process.env.DISCORD_GUILD_ID}" — likely wrong.`
+      : "";
+    return fail(
+      (err instanceof Error ? err.message : "Failed to connect guild") +
+        envHint +
+        " Restart discord-import bot after fixing .env."
+    );
   }
 }
 

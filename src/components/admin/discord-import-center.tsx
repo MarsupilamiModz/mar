@@ -58,7 +58,8 @@ export function DiscordImportCenter({ locale, data }: { locale: string; data: Ce
   const [pending, startTransition] = useTransition();
   const defaultTab = searchParams.get("tab") ?? "servers";
 
-  const primaryGuild = data.guilds[0] ?? null;
+  const primaryGuild =
+    data.guilds.find((g) => g.botConnected) ?? data.guilds[0] ?? null;
 
   const [channelForm, setChannelForm] = useState({
     channelId: "",
@@ -127,19 +128,28 @@ export function DiscordImportCenter({ locale, data }: { locale: string; data: Ce
               <CardTitle>Connected servers</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {!data.guildId ? (
-                <p className="text-sm text-destructive">DISCORD_GUILD_ID is not configured.</p>
+              {data.guilds.length === 0 ? (
+                <p className="text-sm text-destructive">
+                  No server registered yet. Start the import bot — it auto-detects your Discord
+                  server.
+                </p>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Bot guild: <code>{data.guildId}</code>
+                  Active guild: <code>{data.guildId ?? "—"}</code>
+                  {data.envGuildId && data.guildId && data.envGuildId !== data.guildId ? (
+                    <span className="block text-destructive mt-1">
+                      DISCORD_GUILD_ID in .env ({data.envGuildId}) does not match bot guild (
+                      {data.guildId}). Update .env and restart PM2.
+                    </span>
+                  ) : null}
                 </p>
               )}
               <Button
                 variant="neon"
-                disabled={pending || !data.guildId}
+                disabled={pending}
                 onClick={() =>
                   startTransition(async () => {
-                    const r = await connectDiscordGuild();
+                    const r = await connectDiscordGuild(primaryGuild?.id);
                     if (r.success) {
                       toast({ title: "Server connected" });
                       router.refresh();
@@ -177,31 +187,57 @@ export function DiscordImportCenter({ locale, data }: { locale: string; data: Ce
             </CardHeader>
             <CardContent className="space-y-3">
               {!primaryGuild ? (
-                <p className="text-sm text-muted-foreground">Connect a server first.</p>
+                <p className="text-sm text-muted-foreground">
+                  Start discord-import bot first — it registers your server automatically.
+                </p>
               ) : (
                 <>
-                  <Select
-                    value={channelForm.channelId}
-                    onValueChange={(channelId) => {
-                      const ch = data.discordChannels.find((c) => c.id === channelId);
-                      setChannelForm((f) => ({
-                        ...f,
-                        channelId,
-                        channelName: ch?.name ?? "",
-                      }));
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Discord channel" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {data.discordChannels.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          #{c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {data.channelFetchError ? (
+                    <p className="text-sm text-destructive rounded-md border border-destructive/30 p-3">
+                      {data.channelFetchError}
+                    </p>
+                  ) : null}
+                  {data.discordChannels.length > 0 ? (
+                    <Select
+                      value={channelForm.channelId}
+                      onValueChange={(channelId) => {
+                        const ch = data.discordChannels.find((c) => c.id === channelId);
+                        setChannelForm((f) => ({
+                          ...f,
+                          channelId,
+                          channelName: ch?.name ?? "",
+                        }));
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Discord channel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {data.discordChannels.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            #{c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        placeholder="Channel ID (Developer Mode → Copy Channel ID)"
+                        value={channelForm.channelId}
+                        onChange={(e) =>
+                          setChannelForm((f) => ({ ...f, channelId: e.target.value.trim() }))
+                        }
+                      />
+                      <Input
+                        placeholder="Channel name (e.g. mod-uploads)"
+                        value={channelForm.channelName}
+                        onChange={(e) =>
+                          setChannelForm((f) => ({ ...f, channelName: e.target.value.trim() }))
+                        }
+                      />
+                    </div>
+                  )}
                   <Select
                     value={channelForm.importType}
                     onValueChange={(v) =>

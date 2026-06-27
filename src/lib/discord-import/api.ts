@@ -17,6 +17,13 @@ export async function fetchDiscordGuild(guildId: string) {
     headers: botHeaders(),
     cache: "no-store",
   });
+  if (res.status === 404) {
+    throw new Error(
+      `Discord guild fetch failed (404). Bot is not in this server or DISCORD_GUILD_ID is wrong. ` +
+        `Set DISCORD_GUILD_ID to your server ID (Developer Mode → right-click server → Copy Server ID). ` +
+        `Attempted: ${guildId}`
+    );
+  }
   if (!res.ok) throw new Error(`Discord guild fetch failed (${res.status})`);
   return res.json() as Promise<{ id: string; name: string; icon: string | null }>;
 }
@@ -26,6 +33,11 @@ export async function fetchDiscordGuildChannels(guildId: string): Promise<Discor
     headers: botHeaders(),
     cache: "no-store",
   });
+  if (res.status === 404) {
+    throw new Error(
+      `Discord channels fetch failed (404). Wrong guild ID or bot not in server. Guild: ${guildId}`
+    );
+  }
   if (!res.ok) throw new Error(`Discord channels fetch failed (${res.status})`);
   const channels = (await res.json()) as DiscordGuildChannel[];
   return channels.filter((c) => c.type === 0).sort((a, b) => a.name.localeCompare(b.name));
