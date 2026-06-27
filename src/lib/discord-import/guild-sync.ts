@@ -35,7 +35,7 @@ export async function syncDiscordGuildFromBot(input: {
 }
 
 export async function syncAllGuildsFromBot(
-  guilds: Iterable<{ id: string; name: string; icon: string | null }>
+  guilds: { id: string; name: string; icon: string | null }[]
 ) {
   const synced: string[] = [];
   for (const guild of guilds) {

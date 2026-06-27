@@ -109,14 +109,31 @@ export async function startDiscordImportBot() {
     readyHandled = true;
     console.log(`[discord-import-bot] Logged in as ${client.user?.tag}`);
 
-    const synced = await syncAllGuildsFromBot(client.guilds.cache.values());
+    try {
+      await client.guilds.fetch();
+    } catch (err) {
+      console.warn("[discord-import-bot] guild fetch failed", err);
+    }
+
+    const guildList = Array.from(client.guilds.cache.values());
+    const synced = await syncAllGuildsFromBot(
+      guildList.map((g) => ({ id: g.id, name: g.name, icon: g.icon }))
+    );
     if (synced.length) {
       console.log(`[discord-import-bot] Synced guild(s): ${synced.join(", ")}`);
       console.log(
-        `[discord-import-bot] Set DISCORD_GUILD_ID=${client.guilds.cache.first()?.id ?? "?"} in .env if not set`
+        `[discord-import-bot] Set DISCORD_GUILD_ID=${guildList[0]?.id ?? "?"} in .env if not set`
       );
     } else {
-      console.warn("[discord-import-bot] Bot is not in any Discord server — invite the bot first");
+      const clientId = client.user?.id;
+      console.warn(
+        "[discord-import-bot] Bot is not in any Discord server — invite the bot first"
+      );
+      if (clientId) {
+        console.warn(
+          `[discord-import-bot] Invite URL: https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=66560&scope=bot`
+        );
+      }
     }
 
     startImportQueuePoller(3000);
