@@ -21,7 +21,18 @@ import {
   generateRoughWaveformPeaks,
   type DiscordAttachmentInput,
 } from "@/lib/discord-import/storage";
-import { notifyDiscordImportStaff } from "@/lib/discord-import/notifications";
+import {
+  downloadFromUrl,
+  identifyLinkProvider,
+  resolveDownloadUrl,
+} from "@/lib/discord-import/link-resolver";
+import { getDiscordImportSettings } from "@/lib/discord-import/settings";
+import { resolveCategoryForImport, resolveGameModeForChannel } from "@/lib/discord-import/categories";
+import { isImageFileName, isImageMime, optimizeImageToWebp } from "@/lib/discord-import/image-optimize";
+import {
+  notifyDiscordImportStaff,
+  notifyDiscordVirusDetected,
+} from "@/lib/discord-import/notifications";
 
 export type DiscordMessagePayload = {
   messageId: string;
@@ -36,6 +47,18 @@ export type DiscordMessagePayload = {
   gameSlug?: string | null;
   gameId?: string | null;
   modeId?: string | null;
+};
+
+type StoredFile = {
+  buffer: Buffer;
+  fileName: string;
+  mimeType: string;
+  r2Key: string;
+  publicUrl: string;
+  role: string;
+  size?: number;
+  sourceUrl?: string;
+  sourceProvider?: string;
 };
 
 async function resolveAuthorUserId(discordAuthorId: string): Promise<string | null> {
@@ -78,33 +101,44 @@ async function uniqueModSlug(base: string) {
   return s;
 }
 
-export async function processDiscordImportMessage(payload: DiscordMessagePayload) {
-  const existing = await prisma.discordImportEntry.findUnique({
-    where: { messageId: payload.messageId },
-  });
-  if (existing) return existing;
+async function storeScreenshot(buffer: Buffer, fileName: string, mimeType: string, entryId: string) {
+  if (isImageFileName(fileName) || isImageMime(mimeType)) {
+    return optimizeImageToWebp(buffer, entryId, fileName);
+  }
+  const safeName = fileName.replace(/[^\w.-]/g, "_");
+  const r2Key = `xumari/discord-imports/${entryId}/screenshots/${safeName}`;
+  await uploadToR2(r2Key, buffer, mimeType);
+  const { buildAssetPublicUrl } = await import("@/lib/assets");
+  return { buffer, fileName: safeName, mimeType, r2Key, publicUrl: buildAssetPublicUrl(r2Key) };
+}
 
+export async function processDiscordImportEntry(entryId: string, payload: DiscordMessagePayload) {
   const parsed = parseDiscordMessageContent(payload.content, payload.importType);
   const slugFromChannel = channelNameToGameSlug(payload.channelName);
   const authorUserId = (await resolveAuthorUserId(payload.authorId)) ?? (await resolveFallbackAuthorId());
   const game = await resolveGame(payload.gameId, payload.gameSlug ?? slugFromChannel);
+  if (!game) throw new Error("No active game found for import");
 
-  const entry = await prisma.discordImportEntry.create({
+  const modeId =
+    payload.modeId ?? (await resolveGameModeForChannel(game.id, payload.channelName)) ?? null;
+  const categoryId = await resolveCategoryForImport({
+    gameId: game.id,
+    channelName: payload.channelName,
+    tags: parsed.tags,
+    modeId,
+  });
+
+  await prisma.discordImportEntry.update({
+    where: { id: entryId },
     data: {
-      guildId: payload.guildId,
-      channelId: payload.channelId,
-      messageId: payload.messageId,
       importType: parsed.importType,
-      status: "PROCESSING",
-      scanStatus: "PENDING",
       title: parsed.title,
       description: parsed.description || null,
       tags: parsed.tags,
-      discordAuthorId: payload.authorId,
-      discordAuthorName: payload.authorName,
       authorUserId,
-      gameId: game?.id ?? null,
-      modeId: payload.modeId ?? null,
+      gameId: game.id,
+      modeId,
+      categoryId,
       metadata: {
         links: parsed.links,
         referencedFiles: parsed.referencedFiles,
@@ -113,15 +147,87 @@ export async function processDiscordImportMessage(payload: DiscordMessagePayload
     },
   });
 
+  const settings = await getDiscordImportSettings();
+  const storedFiles: StoredFile[] = [];
+  let needsLinkReview = false;
+
   try {
-    const storedFiles = [];
     for (const att of payload.attachments) {
-      const stored = await downloadDiscordAttachment(att, entry.id);
-      storedFiles.push({
-        ...stored,
-        role: classifyAttachment(stored.fileName, parsed.importType),
-        size: att.size,
-      });
+      const stored = await downloadDiscordAttachment(att, entryId);
+      const role = classifyAttachment(stored.fileName, parsed.importType);
+      if (role === "screenshot" && (isImageFileName(stored.fileName) || isImageMime(stored.mimeType))) {
+        const optimized = await storeScreenshot(stored.buffer, stored.fileName, stored.mimeType, entryId);
+        storedFiles.push({
+          ...optimized,
+          role,
+          size: att.size,
+          sourceProvider: "discord",
+        });
+      } else {
+        storedFiles.push({
+          ...stored,
+          role,
+          size: att.size,
+          sourceProvider: "discord",
+        });
+      }
+    }
+
+    for (const link of parsed.links) {
+      const provider = identifyLinkProvider(link);
+      if (provider === "linkvertise" && !settings.allowLinkvertise) {
+        needsLinkReview = true;
+        continue;
+      }
+      if (!settings.allowedProviders.includes(provider) && provider !== "direct") {
+        needsLinkReview = true;
+        continue;
+      }
+
+      const resolved = resolveDownloadUrl(link, provider);
+      if (!resolved.ok) {
+        if (resolved.needsReview) needsLinkReview = true;
+        continue;
+      }
+
+      try {
+        const maxBytes = settings.maxLinkDownloadMb * 1024 * 1024;
+        const dl = await downloadFromUrl(resolved.downloadUrl, maxBytes);
+        const role = classifyAttachment(dl.fileName, parsed.importType);
+        if (role === "screenshot" && (isImageFileName(dl.fileName) || isImageMime(dl.mimeType))) {
+          const optimized = await storeScreenshot(dl.buffer, dl.fileName, dl.mimeType, entryId);
+          storedFiles.push({
+            ...optimized,
+            role,
+            size: dl.buffer.length,
+            sourceUrl: resolved.originalUrl,
+            sourceProvider: resolved.provider,
+          });
+        } else {
+          const { storageKey } = await import("@/lib/storage");
+          const { buildAssetPublicUrl } = await import("@/lib/assets");
+          const safeName = dl.fileName.replace(/[^\w.-]/g, "_");
+          const r2Key = storageKey("discord-imports", entryId, `link-${safeName}`);
+          await uploadToR2(r2Key, dl.buffer, dl.mimeType);
+          storedFiles.push({
+            buffer: dl.buffer,
+            fileName: dl.fileName,
+            mimeType: dl.mimeType,
+            r2Key,
+            publicUrl: buildAssetPublicUrl(r2Key),
+            role,
+            size: dl.buffer.length,
+            sourceUrl: resolved.originalUrl,
+            sourceProvider: resolved.provider,
+          });
+        }
+      } catch {
+        needsLinkReview = true;
+      }
+    }
+
+    if (storedFiles.length === 0 && parsed.links.length > 0) {
+      needsLinkReview = true;
     }
 
     let modId: string | null = null;
@@ -137,8 +243,9 @@ export async function processDiscordImportMessage(payload: DiscordMessagePayload
           title: parsed.title,
           description: parsed.description || "Imported from Discord — pending review.",
           shortDescription: parsed.description?.slice(0, 280) ?? null,
-          gameId: game!.id,
-          modeId: payload.modeId ?? null,
+          gameId: game.id,
+          modeId,
+          categoryId,
           authorId: authorUserId,
           productType,
           status: ModStatus.DRAFT,
@@ -149,7 +256,7 @@ export async function processDiscordImportMessage(payload: DiscordMessagePayload
       });
       modId = mod.id;
 
-      const primary = storedFiles.find((f) => f.role === "primary") ?? storedFiles[0];
+      const primary = storedFiles.find((f) => f.role === "primary") ?? storedFiles.find((f) => f.role !== "screenshot");
       if (primary && productType === "MOD") {
         const versionKey = modFileKey(mod.slug, "1.0.0", primary.fileName);
         await uploadToR2(versionKey, primary.buffer, primary.mimeType);
@@ -228,24 +335,30 @@ export async function processDiscordImportMessage(payload: DiscordMessagePayload
       }
     }
 
-    await prisma.discordImportFile.createMany({
-      data: storedFiles.map((f) => ({
-        entryId: entry.id,
-        fileName: f.fileName,
-        mimeType: f.mimeType,
-        fileSize: f.size != null ? fileSizeBigInt(f.size) : fileSizeBigInt(f.buffer.length),
-        r2Key: f.r2Key,
-        publicUrl: f.publicUrl,
-        role: f.role,
-        scanStatus: "PENDING" as const,
-      })),
-    });
+    if (storedFiles.length) {
+      await prisma.discordImportFile.createMany({
+        data: storedFiles.map((f) => ({
+          entryId,
+          fileName: f.fileName,
+          mimeType: f.mimeType,
+          fileSize: f.size != null ? fileSizeBigInt(f.size) : fileSizeBigInt(f.buffer.length),
+          r2Key: f.r2Key,
+          publicUrl: f.publicUrl,
+          role: f.role,
+          sourceUrl: f.sourceUrl ?? null,
+          sourceProvider: f.sourceProvider ?? null,
+          scanStatus: "PENDING" as const,
+        })),
+      });
+    }
+
+    const finalStatus = needsLinkReview ? "NEEDS_LINK_REVIEW" : "PENDING_REVIEW";
 
     const updated = await prisma.discordImportEntry.update({
-      where: { id: entry.id },
+      where: { id: entryId },
       data: {
         modId,
-        status: "PENDING_REVIEW",
+        status: finalStatus,
         scanStatus,
       },
     });
@@ -254,35 +367,38 @@ export async function processDiscordImportMessage(payload: DiscordMessagePayload
       actorId: authorUserId,
       action: "discord.import.created",
       entityType: "DiscordImportEntry",
-      entityId: entry.id,
+      entityId: entryId,
       metadata: {
         messageId: payload.messageId,
         importType: parsed.importType,
         discordAuthorId: payload.authorId,
+        needsLinkReview,
       },
     });
 
     void notifyDiscordImportStaff({
-      entryId: entry.id,
+      entryId,
       title: parsed.title,
       importType: parsed.importType,
       success: true,
+      needsReview: finalStatus === "NEEDS_LINK_REVIEW" || finalStatus === "PENDING_REVIEW",
     });
 
     return updated;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Import failed";
     await prisma.discordImportEntry.update({
-      where: { id: entry.id },
+      where: { id: entryId },
       data: { status: "FAILED", errorMessage: message, scanStatus: "SUSPICIOUS" },
     });
     void notifyDiscordImportStaff({
-      entryId: entry.id,
+      entryId,
       title: parsed.title,
       importType: parsed.importType,
       success: false,
       error: message,
     });
+    void notifyDiscordVirusDetected({ entryId, title: parsed.title, fileName: "import" });
     throw err;
   }
 }

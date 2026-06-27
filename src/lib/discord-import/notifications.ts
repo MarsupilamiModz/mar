@@ -8,6 +8,7 @@ export async function notifyDiscordImportStaff(params: {
   importType: DiscordImportType;
   success: boolean;
   error?: string;
+  needsReview?: boolean;
 }) {
   const staff = await prisma.user.findMany({
     where: {
@@ -19,7 +20,9 @@ export async function notifyDiscordImportStaff(params: {
   });
 
   const title = params.success
-    ? `New Discord import: ${params.title}`
+    ? params.needsReview
+      ? `Review required: ${params.title}`
+      : `New Discord import: ${params.title}`
     : `Discord import failed: ${params.title}`;
 
   const body = params.success

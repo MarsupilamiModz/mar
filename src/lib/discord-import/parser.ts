@@ -135,6 +135,8 @@ export function channelNameToGameSlug(channelName: string): string | null {
     sp: "singleplayer",
     redux: "redux",
     revo: "revo",
+    vehicles: "vehicles",
+    weapons: "weapons",
   };
   return map[normalized] ?? null;
 }

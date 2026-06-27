@@ -13,7 +13,35 @@ import {
   fetchDiscordGuildChannels,
 } from "@/lib/discord-import/api";
 import { notifyDiscordImportReviewed } from "@/lib/discord-import/notifications";
+import {
+  getDiscordImportSettings,
+  saveDiscordImportSettings,
+  type DiscordImportSettings,
+} from "@/lib/discord-import/settings";
 import { z } from "zod";
+
+function daysAgo(n: number) {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - n);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
+async function statsForPeriod(since: Date) {
+  const where = { createdAt: { gte: since } };
+  const [total, mods, sounds, failed, approved, suspicious, pending] = await Promise.all([
+    prisma.discordImportEntry.count({ where }),
+    prisma.discordImportEntry.count({ where: { ...where, importType: "MOD" } }),
+    prisma.discordImportEntry.count({ where: { ...where, importType: "SOUND" } }),
+    prisma.discordImportEntry.count({ where: { ...where, status: "FAILED" } }),
+    prisma.discordImportEntry.count({ where: { ...where, status: "APPROVED" } }),
+    prisma.discordImportEntry.count({ where: { ...where, scanStatus: "SUSPICIOUS" } }),
+    prisma.discordImportEntry.count({
+      where: { ...where, status: { in: ["PENDING_REVIEW", "NEEDS_LINK_REVIEW", "PROCESSING"] } },
+    }),
+  ]);
+  return { total, mods, sounds, failed, approved, suspicious, pending };
+}
 
 async function requireOwnerAction() {
   const { user, error } = await requireActionUser();
@@ -34,6 +62,7 @@ export async function getDiscordImportCenterData() {
     stats,
     mappings,
     games,
+    settings,
   ] = await Promise.all([
     prisma.discordImportGuild.findMany({ orderBy: { guildName: "asc" } }),
     prisma.discordImportChannel.findMany({
@@ -68,9 +97,16 @@ export async function getDiscordImportCenterData() {
     }),
     prisma.game.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, slug: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        categories: { where: { isVisible: true }, select: { id: true, name: true, slug: true } },
+        modes: { where: { isActive: true }, select: { id: true, name: true, slug: true } },
+      },
       orderBy: { sortOrder: "asc" },
     }),
+    getDiscordImportSettings(),
   ]);
 
   let discordChannels: { id: string; name: string }[] = [];
@@ -83,22 +119,34 @@ export async function getDiscordImportCenterData() {
     }
   }
 
-  return ok({ guilds, channels, rules, queue, stats, mappings, games, discordChannels, guildId });
+  return ok({ guilds, channels, rules, queue, stats, mappings, games, discordChannels, guildId, settings });
 }
 
 async function getImportStats() {
-  const [total, mods, sounds, collections, news, failed, last, approved] = await Promise.all([
-    prisma.discordImportEntry.count(),
-    prisma.discordImportEntry.count({ where: { importType: "MOD" } }),
-    prisma.discordImportEntry.count({ where: { importType: "SOUND" } }),
-    prisma.discordImportEntry.count({ where: { importType: "COLLECTION" } }),
-    prisma.discordImportEntry.count({ where: { importType: "NEWS" } }),
-    prisma.discordImportEntry.count({ where: { status: "FAILED" } }),
-    prisma.discordImportEntry.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
-    prisma.discordImportEntry.count({ where: { status: "APPROVED" } }),
-  ]);
+  const [total, mods, sounds, collections, news, failed, last, approved, suspicious, pending] =
+    await Promise.all([
+      prisma.discordImportEntry.count(),
+      prisma.discordImportEntry.count({ where: { importType: "MOD" } }),
+      prisma.discordImportEntry.count({ where: { importType: "SOUND" } }),
+      prisma.discordImportEntry.count({ where: { importType: "COLLECTION" } }),
+      prisma.discordImportEntry.count({ where: { importType: "NEWS" } }),
+      prisma.discordImportEntry.count({ where: { status: "FAILED" } }),
+      prisma.discordImportEntry.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+      prisma.discordImportEntry.count({ where: { status: "APPROVED" } }),
+      prisma.discordImportEntry.count({ where: { scanStatus: "SUSPICIOUS" } }),
+      prisma.discordImportEntry.count({
+        where: { status: { in: ["PENDING_REVIEW", "NEEDS_LINK_REVIEW", "PROCESSING"] } },
+      }),
+    ]);
 
   const successRate = total > 0 ? Math.round((approved / total) * 100) : 100;
+
+  const [today, d7, d30, d90] = await Promise.all([
+    statsForPeriod(daysAgo(0)),
+    statsForPeriod(daysAgo(7)),
+    statsForPeriod(daysAgo(30)),
+    statsForPeriod(daysAgo(90)),
+  ]);
 
   return {
     total,
@@ -107,10 +155,27 @@ async function getImportStats() {
     collections,
     news,
     failed,
+    suspicious,
     lastImportAt: last?.createdAt ?? null,
     successRate,
-    pending: await prisma.discordImportEntry.count({ where: { status: "PENDING_REVIEW" } }),
+    pending,
+    periods: { today, d7, d30, d90 },
   };
+}
+
+export async function saveDiscordImportLinkSettings(input: DiscordImportSettings) {
+  const { user, error } = await requireOwnerAction();
+  if (error) return error;
+  const result = await saveDiscordImportSettings(input);
+  if (!result.ok) return fail(result.error);
+  await createAuditLog({
+    actorId: user.id,
+    action: "discord.import.settings.save",
+    entityType: "SiteSetting",
+    entityId: "discord_import_settings",
+  });
+  revalidatePath("/owner/discord-import");
+  return ok(undefined);
 }
 
 export async function connectDiscordGuild() {
@@ -247,6 +312,9 @@ const reviewSchema = z.object({
   authorUserId: z.string().optional(),
   gameId: z.string().optional(),
   modeId: z.string().optional(),
+  categoryId: z.string().optional(),
+  pricing: z.enum(["FREE", "PREMIUM", "PAID"]).optional(),
+  priceCents: z.number().int().min(0).optional(),
 });
 
 export async function reviewDiscordImport(input: z.infer<typeof reviewSchema>) {
@@ -275,6 +343,7 @@ export async function reviewDiscordImport(input: z.infer<typeof reviewSchema>) {
       authorUserId: parsed.data.authorUserId ?? entry.authorUserId,
       gameId: parsed.data.gameId ?? entry.gameId,
       modeId: parsed.data.modeId ?? entry.modeId,
+      categoryId: parsed.data.categoryId ?? entry.categoryId,
     },
   });
 
@@ -288,6 +357,9 @@ export async function reviewDiscordImport(input: z.infer<typeof reviewSchema>) {
         authorId: parsed.data.authorUserId ?? entry.mod.authorId,
         gameId: parsed.data.gameId ?? entry.mod.gameId,
         modeId: parsed.data.modeId ?? entry.mod.modeId,
+        categoryId: parsed.data.categoryId ?? entry.categoryId ?? entry.mod.categoryId,
+        ...(parsed.data.pricing ? { pricing: parsed.data.pricing } : {}),
+        ...(parsed.data.priceCents != null ? { priceCents: parsed.data.priceCents } : {}),
       },
     });
   }

@@ -2954,6 +2954,7 @@ enum DiscordImportType {
 enum DiscordImportStatus {
   PROCESSING
   PENDING_REVIEW
+  NEEDS_LINK_REVIEW
   APPROVED
   REJECTED
   FAILED
@@ -3036,6 +3037,7 @@ model DiscordImportEntry {
   blogPostId        String?
   gameId            String?
   modeId            String?
+  categoryId        String?
   metadata          Json?
   errorMessage      String?                 @db.Text
   reviewedById      String?
@@ -3044,6 +3046,7 @@ model DiscordImportEntry {
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
   files             DiscordImportFile[]
+  job               DiscordImportJob?
 
   @@index([status, createdAt(sort: Desc)])
   @@index([importType, status])
@@ -3060,8 +3063,35 @@ model DiscordImportFile {
   r2Key      String
   publicUrl  String
   role       String                  @default("attachment")
+  sourceUrl  String?
+  sourceProvider String?
   scanStatus DiscordImportScanStatus @default(PENDING)
   createdAt  DateTime                @default(now())
 
   @@index([entryId])
+}
+
+enum DiscordImportJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model DiscordImportJob {
+  id          String                 @id @default(cuid())
+  entryId     String                 @unique
+  entry       DiscordImportEntry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  payload     Json
+  status      DiscordImportJobStatus @default(PENDING)
+  attempts    Int                    @default(0)
+  maxAttempts Int                    @default(3)
+  lastError   String?                @db.Text
+  scheduledAt DateTime               @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([status, scheduledAt])
 }

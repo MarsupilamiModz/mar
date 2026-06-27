@@ -45,7 +45,8 @@ const SCAN_LABELS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   PROCESSING: "Verarbeitung",
-  PENDING_REVIEW: "Review Queue",
+  PENDING_REVIEW: "Wartet auf Freigabe",
+  NEEDS_LINK_REVIEW: "Link-Prüfung",
   APPROVED: "Genehmigt",
   REJECTED: "Abgelehnt",
   FAILED: "Fehler",
@@ -75,7 +76,13 @@ export function DiscordImportCenter({ locale, data }: { locale: string; data: Ce
   });
 
   const pendingQueue = useMemo(
-    () => data.queue.filter((e) => e.status === "PENDING_REVIEW" || e.status === "PROCESSING"),
+    () =>
+      data.queue.filter(
+        (e) =>
+          e.status === "PENDING_REVIEW" ||
+          e.status === "NEEDS_LINK_REVIEW" ||
+          e.status === "PROCESSING"
+      ),
     [data.queue]
   );
 
@@ -100,11 +107,7 @@ export function DiscordImportCenter({ locale, data }: { locale: string; data: Ce
         <StatCard label="Pending review" value={String(data.stats.pending)} />
         <StatCard label="Imported mods" value={String(data.stats.mods)} />
         <StatCard label="Imported sounds" value={String(data.stats.sounds)} />
-        <StatCard
-          label="Success rate"
-          value={`${data.stats.successRate}%`}
-          sub={data.stats.failed ? `${data.stats.failed} failed` : undefined}
-        />
+        <StatCard label="Virus alerts" value={String(data.stats.suspicious)} />
       </div>
 
       <Tabs defaultValue={defaultTab} className="space-y-6">
@@ -113,6 +116,7 @@ export function DiscordImportCenter({ locale, data }: { locale: string; data: Ce
           <TabsTrigger value="channels">Import channels</TabsTrigger>
           <TabsTrigger value="rules">Import rules</TabsTrigger>
           <TabsTrigger value="queue">Review queue ({pendingQueue.length})</TabsTrigger>
+          <TabsTrigger value="links">Link sources</TabsTrigger>
           <TabsTrigger value="stats">Statistics</TabsTrigger>
           <TabsTrigger value="mapping">User mapping</TabsTrigger>
         </TabsList>
@@ -399,13 +403,14 @@ export function DiscordImportCenter({ locale, data }: { locale: string; data: Ce
                   ) : null}
                   {entry.files.length > 0 ? (
                     <p className="text-xs text-muted-foreground">
-                      {entry.files.length} file(s) on R2 — no Discord CDN links stored
+                      {entry.files.length} file(s) on R2
+                      {entry.files.some((f) => f.sourceUrl) ? " · includes link imports" : ""}
                     </p>
                   ) : null}
                   {entry.errorMessage ? (
                     <p className="text-xs text-destructive">{entry.errorMessage}</p>
                   ) : null}
-                  {entry.status === "PENDING_REVIEW" ? (
+                  {entry.status === "PENDING_REVIEW" || entry.status === "NEEDS_LINK_REVIEW" ? (
                     <div className="flex flex-wrap gap-2 pt-2">
                       <Button
                         size="sm"
@@ -460,16 +465,34 @@ export function DiscordImportCenter({ locale, data }: { locale: string; data: Ce
           )}
         </TabsContent>
 
+        <TabsContent value="links">
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle>Allowed link sources</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                Direct downloads from Google Drive, Dropbox, GitHub releases, and direct URLs.
+                Linkvertise requires manual review unless explicitly enabled.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Max link download: {data.settings.maxLinkDownloadMb} MB · Providers:{" "}
+                {data.settings.allowedProviders.join(", ")}
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="stats">
           <Card className="glass">
             <CardHeader>
               <CardTitle>Import statistics</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard label="Total imports" value={formatNumber(data.stats.total)} />
-              <StatCard label="Collections" value={String(data.stats.collections)} />
-              <StatCard label="News" value={String(data.stats.news)} />
+              <StatCard label="Success rate" value={`${data.stats.successRate}%`} />
               <StatCard label="Failed imports" value={String(data.stats.failed)} />
+              <StatCard label="Virus findings" value={String(data.stats.suspicious)} />
               <StatCard
                 label="Last import"
                 value={
@@ -480,6 +503,24 @@ export function DiscordImportCenter({ locale, data }: { locale: string; data: Ce
               />
             </CardContent>
           </Card>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mt-4">
+            {(
+              [
+                ["Today", data.stats.periods.today],
+                ["7 days", data.stats.periods.d7],
+                ["30 days", data.stats.periods.d30],
+                ["90 days", data.stats.periods.d90],
+              ] as const
+            ).map(([label, p]) => (
+              <Card key={label} className="glass p-4">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+                <p className="mt-1 text-lg font-bold">{p.total} imports</p>
+                <p className="text-xs text-muted-foreground">
+                  {p.mods} mods · {p.sounds} sounds · {p.pending} pending
+                </p>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
 
         <TabsContent value="mapping">

@@ -7,7 +7,7 @@ import {
 } from "discord.js";
 import { prisma } from "@/lib/db";
 import { inferImportTypeFromChannelName } from "@/lib/discord-import/parser";
-import { processDiscordImportMessage } from "@/lib/discord-import/processor";
+import { queueDiscordImportMessage, startImportQueuePoller } from "@/lib/discord-import/queue";
 import type { DiscordImportType } from "@prisma/client";
 
 function attachmentInput(att: Attachment) {
@@ -45,9 +45,11 @@ async function handleMessage(message: Message) {
       : null) ??
     "MOD";
 
-  if (!message.content.trim() && message.attachments.size === 0) return;
+  const hasContent = message.content.trim().length > 0;
+  const hasAttachments = message.attachments.size > 0;
+  if (!hasContent && !hasAttachments) return;
 
-  await processDiscordImportMessage({
+  await queueDiscordImportMessage({
     messageId: message.id,
     guildId: message.guildId,
     channelId: message.channelId,
@@ -87,7 +89,7 @@ export async function startDiscordImportBot() {
     partials: [Partials.Channel],
   });
 
-  client.once("ready", async () => {
+  const onReady = async () => {
     console.log(`[discord-import-bot] Logged in as ${client.user?.tag}`);
     const guildId = process.env.DISCORD_GUILD_ID;
     if (guildId) {
@@ -105,12 +107,25 @@ export async function startDiscordImportBot() {
         },
       });
     }
+    startImportQueuePoller(3000);
+    console.log("[discord-import-bot] Import queue poller started");
+  };
+
+  client.once("ready", () => {
+    void onReady().catch((err) => console.error("[discord-import-bot] ready handler", err));
+  });
+  client.once("clientReady", () => {
+    void onReady().catch((err) => console.error("[discord-import-bot] clientReady handler", err));
   });
 
   client.on("messageCreate", (msg) => {
     void handleMessage(msg).catch((err) => {
       console.error("[discord-import-bot] message handler error", err);
     });
+  });
+
+  process.on("unhandledRejection", (err) => {
+    console.error("[discord-import-bot] unhandledRejection", err);
   });
 
   await client.login(token);
