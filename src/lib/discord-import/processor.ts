@@ -2,7 +2,6 @@ import "server-only";
 
 import {
   DiscordImportScanStatus,
-  DiscordImportStatus,
   DiscordImportType,
   ModStatus,
   ProductType,

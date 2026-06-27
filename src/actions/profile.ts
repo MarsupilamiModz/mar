@@ -7,7 +7,6 @@ import { prisma } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { fail, ok, requireActionUser } from "@/lib/action-utils";
 import { sendAuthVerificationEmail } from "@/lib/auth-verification-email";
-import { uploadAsset } from "@/lib/asset-storage";
 import { isValidEmail, normalizeEmail } from "@/lib/email/address";
 import { logPlatformError } from "@/lib/platform-log";
 import { rateLimit } from "@/lib/rate-limit";

@@ -116,7 +116,7 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
     case "creator-avatar":
     case "partner-avatar": {
       await registerMediaFromSession(session, "USER_AVATAR", userId, userId);
-      const result = await persistUserAvatarFromStorageKey(
+      await persistUserAvatarFromStorageKey(
         userId,
         session.fileKey,
         session.contentType ?? "image/webp"

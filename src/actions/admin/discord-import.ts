@@ -232,7 +232,7 @@ export async function saveDiscordImportRule(input: z.infer<typeof ruleSchema>) {
 }
 
 export async function deleteDiscordImportRule(id: string) {
-  const { user, error } = await requireOwnerAction();
+  const { error } = await requireOwnerAction();
   if (error) return error;
   await prisma.discordImportRule.delete({ where: { id } });
   revalidatePath("/owner/discord-import");

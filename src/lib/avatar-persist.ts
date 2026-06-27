@@ -83,7 +83,7 @@ export async function verifyAvatarStorage(userId: string): Promise<{
 export async function persistUserAvatarSimple(
   userId: string,
   fileKey: string,
-  contentType: string
+  _contentType: string
 ) {
   const url = buildAssetPublicUrl(fileKey);
   await prisma.user.update({
