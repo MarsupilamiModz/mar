@@ -299,9 +299,6 @@ export async function updateMod(
         body: `${updated.title} is now live`,
         link: `/mods/${updated.slug}`,
       });
-      void import("@/lib/discord-automation").then(({ notifyDiscordModPublished }) =>
-        notifyDiscordModPublished(modId)
-      );
     }
 
     await createAuditLog({

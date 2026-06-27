@@ -343,12 +343,12 @@ async function probeEmail(): Promise<HealthServiceStatus> {
   };
 }
 
-async function probeDiscordWebhook(): Promise<HealthServiceStatus> {
-  const { probeDiscordWebhookHealth } = await import("@/lib/discord-automation");
-  const result = await probeDiscordWebhookHealth();
+async function probeDiscordImportBot(): Promise<HealthServiceStatus> {
+  const { probeDiscordImportBot: probe } = await import("@/lib/discord-import/api");
+  const result = await probe();
   return {
     id: "discord_webhook",
-    name: "Discord Webhooks",
+    name: "Discord Import Bot",
     level: result.ok ? "healthy" : "warning",
     detail: result.detail,
   };
@@ -617,7 +617,7 @@ export async function runSystemHealthMonitor(): Promise<SystemHealthSnapshot> {
     probeStorage(),
     probeEmail(),
     probeDiscordOAuth(),
-    probeDiscordWebhook(),
+    probeDiscordImportBot(),
     probeVirusTotal(),
     probeR2(),
     Promise.resolve(platformProbe.service),

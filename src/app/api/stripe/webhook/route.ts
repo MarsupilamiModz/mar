@@ -134,14 +134,6 @@ export async function POST(req: Request) {
             });
           }
           void notifyPremiumActivated(userId);
-          void import("@/lib/discord-automation").then(({ notifyDiscordPremiumPurchase }) => {
-            if (!user) return;
-            return notifyDiscordPremiumPurchase({
-              username: user.displayName ?? user.username,
-              planName: planSlug ?? planId,
-              amountCents: session.amount_total ?? undefined,
-            });
-          });
 
           const refCode = session.metadata?.refCode;
           if (refCode) {

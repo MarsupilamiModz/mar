@@ -515,6 +515,8 @@ model User {
   orderActivities   OrderActivity[]    @relation("OrderActivityActor")
   orderDeliveries   OrderDelivery[]    @relation("OrderDeliveryUploader")
   notifications     Notification[]
+  discordImportEntries DiscordImportEntry[] @relation("DiscordImportAuthor")
+  discordImportReviews DiscordImportEntry[] @relation("DiscordImportReviewer")
   auditLogs         AuditLog[]         @relation("AuditActor")
   supportTickets    SupportTicket[]    @relation("TicketUser")
   assignedTickets   SupportTicket[]    @relation("TicketAssignee")
@@ -871,6 +873,7 @@ model Mod {
   soundPlays   SoundPlay[]
   platformEvents PlatformEvent[]
   siteBanners    SiteBanner[]
+  discordImports DiscordImportEntry[]
 
   @@index([status, visibility, downloadCount])
   @@index([status, visibility, updatedAt(sort: Desc)])
@@ -2938,4 +2941,127 @@ model SiteBanner {
   @@index([isActive, type, priority])
   @@index([gameId])
   @@index([gameCategoryId])
+}
+
+enum DiscordImportType {
+  MOD
+  SOUND
+  COLLECTION
+  NEWS
+  GALLERY
+}
+
+enum DiscordImportStatus {
+  PROCESSING
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  FAILED
+}
+
+enum DiscordImportScanStatus {
+  PENDING
+  SCANNING
+  CLEAN
+  SUSPICIOUS
+  MANUAL_REVIEW
+}
+
+model DiscordImportGuild {
+  id           String   @id @default(cuid())
+  guildId      String   @unique
+  guildName    String
+  iconUrl      String?
+  botConnected Boolean  @default(false)
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  channels DiscordImportChannel[]
+  rules    DiscordImportRule[]
+}
+
+model DiscordImportChannel {
+  id            String            @id @default(cuid())
+  guildRecordId String
+  guild         DiscordImportGuild @relation(fields: [guildRecordId], references: [id], onDelete: Cascade)
+  channelId     String
+  channelName   String
+  importType    DiscordImportType
+  gameSlug      String?
+  gameId        String?
+  modeId        String?
+  enabled       Boolean           @default(true)
+  lastMessageId String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([guildRecordId, channelId])
+  @@index([enabled])
+}
+
+model DiscordImportRule {
+  id            String             @id @default(cuid())
+  guildRecordId String
+  guild         DiscordImportGuild @relation(fields: [guildRecordId], references: [id], onDelete: Cascade)
+  name          String
+  pattern       String
+  importType    DiscordImportType?
+  gameSlug      String?
+  enabled       Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([guildRecordId, enabled])
+}
+
+model DiscordImportEntry {
+  id                String                  @id @default(cuid())
+  guildId           String
+  channelId         String
+  messageId         String                  @unique
+  importType        DiscordImportType
+  status            DiscordImportStatus     @default(PROCESSING)
+  scanStatus        DiscordImportScanStatus @default(PENDING)
+  title             String?
+  description       String?                 @db.Text
+  tags              String[]                @default([])
+  discordAuthorId   String
+  discordAuthorName String?
+  authorUserId      String?
+  authorUser        User?                   @relation("DiscordImportAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  modId             String?
+  mod               Mod?                    @relation(fields: [modId], references: [id], onDelete: SetNull)
+  collectionId      String?
+  blogPostId        String?
+  gameId            String?
+  modeId            String?
+  metadata          Json?
+  errorMessage      String?                 @db.Text
+  reviewedById      String?
+  reviewedBy        User?                   @relation("DiscordImportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt        DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  files             DiscordImportFile[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([importType, status])
+  @@index([authorUserId])
+}
+
+model DiscordImportFile {
+  id         String                  @id @default(cuid())
+  entryId    String
+  entry      DiscordImportEntry      @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  fileName   String
+  mimeType   String?
+  fileSize   BigInt?
+  r2Key      String
+  publicUrl  String
+  role       String                  @default("attachment")
+  scanStatus DiscordImportScanStatus @default(PENDING)
+  createdAt  DateTime                @default(now())
+
+  @@index([entryId])
 }
