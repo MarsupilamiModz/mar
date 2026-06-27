@@ -501,6 +501,8 @@ model User {
   partnerProfile    PartnerProfile?
   designerProfile   DesignerProfile?
   mods              Mod[]              @relation("ModAuthor")
+  modCollaborations ModCollaborator[]  @relation("ModCollaboratorUser")
+  hostingClicks     HostingClick[]
   reviews           ModReview[]
   favorites         ModFavorite[]
   downloads         Download[]
@@ -631,6 +633,8 @@ model Game {
   modes      GameMode[]
   mods       Mod[]
   siteBanners SiteBanner[]
+  hostingPartner GameHostingPartner?
+  hostingBanners HostingPartnerBanner[]
 
   @@index([isActive, isFeatured])
   @@index([sortOrder])
@@ -731,6 +735,12 @@ model CreatorProfile {
   socialLinks SocialLink[]
   collections ModCollection[]
   trustRecord TrustedCreator?
+  hostingBanners HostingPartnerBanner[]
+
+  hostingBannerUrl      String?
+  hostingAffiliateLink  String?
+  hostingDescription    String?  @db.Text
+  hostingPartnerEnabled Boolean  @default(false)
 
   @@index([isVerified, isFeatured])
   @@index([isPublic, sortOrder])
@@ -871,6 +881,14 @@ model Mod {
   soundPlays   SoundPlay[]
   platformEvents PlatformEvent[]
   siteBanners    SiteBanner[]
+  collaborators  ModCollaborator[]
+  hostingBanners HostingPartnerBanner[]
+
+  serverPartnerEnabled Boolean         @default(false)
+  serverPartnerId      String?
+  serverPartner        HostingPartner? @relation("ModHostingPartner", fields: [serverPartnerId], references: [id], onDelete: SetNull)
+  serverPartnerLink    String?
+  serverPartnerBanner  String?
 
   @@index([status, visibility, downloadCount])
   @@index([status, visibility, updatedAt(sort: Desc)])
@@ -2393,6 +2411,13 @@ model ModCollection {
 
   items     ModCollectionItem[]
   followers ModCollectionFollow[]
+  hostingBanners HostingPartnerBanner[]
+
+  serverPartnerEnabled Boolean         @default(false)
+  serverPartnerId      String?
+  serverPartner        HostingPartner? @relation("CollectionHostingPartner", fields: [serverPartnerId], references: [id], onDelete: SetNull)
+  serverPartnerLink    String?
+  serverPartnerBanner  String?
 
   @@index([visibility, isFeatured])
   @@index([moderationStatus, sortOrder])
@@ -2938,4 +2963,137 @@ model SiteBanner {
   @@index([isActive, type, priority])
   @@index([gameId])
   @@index([gameCategoryId])
+}
+
+enum HostingBannerSize {
+  RECT_300x250
+  LEADERBOARD_728x90
+  BILLBOARD_970x250
+  RESPONSIVE
+}
+
+enum ModCollaboratorRole {
+  LEAD_CREATOR
+  DEVELOPER
+  SCRIPTER
+  MODELER
+  DESIGNER
+  SOUND_DESIGNER
+  TESTER
+}
+
+enum HostingClickContext {
+  MOD
+  COLLECTION
+  BANNER
+  SIDEBAR
+  CTA
+}
+
+model HostingPartner {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  description  String?  @db.Text
+  logoUrl      String?
+  websiteUrl   String?
+  affiliateUrl String
+  trackingId   String?
+  apiProvider  String?
+  apiConfig    Json?
+  isActive     Boolean  @default(true)
+  isGlobal     Boolean  @default(false)
+  sortOrder    Int      @default(0)
+  totalClicks  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  banners              HostingPartnerBanner[]
+  gameLinks            GameHostingPartner[]
+  modOverrides         Mod[]           @relation("ModHostingPartner")
+  collectionOverrides  ModCollection[] @relation("CollectionHostingPartner")
+  clicks               HostingClick[]
+
+  @@index([isActive, sortOrder])
+  @@index([isGlobal])
+}
+
+model HostingPartnerBanner {
+  id           String            @id @default(cuid())
+  partnerId    String
+  partner      HostingPartner    @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  size         HostingBannerSize @default(RESPONSIVE)
+  imageUrl     String
+  webpUrl      String?
+  avifUrl      String?
+  targetUrl    String?
+  gameId       String?
+  game         Game?             @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  modId        String?
+  mod          Mod?              @relation(fields: [modId], references: [id], onDelete: SetNull)
+  collectionId String?
+  collection   ModCollection?    @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  creatorId    String?
+  creator      CreatorProfile?   @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  isActive     Boolean           @default(true)
+  clickCount   Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([partnerId, isActive])
+  @@index([gameId])
+  @@index([modId])
+  @@index([collectionId])
+  @@index([creatorId])
+}
+
+model GameHostingPartner {
+  id        String         @id @default(cuid())
+  gameId    String         @unique
+  game      Game           @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  partnerId String
+  partner   HostingPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([partnerId])
+}
+
+model HostingClick {
+  id           String              @id @default(cuid())
+  partnerId    String
+  partner      HostingPartner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  userId       String?
+  user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  modId        String?
+  collectionId String?
+  gameId       String?
+  context      HostingClickContext @default(CTA)
+  countryCode  String?
+  referrer     String?
+  converted    Boolean             @default(false)
+  revenueCents Int                 @default(0)
+  metadata     Json?
+  createdAt    DateTime            @default(now())
+
+  @@index([partnerId, createdAt(sort: Desc)])
+  @@index([modId, createdAt(sort: Desc)])
+  @@index([collectionId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+}
+
+model ModCollaborator {
+  id              String              @id @default(cuid())
+  modId           String
+  mod             Mod                 @relation(fields: [modId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User                @relation("ModCollaboratorUser", fields: [userId], references: [id], onDelete: Cascade)
+  role            ModCollaboratorRole @default(DEVELOPER)
+  revenueShareBps Int                 @default(0)
+  isPublic        Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([modId, userId])
+  @@index([userId])
 }

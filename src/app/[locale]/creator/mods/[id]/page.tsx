@@ -6,6 +6,8 @@ import { ModMediaUploader } from "@/components/mods/mod-media-uploader";
 import { CreatorModVersionUpload } from "@/components/creator/creator-mod-version-upload";
 import { CreatorModVersionManager } from "@/components/creator/creator-mod-version-manager";
 import { CreatorModDependenciesEditor } from "@/components/creator/creator-mod-dependencies-editor";
+import { ModCollaboratorsEditor } from "@/components/creator/mod-collaborators-editor";
+import { getModCollaboratorsForEdit } from "@/actions/creator/hosting";
 import { SoundPreviewUpload } from "@/components/creator/sound-preview-upload";
 import { SoundProfileEditor } from "@/components/creator/sound-profile-editor";
 import { Button } from "@/components/ui/button";
@@ -23,10 +25,11 @@ export default async function ManageModPage({
   const { locale, id } = await params;
 
   await requireAuth(`/${locale}/creator/mods/${id}`);
-  const [result, mediaSettings, dependencies] = await Promise.all([
+  const [result, mediaSettings, dependencies, collaboratorsResult] = await Promise.all([
     getModForEdit(id),
     getMediaSettings(),
     getModDependencies(id).catch(() => []),
+    getModCollaboratorsForEdit(id).catch(() => ({ success: false as const, error: "" })),
   ]);
 
   if (!result.success) notFound();
@@ -77,6 +80,10 @@ export default async function ManageModPage({
           settings={mediaSettings}
         />
       )}
+
+      {collaboratorsResult.success ? (
+        <ModCollaboratorsEditor modId={mod.id} initial={collaboratorsResult.data} />
+      ) : null}
     </div>
   );
 }

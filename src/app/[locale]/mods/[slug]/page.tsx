@@ -45,6 +45,8 @@ import { REVALIDATE } from "@/lib/cache";
 export const revalidate = REVALIDATE.modDetail;
 import { serializeSoundProfileForClient } from "@/lib/media-serialize";
 import { formatModRating, hasModRatings } from "@/lib/rating-display";
+import { ModHostingSection } from "@/components/hosting/hosting-section";
+import { ModCollaboratorsList } from "@/components/mods/mod-collaborators-list";
 
 export async function generateMetadata({
   params,
@@ -188,6 +190,20 @@ export default async function ModDetailPage({
             </p>
           </div>
 
+          <ModHostingSection
+            mod={{
+              id: mod.id,
+              gameId: mod.gameId,
+              authorId: mod.authorId,
+              serverPartnerEnabled: mod.serverPartnerEnabled,
+              serverPartnerId: mod.serverPartnerId,
+              serverPartnerLink: mod.serverPartnerLink,
+              serverPartnerBanner: mod.serverPartnerBanner,
+            }}
+          />
+
+          <ModCollaboratorsList modId={mod.id} />
+
           <ModVersionsPanel modId={mod.id} versions={mod.versions} />
 
           {!isSound && (
@@ -267,6 +283,20 @@ export default async function ModDetailPage({
                 for premium mods
               </p>
             )}
+
+            <ModHostingSection
+              mod={{
+                id: mod.id,
+                gameId: mod.gameId,
+                authorId: mod.authorId,
+                serverPartnerEnabled: mod.serverPartnerEnabled,
+                serverPartnerId: mod.serverPartnerId,
+                serverPartnerLink: mod.serverPartnerLink,
+                serverPartnerBanner: mod.serverPartnerBanner,
+              }}
+              variant="sidebar"
+              showBanner
+            />
 
             <div className="mt-6 border-t border-border/30 pt-4">
               <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Creator</p>

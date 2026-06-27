@@ -40,6 +40,7 @@ export default async function CreatorLayout({
     { href: "/codes", label: t("codes") },
     { href: "/licenses", label: t("licenses") },
     { href: "/payouts", label: t("payouts") },
+    { href: "/hosting", label: "Hosting Partner" },
     { href: "/exclusive", label: "Exclusive Access" },
     { href: "/collections", label: "Collections" },
     { href: "/settings", label: t("profileSettings") },

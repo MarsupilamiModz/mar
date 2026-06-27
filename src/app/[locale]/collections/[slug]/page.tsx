@@ -4,6 +4,7 @@ import { setRequestLocale } from "next-intl/server";
 import { getCollectionBySlug, incrementCollectionView } from "@/lib/collections-data";
 import { ModCard } from "@/components/mods/mod-card";
 import { CollectionActions } from "@/components/collections/collection-actions";
+import { CollectionHostingSection } from "@/components/hosting/hosting-section";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
@@ -89,6 +90,19 @@ export default async function CollectionDetailPage({
           initialFollowing={!!following}
         />
       </div>
+
+      <CollectionHostingSection
+        collection={{
+          id: collection.id,
+          ownerId: collection.ownerId,
+          creatorId: collection.creatorId,
+          serverPartnerEnabled: collection.serverPartnerEnabled,
+          serverPartnerId: collection.serverPartnerId,
+          serverPartnerLink: collection.serverPartnerLink,
+          serverPartnerBanner: collection.serverPartnerBanner,
+        }}
+        gameId={collection.items[0]?.mod.game?.id ?? null}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {collection.items.map(({ mod, note }) => (

@@ -24,7 +24,7 @@ export async function getCollectionBySlug(slug: string) {
                     pricing: true,
                     downloadCount: true,
                     averageRating: true,
-                    game: { select: { name: true, slug: true } },
+                    game: { select: { id: true, name: true, slug: true } },
                     versions: {
                       where: { isPrimary: true },
                       take: 1,
