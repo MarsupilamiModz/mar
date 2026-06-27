@@ -3,16 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { updateProfile, applyForCreator, updatePassword } from "@/actions/profile";
+import { uploadAvatar, updateProfile, applyForCreator, updatePassword } from "@/actions/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { AvatarCropUpload } from "@/components/upload/avatar-crop-upload";
-import { uploadViaApi } from "@/lib/upload-client";
 import { dispatchProfileAvatarUpdated } from "@/lib/profile-media-events";
-import { getMediaUrl } from "@/lib/media-url";
+import { bustAvatarUrl } from "@/lib/avatar-url";
 import { formatDisplayName } from "@/lib/display-name";
 import { toast } from "@/hooks/use-toast";
 
@@ -48,8 +47,11 @@ export function SettingsForm({ locale, user }: { locale: string; user: User }) {
                 onCropped={async (file) => {
                   startTransition(async () => {
                     try {
-                      const result = await uploadViaApi({ file, purpose: "user-avatar" });
-                      const resolved = getMediaUrl(result.url);
+                      const fd = new FormData();
+                      fd.set("avatar", file);
+                      const r = await uploadAvatar(fd);
+                      if (!r.success) throw new Error(r.error);
+                      const resolved = bustAvatarUrl(r.data.url);
                       setAvatarUrl(resolved);
                       dispatchProfileAvatarUpdated({ avatarUrl: resolved });
                       toast({ title: "Avatar updated" });

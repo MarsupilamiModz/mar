@@ -1,5 +1,6 @@
 import { getAppUrl } from "@/lib/app-url";
-import { getMediaUrl } from "@/lib/media-url";
+import { resolveAvatarDisplayUrl } from "@/lib/avatar-url";
+import { getMediaUrl, getMediaProxyFallback } from "@/lib/media-url";
 
 /** Resolve stored asset keys or partial paths into browser-loadable URLs. */
 export function resolveAssetUrl(urlOrKey: string | null | undefined): string | null {
@@ -84,7 +85,10 @@ export function resolveAvatarUrl(
 ): string {
   if (user) {
     const picked = pickAvatarUrl(user, size);
-    if (picked) return getMediaUrl(picked) ?? DEFAULT_AVATAR_DATA_URI;
+    if (picked) {
+      return resolveAvatarDisplayUrl(picked) ?? getMediaProxyFallback(picked) ?? getMediaUrl(picked) ?? DEFAULT_AVATAR_DATA_URI;
+    }
   }
-  return getMediaUrl(urlOrKey) ?? DEFAULT_AVATAR_DATA_URI;
+  const resolved = resolveAvatarDisplayUrl(urlOrKey);
+  return resolved ?? getMediaProxyFallback(urlOrKey) ?? getMediaUrl(urlOrKey) ?? DEFAULT_AVATAR_DATA_URI;
 }

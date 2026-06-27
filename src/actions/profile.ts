@@ -11,10 +11,10 @@ import { uploadAsset } from "@/lib/asset-storage";
 import { isValidEmail, normalizeEmail } from "@/lib/email/address";
 import { logPlatformError } from "@/lib/platform-log";
 import { rateLimit } from "@/lib/rate-limit";
-import { extensionForMime, validateUploadFile } from "@/lib/upload-validation";
+import { validateUploadFile } from "@/lib/upload-validation";
 import { slugify } from "@/lib/utils";
-import { revalidateProfileMedia } from "@/lib/media-revalidate";
-import { getMediaUrl } from "@/lib/media-url";
+import { persistUserAvatarFromBuffer, verifyAvatarStorage } from "@/lib/avatar-persist";
+import { bustAvatarUrl } from "@/lib/avatar-url";
 
 const profileSchema = z.object({
   displayName: z.string().min(1).max(80).optional(),
@@ -49,35 +49,26 @@ export async function uploadAvatar(formData: FormData) {
   try {
     const file = formData.get("avatar") as File;
     const validation = validateUploadFile(file, {
-      maxSizeMb: 2,
-      allowedTypes: ["image/jpeg", "image/png", "image/webp"],
+      maxSizeMb: 20,
+      allowedTypes: [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+        "image/avif",
+        "image/svg+xml",
+      ],
       label: "Avatar",
     });
     if (!validation.valid) return fail(validation.error);
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const relativePath = `${user.id}/${Date.now()}.${extensionForMime(validation.mime)}`;
-    const result = await uploadAsset({
-      bucket: "creator-avatars",
-      relativePath,
-      body: buffer,
-      contentType: validation.mime,
-    });
+    const result = await persistUserAvatarFromBuffer(user.id, buffer, validation.mime);
+    const verify = await verifyAvatarStorage(user.id);
+    if (!verify.ok) return fail(verify.detail);
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        avatarUrl: result.url,
-        avatar256Url: result.url,
-        avatar128Url: result.url,
-        avatar64Url: result.url,
-        avatarOriginalUrl: result.url,
-      },
-    });
-
-    await revalidateProfileMedia(user.id);
     revalidatePath("/dashboard/settings");
-    return ok({ url: getMediaUrl(result.url) });
+    return ok({ url: bustAvatarUrl(result.displayUrl) ?? result.displayUrl ?? "" });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Avatar upload failed");
   }

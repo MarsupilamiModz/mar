@@ -104,6 +104,13 @@ export function UserNav({ locale, user }: { locale: string; user: NavUser }) {
             </Link>
           </DropdownMenuItem>
         )}
+        {user.role === "OWNER" && (
+          <DropdownMenuItem asChild>
+            <Link href={`/${locale}/owner`} className="cursor-pointer">
+              <Shield className="mr-2 h-4 w-4" /> Owner Panel
+            </Link>
+          </DropdownMenuItem>
+        )}
         {isStaff(user.role) && (
           <DropdownMenuItem asChild>
             <Link href={`/${locale}/admin`} className="cursor-pointer">

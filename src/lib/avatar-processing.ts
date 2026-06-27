@@ -16,19 +16,29 @@ const SIZES = [64, 128, 256] as const;
 type SharpInstance = {
   rotate(): SharpInstance;
   resize(width: number, height: number, options: { fit: string; position: string }): SharpInstance;
-  toFormat(format: string, options: { quality: number }): SharpInstance;
+  toFormat(format: string, options?: { quality?: number; effort?: number }): SharpInstance;
   toBuffer(): Promise<Buffer>;
 };
 
 async function loadSharp(): Promise<((input: Buffer) => SharpInstance) | null> {
   try {
-    const mod = await import(
-      /* webpackIgnore: true */ "sharp" as string
-    ) as { default: (input: Buffer) => SharpInstance };
+    const mod = (await import(/* webpackIgnore: true */ "sharp" as string)) as {
+      default: (input: Buffer) => SharpInstance;
+    };
     return mod.default;
   } catch {
     return null;
   }
+}
+
+function extForMime(contentType: string): { ext: string; mime: string } {
+  if (contentType.includes("png")) return { ext: "png", mime: "image/png" };
+  if (contentType.includes("gif")) return { ext: "gif", mime: "image/gif" };
+  if (contentType.includes("svg")) return { ext: "svg", mime: "image/svg+xml" };
+  if (contentType.includes("jpeg") || contentType.includes("jpg")) {
+    return { ext: "jpg", mime: "image/jpeg" };
+  }
+  return { ext: "webp", mime: "image/webp" };
 }
 
 export async function generateAvatarVariants(
@@ -36,30 +46,41 @@ export async function generateAvatarVariants(
   userId: string,
   contentType: string
 ): Promise<AvatarVariants> {
-  const ext = contentType.includes("png") ? "png" : "webp";
-  const mime = ext === "png" ? "image/png" : "image/webp";
+  const { ext, mime } = extForMime(contentType);
   const baseKey = storageKey("avatars", userId);
   const originalKey = `${baseKey}/original.${ext}`;
 
   const sharp = await loadSharp();
-
-  await uploadToR2(originalKey, sourceBuffer, contentType);
+  await uploadToR2(originalKey, sourceBuffer, mime);
 
   const urls: Record<string, string> = {
     original: buildAssetPublicUrl(originalKey),
   };
 
-  if (sharp) {
+  if (sharp && !contentType.includes("svg")) {
     for (const size of SIZES) {
-      const key = `${baseKey}/avatar_${size}.${ext}`;
-      const resized = await sharp(sourceBuffer)
+      const webpKey = `${baseKey}/avatar_${size}.webp`;
+      const avifKey = `${baseKey}/avatar_${size}.avif`;
+
+      const webpBuffer = await sharp(sourceBuffer)
         .rotate()
         .resize(size, size, { fit: "cover", position: "centre" })
-        .toFormat(ext === "png" ? "png" : "webp", { quality: 85 })
+        .toFormat("webp", { quality: 85 })
         .toBuffer();
+      await uploadToR2(webpKey, webpBuffer, "image/webp");
 
-      await uploadToR2(key, resized, mime);
-      urls[`avatar${size}`] = buildAssetPublicUrl(key);
+      try {
+        const avifBuffer = await sharp(sourceBuffer)
+          .rotate()
+          .resize(size, size, { fit: "cover", position: "centre" })
+          .toFormat("avif", { quality: 70, effort: 4 })
+          .toBuffer();
+        await uploadToR2(avifKey, avifBuffer, "image/avif");
+      } catch {
+        /* AVIF unsupported in this sharp build */
+      }
+
+      urls[`avatar${size}`] = buildAssetPublicUrl(webpKey);
     }
   } else {
     for (const size of SIZES) {

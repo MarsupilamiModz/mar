@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { onProfileAvatarUpdated } from "@/lib/profile-media-events";
-import { getMediaUrl } from "@/lib/media-url";
+import { resolveAvatarDisplayUrl, bustAvatarUrl } from "@/lib/avatar-url";
 import { DEFAULT_AVATAR_DATA_URI } from "@/lib/assets";
 import { Button } from "@/components/ui/button";
 import { UserNav, type NavUser } from "@/components/layout/user-nav";
@@ -67,7 +67,8 @@ export function AuthButtons({
     }
 
     const oauthAvatar =
-      getMediaUrl(authUser.user_metadata?.avatar_url as string | undefined) ?? DEFAULT_AVATAR_DATA_URI;
+      resolveAvatarDisplayUrl(authUser.user_metadata?.avatar_url as string | undefined) ??
+      DEFAULT_AVATAR_DATA_URI;
 
     setUser((prev) => ({
       id: authUser.id,
@@ -95,9 +96,7 @@ export function AuthButtons({
     });
 
     const stopAvatarListener = onProfileAvatarUpdated(({ avatarUrl }) => {
-      const busted = avatarUrl
-        ? `${avatarUrl.split("?")[0]}?v=${Date.now()}`
-        : DEFAULT_AVATAR_DATA_URI;
+      const busted = avatarUrl ? bustAvatarUrl(avatarUrl) : DEFAULT_AVATAR_DATA_URI;
       setUser((prev) => (prev ? { ...prev, avatarUrl: busted } : prev));
       void syncUser();
     });

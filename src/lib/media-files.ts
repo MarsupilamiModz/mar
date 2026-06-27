@@ -116,6 +116,15 @@ export function extractStoragePathFromUrl(url: string): string | null {
       }
       const path = parsed.pathname.replace(/^\//, "");
       if (path.startsWith(`${STORAGE.prefix}/`)) return path;
+      if (
+        path.startsWith("creator-avatars/") ||
+        path.startsWith("creator-banners/") ||
+        path.startsWith("avatars/") ||
+        path.startsWith("mod-images/") ||
+        path.startsWith("screenshots/")
+      ) {
+        return storageKey(path);
+      }
       return null;
     }
     if (url.startsWith("/api/assets/")) {

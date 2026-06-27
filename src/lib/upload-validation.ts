@@ -1,4 +1,11 @@
-const IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]);
+const IMAGE_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+  "image/svg+xml",
+]);
 
 export type UploadValidationOptions = {
   allowedTypes?: string[];
@@ -49,6 +56,8 @@ export function extensionForMime(mime: string): string {
       return "gif";
     case "image/avif":
       return "avif";
+    case "image/svg+xml":
+      return "svg";
     case "image/jpeg":
       return "jpg";
     default:

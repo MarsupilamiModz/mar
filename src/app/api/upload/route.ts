@@ -4,9 +4,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { uploadAsset, type AssetBucket } from "@/lib/asset-storage";
+import { persistUserAvatarFromBuffer, verifyAvatarStorage } from "@/lib/avatar-persist";
+import { bustAvatarUrl } from "@/lib/avatar-url";
 import { extensionForMime, validateUploadFile } from "@/lib/upload-validation";
 import { getMediaSettings } from "@/lib/media-settings";
-import { revalidateProfileMedia } from "@/lib/media-revalidate";
 
 const uploadSchema = z.object({
   purpose: z.enum([
@@ -110,7 +111,15 @@ export async function POST(req: Request) {
       case "user-avatar":
       case "creator-avatar": {
         bucket = "creator-avatars";
-        maxSizeMb = 2;
+        maxSizeMb = 20;
+        allowedTypes = [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/gif",
+          "image/avif",
+          "image/svg+xml",
+        ];
         relativePath = `${user.id}/${Date.now()}.${extensionForMime(file.type)}`;
         break;
       }
@@ -165,6 +174,24 @@ export async function POST(req: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    if (
+      purpose === "user-avatar" ||
+      purpose === "creator-avatar" ||
+      purpose === "partner-avatar" ||
+      purpose === "designer-avatar"
+    ) {
+      const avatarResult = await persistUserAvatarFromBuffer(user.id, buffer, validation.mime);
+      const verify = await verifyAvatarStorage(user.id);
+      if (!verify.ok) {
+        return NextResponse.json({ error: verify.detail }, { status: 502 });
+      }
+      return NextResponse.json({
+        url: bustAvatarUrl(avatarResult.displayUrl) ?? avatarResult.displayUrl,
+        provider: "r2",
+      });
+    }
+
     const uploaded = await uploadAsset({
       bucket,
       relativePath,
@@ -192,20 +219,6 @@ export async function POST(req: Request) {
       });
     }
 
-    if (purpose === "user-avatar" || purpose === "creator-avatar" || purpose === "partner-avatar" || purpose === "designer-avatar") {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          avatarUrl: uploaded.url,
-          avatar256Url: uploaded.url,
-          avatar128Url: uploaded.url,
-          avatar64Url: uploaded.url,
-          avatarOriginalUrl: uploaded.url,
-        },
-      });
-      await revalidateProfileMedia(user.id);
-    }
-
     if (purpose === "creator-banner") {
       const profile = await prisma.creatorProfile.findUnique({ where: { userId: user.id } });
       if (!profile) {
@@ -229,14 +242,10 @@ export async function POST(req: Request) {
       await prisma.partnerProfile.update({ where: { id: profile.id }, data: { logoUrl: uploaded.url } });
     }
 
-    if (purpose === "designer-banner" || purpose === "designer-avatar") {
+    if (purpose === "designer-banner") {
       const profile = await prisma.designerProfile.findUnique({ where: { userId: user.id } });
       if (!profile) return NextResponse.json({ error: "Designer profile required" }, { status: 400 });
-      if (purpose === "designer-banner") {
-        await prisma.designerProfile.update({ where: { id: profile.id }, data: { bannerUrl: uploaded.url } });
-      } else {
-        await prisma.designerProfile.update({ where: { id: profile.id }, data: { avatarUrl: uploaded.url } });
-      }
+      await prisma.designerProfile.update({ where: { id: profile.id }, data: { bannerUrl: uploaded.url } });
     }
 
     if (purpose === "game-asset" && gameId && assetType) {

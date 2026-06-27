@@ -17,6 +17,7 @@ import {
   revalidateProfileMedia,
   revalidateTeamMemberMedia,
 } from "@/lib/media-revalidate";
+import { persistUserAvatarFromStorageKey, verifyAvatarStorage } from "@/lib/avatar-persist";
 
 export type UploadPurpose =
   | "mod-version"
@@ -114,18 +115,16 @@ export async function finalizeUploadSession(sessionId: string, userId: string) {
     case "user-avatar":
     case "creator-avatar":
     case "partner-avatar": {
-      const mediaFile = await registerMediaFromSession(session, "USER_AVATAR", userId, userId);
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          avatarUrl: mediaFile.publicUrl,
-          avatar256Url: mediaFile.publicUrl,
-          avatar128Url: mediaFile.publicUrl,
-          avatar64Url: mediaFile.publicUrl,
-          avatarOriginalUrl: mediaFile.publicUrl,
-        },
-      });
-      await revalidateProfileMedia(userId);
+      await registerMediaFromSession(session, "USER_AVATAR", userId, userId);
+      const result = await persistUserAvatarFromStorageKey(
+        userId,
+        session.fileKey,
+        session.contentType ?? "image/webp"
+      );
+      const verify = await verifyAvatarStorage(userId);
+      if (!verify.ok) {
+        throw new Error(verify.detail);
+      }
       break;
     }
     case "creator-banner": {

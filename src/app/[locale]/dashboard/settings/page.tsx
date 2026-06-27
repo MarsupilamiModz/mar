@@ -1,5 +1,6 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { resolveAvatarDisplayUrl } from "@/lib/avatar-url";
 import { SettingsForm } from "@/components/dashboard/settings-form";
 import { EmailSettingsCard } from "@/components/dashboard/email-settings-card";
 import { AchievementShowcasePanel } from "@/components/dashboard/achievement-showcase-panel";
@@ -41,7 +42,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
               email: user.email,
               displayName: user.displayName,
               bio: user.bio,
-              avatarUrl: user.avatarUrl,
+              avatarUrl: resolveAvatarDisplayUrl(user.avatarUrl, user, 128),
               locale: user.locale,
               discordId: user.discordId,
               role: user.role,

@@ -81,6 +81,12 @@ async function applyScanToVersion(
     }
   });
 
+  if (!modStatusOverride && (scanResult.status === "CLEAN" || scanResult.status === "APPROVED")) {
+    void import("@/lib/discord-automation").then(({ notifyDiscordModPublished }) =>
+      notifyDiscordModPublished(modId)
+    );
+  }
+
   await persistScanResult({
     modVersionId,
     fileKey,

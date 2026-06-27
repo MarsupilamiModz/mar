@@ -1,6 +1,6 @@
 import { getCurrentUser, hasPremiumAccess } from "@/lib/auth";
 import type { NavUser } from "@/components/layout/user-nav";
-import { resolveAvatarUrl } from "@/lib/assets";
+import { resolveAvatarDisplayUrl } from "@/lib/avatar-url";
 import { getEffectivePermissions } from "@/lib/permission-store";
 import type { PermissionKey } from "@/lib/permissions";
 
@@ -20,11 +20,13 @@ export async function getNavUser(): Promise<NavUser | null> {
     console.error("[getNavUser] permissions", error);
   }
 
+  const avatarStored = resolveAvatarDisplayUrl(user.avatarUrl, user, 128);
+
   return {
     id: user.id,
     username: user.username,
     displayName: user.displayName,
-    avatarUrl: resolveAvatarUrl(user.avatarUrl, user, 128),
+    avatarUrl: avatarStored,
     role: user.role,
     isPremium: hasPremiumAccess(user),
     permissions,
