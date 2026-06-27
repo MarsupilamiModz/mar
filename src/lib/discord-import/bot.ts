@@ -89,7 +89,10 @@ export async function startDiscordImportBot() {
     partials: [Partials.Channel],
   });
 
+  let readyHandled = false;
   const onReady = async () => {
+    if (readyHandled) return;
+    readyHandled = true;
     console.log(`[discord-import-bot] Logged in as ${client.user?.tag}`);
     const guildId = process.env.DISCORD_GUILD_ID;
     if (guildId) {
