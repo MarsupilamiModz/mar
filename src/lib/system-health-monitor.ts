@@ -20,7 +20,6 @@ export type HealthServiceId =
   | "storage"
   | "email"
   | "discord_oauth"
-  | "discord_webhook"
   | "virustotal"
   | "r2"
   | "platform";
@@ -343,17 +342,6 @@ async function probeEmail(): Promise<HealthServiceStatus> {
   };
 }
 
-async function probeDiscordImportBot(): Promise<HealthServiceStatus> {
-  const { probeDiscordImportBot: probe } = await import("@/lib/discord-import/api");
-  const result = await probe();
-  return {
-    id: "discord_webhook",
-    name: "Discord Import Bot",
-    level: result.ok ? "healthy" : "warning",
-    detail: result.detail,
-  };
-}
-
 async function probeDiscordOAuth(): Promise<HealthServiceStatus> {
   const hasClient = Boolean(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET);
   const hasBot = Boolean(process.env.DISCORD_BOT_TOKEN);
@@ -617,7 +605,6 @@ export async function runSystemHealthMonitor(): Promise<SystemHealthSnapshot> {
     probeStorage(),
     probeEmail(),
     probeDiscordOAuth(),
-    probeDiscordImportBot(),
     probeVirusTotal(),
     probeR2(),
     Promise.resolve(platformProbe.service),

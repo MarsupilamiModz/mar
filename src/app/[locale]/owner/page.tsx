@@ -22,13 +22,10 @@ export default async function OwnerPage({ params }: { params: Promise<{ locale: 
         </Badge>
         <h1 className="text-2xl font-bold">Owner Panel</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Platform control, Discord import, and enterprise analytics.
+          Platform control and enterprise analytics.
         </p>
         <div className="flex flex-wrap gap-2 mt-4">
           <Button variant="neon" asChild>
-            <Link href={`/${locale}/owner/discord-import`}>Discord Import Center</Link>
-          </Button>
-          <Button variant="outline" asChild>
             <Link href={`/${locale}/admin/owner`}>Control Center</Link>
           </Button>
           <Button variant="outline" asChild>

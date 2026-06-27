@@ -104,13 +104,6 @@ export function UserNav({ locale, user }: { locale: string; user: NavUser }) {
             </Link>
           </DropdownMenuItem>
         )}
-        {user.role === "OWNER" && (
-          <DropdownMenuItem asChild>
-            <Link href={`/${locale}/owner/discord-import`} className="cursor-pointer">
-              <Shield className="mr-2 h-4 w-4" /> Discord Import
-            </Link>
-          </DropdownMenuItem>
-        )}
         {isStaff(user.role) && (
           <DropdownMenuItem asChild>
             <Link href={`/${locale}/admin`} className="cursor-pointer">
