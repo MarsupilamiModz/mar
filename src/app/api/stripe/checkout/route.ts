@@ -5,6 +5,7 @@ import { createMembershipCheckout } from "@/lib/stripe";
 import { rateLimit } from "@/lib/rate-limit";
 import { prisma } from "@/lib/db";
 import { mapPlan } from "@/lib/membership";
+import { isPlanSoldOut } from "@/lib/membership-stock";
 import { getPaymentSettings } from "@/lib/payments/settings";
 import { assertStripeConfigured, formatStripeError, isValidStripePriceId, logStripeServer } from "@/lib/stripe-config";
 
@@ -59,6 +60,10 @@ export async function POST(req: Request) {
   }
 
   const plan = mapPlan(planRow);
+
+  if (isPlanSoldOut(plan)) {
+    return jsonError("This membership is sold out", 409, "SOLD_OUT");
+  }
 
   if (!isValidStripePriceId(plan.stripePriceId)) {
     logStripeServer("checkout_no_price_id", { planSlug, planId: plan.id });

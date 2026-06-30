@@ -124,7 +124,10 @@ export function MembershipsAdminPanel({ plans: initial, pageSettings: initialPag
             description: safeFormOptional(fd, "description"),
             priceCents: Math.round(Number(fd.get("price")) * 100),
             currency: safeFormOptional(fd, "currency") || "EUR",
-            billingType: "ONE_TIME",
+            billingType: (fd.get("billingType") as "ONE_TIME" | "RECURRING") || plan?.billingType || "RECURRING",
+            planKind: (fd.get("planKind") as MembershipPlanData["planKind"]) || plan?.planKind || "STANDARD",
+            stockLimit: fd.get("stockLimit") ? Number(fd.get("stockLimit")) : null,
+            durationDays: fd.get("durationDays") ? Number(fd.get("durationDays")) : null,
             stripePriceId: safeStripePriceId(fd.get("stripePriceId")) ?? undefined,
             features: parseLines(fd.get("features")),
             perks: nextPerks,
@@ -180,6 +183,39 @@ export function MembershipsAdminPanel({ plans: initial, pageSettings: initialPag
         <div>
           <label className="text-sm font-medium">Currency</label>
           <Input name="currency" defaultValue={plan?.currency ?? "EUR"} className="mt-1 w-24" />
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 rounded-lg border border-border/40 p-4">
+        <div>
+          <label className="text-sm font-medium">Billing</label>
+          <select name="billingType" defaultValue={plan?.billingType ?? "RECURRING"} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <option value="RECURRING">Recurring</option>
+            <option value="ONE_TIME">One-time / Lifetime</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-sm font-medium">Plan type</label>
+          <select name="planKind" defaultValue={plan?.planKind ?? "STANDARD"} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <option value="STANDARD">Standard</option>
+            <option value="LIFETIME">Lifetime</option>
+            <option value="LIMITED">Limited stock</option>
+            <option value="EVENT">Event</option>
+            <option value="CREATOR">Creator</option>
+            <option value="PARTNER">Partner</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-sm font-medium">Stock limit</label>
+          <Input name="stockLimit" type="number" placeholder="e.g. 150" defaultValue={plan?.stockLimit ?? ""} className="mt-1" />
+          {plan?.stockLimit ? (
+            <p className="text-xs text-muted-foreground mt-1">
+              Verbleibend: {Math.max(0, plan.stockLimit - (plan.soldCount ?? 0))}
+            </p>
+          ) : null}
+        </div>
+        <div>
+          <label className="text-sm font-medium">Duration (days)</label>
+          <Input name="durationDays" type="number" placeholder="Optional" defaultValue={plan?.durationDays ?? ""} className="mt-1" />
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-3 rounded-lg border border-border/40 p-4">

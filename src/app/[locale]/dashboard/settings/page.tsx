@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/auth";
+import { isStaff } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { resolveAvatarDisplayUrl } from "@/lib/avatar-url";
 import { SettingsForm } from "@/components/dashboard/settings-form";
@@ -18,9 +19,10 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
     prisma.creatorProfile.findUnique({ where: { userId: user.id } }),
     getUserAchievements(user.id, locale),
     getUserProgress(user.id),
-    getMyEmailLogs(),
+    getMyEmailLogs().catch(() => ({ success: true as const, data: { logs: [] } })),
   ]);
-  const emailLogs = emailLogsResult.success ? emailLogsResult.data.logs : [];
+  const emailLogs =
+    isStaff(user.role) && emailLogsResult.success ? emailLogsResult.data.logs : [];
 
   return (
     <div className="space-y-8">
@@ -33,6 +35,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
             emailVerified={user.emailVerified}
             emailVerifiedAt={user.emailVerifiedAt}
             logs={emailLogs}
+            showHistory={isStaff(user.role)}
           />
           <SettingsForm
             locale={locale}

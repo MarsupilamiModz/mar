@@ -331,6 +331,15 @@ enum BillingType {
   RECURRING
 }
 
+enum MembershipPlanKind {
+  STANDARD
+  LIFETIME
+  LIMITED
+  EVENT
+  CREATOR
+  PARTNER
+}
+
 enum ExclusiveProgramType {
   CLOSED_ALPHA
   CLOSED_BETA
@@ -542,6 +551,9 @@ model User {
   shopPurchases     ShopPurchase[]
   soundApprovals    SoundProfile[]         @relation("SoundApprover")
   soundUploads      SoundProfile[]         @relation("SoundUploader")
+  tutorialsAuthored Tutorial[]             @relation("TutorialAuthor")
+  tutorialLikes     TutorialLike[]
+  tutorialComments  TutorialComment[]
   moderationLogs    UserModerationLog[]    @relation("ModerationTarget")
   moderationActions UserModerationLog[]    @relation("ModerationActor")
   modCollections    ModCollection[]
@@ -1762,6 +1774,10 @@ model MembershipPlan {
   saleEndsAt          DateTime?
   cardStyle           Json?
   iconKey             String?
+  planKind            MembershipPlanKind @default(STANDARD)
+  stockLimit          Int?
+  soldCount           Int                @default(0)
+  durationDays        Int?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -3096,4 +3112,112 @@ model ModCollaborator {
 
   @@unique([modId, userId])
   @@index([userId])
+}
+
+enum TutorialType {
+  YOUTUBE
+  VIDEO
+  ARTICLE
+  MIXED
+}
+
+enum TutorialLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum TutorialStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model TutorialCategory {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  description String?    @db.Text
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  tutorials   Tutorial[]
+
+  @@index([isActive, sortOrder])
+}
+
+model Tutorial {
+  id                 String            @id @default(cuid())
+  slug               String            @unique
+  title              String
+  description        String?           @db.Text
+  content            String?           @db.Text
+  type               TutorialType
+  level              TutorialLevel     @default(BEGINNER)
+  status             TutorialStatus    @default(DRAFT)
+  categoryId         String?
+  category           TutorialCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  authorId           String
+  author             User              @relation("TutorialAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  youtubeUrl         String?
+  youtubeVideoId     String?
+  youtubeTitle       String?
+  youtubeThumbnail   String?
+  youtubeDurationSec Int?
+  youtubeChannel     String?
+  videoFileKey       String?
+  videoUrl           String?
+  videoThumbUrl      String?
+  videoDurationSec   Int?
+  viewCount          Int               @default(0)
+  likeCount          Int               @default(0)
+  commentCount       Int               @default(0)
+  avgWatchSec        Float             @default(0)
+  publishedAt        DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  likes              TutorialLike[]
+  comments           TutorialComment[]
+  views              TutorialView[]
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([categoryId, status])
+  @@index([level, status])
+  @@index([type, status])
+}
+
+model TutorialLike {
+  id         String   @id @default(cuid())
+  tutorialId String
+  tutorial   Tutorial @relation(fields: [tutorialId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([tutorialId, userId])
+}
+
+model TutorialComment {
+  id         String   @id @default(cuid())
+  tutorialId String
+  tutorial   Tutorial @relation(fields: [tutorialId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content    String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tutorialId, createdAt(sort: Desc)])
+}
+
+model TutorialView {
+  id         String   @id @default(cuid())
+  tutorialId String
+  tutorial   Tutorial @relation(fields: [tutorialId], references: [id], onDelete: Cascade)
+  userId     String?
+  watchSec   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([tutorialId, createdAt(sort: Desc)])
 }

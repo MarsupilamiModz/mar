@@ -56,6 +56,10 @@ export type MembershipPlanData = {
   saleEndsAt: Date | null;
   cardStyle: PlanCardStyle | null;
   iconKey: string | null;
+  planKind: "STANDARD" | "LIFETIME" | "LIMITED" | "EVENT" | "CREATOR" | "PARTNER";
+  stockLimit: number | null;
+  soldCount: number;
+  durationDays: number | null;
 };
 
 export type PremiumPageSettings = {
@@ -100,6 +104,10 @@ export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlanData, "id">[] = [
     saleEndsAt: null,
     cardStyle: null,
     iconKey: null,
+    planKind: "STANDARD",
+    stockLimit: null,
+    soldCount: 0,
+    durationDays: null,
   },
   {
     slug: "premium",
@@ -138,6 +146,10 @@ export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlanData, "id">[] = [
     saleEndsAt: null,
     cardStyle: null,
     iconKey: null,
+    planKind: "STANDARD",
+    stockLimit: null,
+    soldCount: 0,
+    durationDays: null,
   },
   {
     slug: "premium-max",
@@ -181,6 +193,10 @@ export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlanData, "id">[] = [
     saleEndsAt: null,
     cardStyle: null,
     iconKey: null,
+    planKind: "STANDARD",
+    stockLimit: null,
+    soldCount: 0,
+    durationDays: null,
   },
 ];
 
@@ -216,10 +232,18 @@ export function mapPlan(plan: {
   saleEndsAt?: Date | null;
   cardStyle?: unknown;
   iconKey?: string | null;
+  planKind?: string;
+  stockLimit?: number | null;
+  soldCount?: number;
+  durationDays?: number | null;
 }): MembershipPlanData {
   return {
     ...plan,
     billingType: plan.billingType === "RECURRING" ? "RECURRING" : "ONE_TIME",
+    planKind: (plan.planKind as MembershipPlanData["planKind"]) ?? "STANDARD",
+    stockLimit: plan.stockLimit ?? null,
+    soldCount: plan.soldCount ?? 0,
+    durationDays: plan.durationDays ?? null,
     features: parsePlanFeatures(plan.features),
     perks: parsePlanPerks(plan.perks),
     translations: (plan.translations as Record<string, PlanTranslation>) ?? null,

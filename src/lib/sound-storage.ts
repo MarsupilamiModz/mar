@@ -9,6 +9,7 @@ export function mimeFromFileName(fileName: string): string {
   if (lower.endsWith(".flac")) return "audio/flac";
   if (lower.endsWith(".m4a")) return "audio/mp4";
   if (lower.endsWith(".aac")) return "audio/aac";
+  if (lower.endsWith(".webm")) return "audio/webm";
   return "application/octet-stream";
 }
 

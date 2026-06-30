@@ -35,7 +35,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(168, 85, 247, 0.12), transparent);
+    background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(168, 85, 247, 0.08), transparent);
   }
 
   /* Dark Reader / extension compatibility */
@@ -117,6 +117,22 @@
 @layer utilities {
   .glass {
     @apply border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)];
+  }
+
+  .card-surface {
+    @apply rounded-xl border border-border/60 bg-card/80 shadow-sm;
+  }
+
+  .page-section {
+    @apply mx-auto max-w-7xl px-4 py-12 sm:px-6;
+  }
+
+  .filter-pill {
+    @apply rounded-full border border-border/50 px-3 py-1 text-sm text-muted-foreground transition-colors duration-100 hover:border-border hover:text-foreground;
+  }
+
+  .filter-pill-active {
+    @apply border-neon-purple/60 text-neon-purple;
   }
 
   .text-gradient {

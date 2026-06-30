@@ -104,11 +104,22 @@ export function OwnerControlCenter({ data }: { data: OwnerData }) {
         </div>
         <div>
           <h2 className="text-lg font-semibold mb-3">Memberships (active)</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <StatCard label="Total active" value={formatNumber(data.memberships.activeTotal)} />
+            <StatCard label="Lifetime sales" value={formatNumber(data.memberships.lifetimeSales)} />
             <StatCard label="Premium Lite" value={formatNumber(data.memberships.premiumLite)} />
             <StatCard label="Premium" value={formatNumber(data.memberships.premium)} />
             <StatCard label="Premium Max" value={formatNumber(data.memberships.premiumMax)} />
           </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Membership revenue & payouts</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <StatCard label="Membership revenue (30d)" value={`€${data.membershipRevenue.monthly.toFixed(2)}`} />
+          <StatCard label="Creator payouts pending" value={`€${data.payouts.creatorPending.toFixed(2)}`} />
+          <StatCard label="Partner payouts pending" value={`€${data.payouts.partnerPending.toFixed(2)}`} />
         </div>
       </section>
 

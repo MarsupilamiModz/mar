@@ -129,15 +129,115 @@ export async function createMembershipSubscriptionCheckout(
   });
 }
 
+/** One-time membership checkout (lifetime / limited stock plans). */
+export async function createMembershipOneTimeCheckout(
+  userId: string,
+  email: string,
+  plan: Pick<
+    MembershipPlanData,
+    | "id"
+    | "slug"
+    | "name"
+    | "priceCents"
+    | "currency"
+    | "stripePriceId"
+    | "originalPriceCents"
+    | "saleDiscountPercent"
+    | "saleEndsAt"
+    | "planKind"
+  >,
+  locale: string = "en",
+  refCode?: string,
+  options?: CheckoutOriginOptions & { currency?: SupportedCurrency }
+) {
+  const stripe = getStripe();
+  const customerId = await getOrCreateStripeCustomer(userId, email);
+  const origin = resolveOrigin(options);
+  const pricing = getEffectivePlanPrice(plan as MembershipPlanData);
+  const displayCurrency = options?.currency ?? detectCurrency(locale);
+  const unitAmount = convertFromEurCents(pricing.priceCents, displayCurrency);
+  const currency = stripeCurrencyCode(displayCurrency);
+
+  let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
+
+  if (!pricing.onSale && isValidStripePriceId(plan.stripePriceId)) {
+    const validation = await validateStripePriceId(plan.stripePriceId);
+    if (!validation.ok) throw new Error(validation.error);
+    lineItems = [{ price: plan.stripePriceId, quantity: 1 }];
+  } else {
+    lineItems = [
+      {
+        price_data: {
+          currency,
+          unit_amount: unitAmount,
+          product_data: {
+            name: plan.name,
+            description:
+              plan.planKind === "LIFETIME"
+                ? "Lifetime membership — one-time purchase"
+                : pricing.onSale
+                  ? `Limited offer (${pricing.discountPercent}% off)`
+                  : "One-time membership purchase",
+          },
+        },
+        quantity: 1,
+      },
+    ];
+  }
+
+  logStripeServer("membership_onetime_checkout", {
+    userId,
+    planId: plan.id,
+    planSlug: plan.slug,
+    amountCents: unitAmount,
+    currency,
+    planKind: plan.planKind,
+    origin,
+  });
+
+  return stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: "payment",
+    line_items: lineItems,
+    success_url: `${checkoutPath(origin, locale, "/dashboard/subscription")}?success=1&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${checkoutPath(origin, locale, "/premium")}?canceled=1`,
+    invoice_creation: { enabled: true },
+    metadata: {
+      userId,
+      planId: plan.id,
+      planSlug: plan.slug,
+      type: "membership_onetime",
+      refCode: refCode ?? "",
+    },
+  });
+}
+
 /** Alias for subscription checkout (legacy import name). */
 export async function createMembershipCheckout(
   userId: string,
   email: string,
-  plan: Pick<MembershipPlanData, "id" | "slug" | "name" | "priceCents" | "currency" | "stripePriceId" | "interval" | "originalPriceCents" | "saleDiscountPercent" | "saleEndsAt">,
+  plan: Pick<
+    MembershipPlanData,
+    | "id"
+    | "slug"
+    | "name"
+    | "priceCents"
+    | "currency"
+    | "stripePriceId"
+    | "interval"
+    | "billingType"
+    | "planKind"
+    | "originalPriceCents"
+    | "saleDiscountPercent"
+    | "saleEndsAt"
+  >,
   locale: string = "en",
   refCode?: string,
   options?: CheckoutOriginOptions
 ) {
+  if (plan.billingType === "ONE_TIME") {
+    return createMembershipOneTimeCheckout(userId, email, plan, locale, refCode, options);
+  }
   return createMembershipSubscriptionCheckout(userId, email, plan, locale, refCode, options);
 }
 

@@ -123,6 +123,7 @@ export const DEFAULT_HEADER_MENU: HeaderMenuItem[] = [
   { id: "games", label: "Games", href: "/games", hidden: false, order: 0 },
   { id: "mods", label: "Mods", href: "/mods", hidden: false, order: 1 },
   { id: "collections", label: "Collections", href: "/collections", hidden: false, order: 2 },
+  { id: "tutorials", label: "Tutorials", href: "/tutorials", hidden: false, order: 3 },
   { id: "creators", label: "Creators", href: "/creators", hidden: false, order: 3 },
   { id: "partners", label: "Partners", href: "/partners", hidden: false, order: 4 },
   { id: "shop", label: "Shop", href: "/shop", hidden: false, order: 5 },

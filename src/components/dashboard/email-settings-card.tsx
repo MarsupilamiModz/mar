@@ -25,13 +25,15 @@ export function EmailSettingsCard({
   email,
   emailVerified,
   emailVerifiedAt,
-  logs,
+  logs = [],
+  showHistory = false,
 }: {
   locale: string;
   email: string;
   emailVerified: boolean;
   emailVerifiedAt: Date | null;
-  logs: EmailLog[];
+  logs?: EmailLog[];
+  showHistory?: boolean;
 }) {
   const t = useTranslations("email");
   const [pending, startTransition] = useTransition();
@@ -118,6 +120,7 @@ export function EmailSettingsCard({
         </CardContent>
       </Card>
 
+      {showHistory ? (
       <Card className="glass">
         <CardHeader>
           <CardTitle>{t("historyTitle")}</CardTitle>
@@ -148,6 +151,7 @@ export function EmailSettingsCard({
           )}
         </CardContent>
       </Card>
+      ) : null}
     </div>
   );
 }

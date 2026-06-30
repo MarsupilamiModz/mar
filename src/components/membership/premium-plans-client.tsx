@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPlanPrice, getEffectivePlanPrice, getSaleTimeRemaining, type MembershipPlanData } from "@/lib/membership-pricing";
+import { isPlanSoldOut, planRemainingStock } from "@/lib/membership-stock";
 import type { PremiumPageSettings } from "@/lib/membership-pricing";
 import { useAppToast } from "@/hooks/use-app-toast";
 
@@ -25,6 +26,11 @@ type Plan = Pick<
   | "saleDiscountPercent"
   | "cardStyle"
   | "iconKey"
+  | "billingType"
+  | "planKind"
+  | "stockLimit"
+  | "soldCount"
+  | "interval"
 > & { cta?: string; saleEndsAt: string | null };
 
 function planForPricing(plan: Plan): MembershipPlanData {
@@ -115,11 +121,17 @@ export function PremiumPlansClient({ locale, plans, pageSettings, isLoggedIn, cu
           const pricing = getEffectivePlanPrice(planForPricing(plan));
           const saleEnds = getSaleTimeRemaining(planForPricing(plan));
           const icon = plan.iconKey ?? plan.cardStyle?.iconKey ?? "👑";
+          const remaining = planRemainingStock(plan);
+          const soldOut = isPlanSoldOut(plan);
+          const isLifetime = plan.billingType === "ONE_TIME" || plan.planKind === "LIFETIME";
+          const billingLabel = isLifetime
+            ? "One-time · lifetime access"
+            : "Billed monthly · cancel anytime";
 
           return (
             <Card
               key={plan.id}
-              className={`glass p-6 flex flex-col ${plan.isFeatured ? "border-neon-purple/50 shadow-[0_0_30px_-8px_rgba(168,85,247,0.35)]" : ""}`}
+              className={`card-surface p-6 flex flex-col transition-shadow duration-150 hover:shadow-md ${plan.isFeatured ? "border-neon-purple/40 ring-1 ring-neon-purple/20" : ""}`}
               style={{ borderColor: `${accent}40`, boxShadow: plan.cardStyle?.borderGlow ? `0 0 24px ${accent}25` : undefined }}
             >
               <div className="flex items-start justify-between mb-4">
@@ -136,7 +148,17 @@ export function PremiumPlansClient({ locale, plans, pageSettings, isLoggedIn, cu
                       </p>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Billed monthly · cancel anytime</p>
+                  <p className="text-xs text-muted-foreground mt-1">{billingLabel}</p>
+                  {remaining != null && (
+                    <p className="text-xs text-amber-400/90 mt-1">
+                      {soldOut ? "Sold out" : `${remaining} remaining`}
+                    </p>
+                  )}
+                  {plan.planKind !== "STANDARD" && (
+                    <Badge variant="outline" className="mt-2 text-[10px] uppercase tracking-wide">
+                      {plan.planKind.replace("_", " ")}
+                    </Badge>
+                  )}
                   {pricing.onSale && (
                     <span className="inline-block mt-1 text-xs rounded-full bg-amber-500/20 text-amber-400 px-2 py-0.5">
                       -{pricing.discountPercent}% limited offer
@@ -161,6 +183,8 @@ export function PremiumPlansClient({ locale, plans, pageSettings, isLoggedIn, cu
                 <Button variant="outline" disabled className="w-full">Current plan</Button>
               ) : isOwnedHigher ? (
                 <Button variant="outline" disabled className="w-full">Included in your plan</Button>
+              ) : soldOut ? (
+                <Button variant="outline" disabled className="w-full">Sold out</Button>
               ) : (
                 <Button
                   variant={plan.isFeatured ? "neon" : "outline"}

@@ -44,6 +44,11 @@ export async function getOwnerControlCenterData() {
     membershipLite,
     membershipPremium,
     membershipMax,
+    activeMembershipsTotal,
+    lifetimeSales,
+    membershipRevenueMonth,
+    creatorPayoutsPending,
+    partnerPayoutsPending,
     revenueToday,
     revenueWeek,
     revenueMonth,
@@ -77,6 +82,22 @@ export async function getOwnerControlCenterData() {
     prisma.userMembership.count({ where: { membershipType: "PREMIUM_LITE", status: "ACTIVE" } }),
     prisma.userMembership.count({ where: { membershipType: "PREMIUM", status: "ACTIVE" } }),
     prisma.userMembership.count({ where: { membershipType: "PREMIUM_MAX", status: "ACTIVE" } }),
+    prisma.userMembership.count({ where: { status: { in: ["ACTIVE", "TRIALING"] } } }),
+    prisma.membershipPurchase.count({
+      where: { plan: { planKind: "LIFETIME" } },
+    }),
+    prisma.membershipPurchase.aggregate({
+      _sum: { amountCents: true },
+      where: { createdAt: { gte: periods.d30 } },
+    }),
+    prisma.payout.aggregate({
+      _sum: { amountCents: true },
+      where: { status: "PENDING", user: { role: "CREATOR" } },
+    }).catch(() => ({ _sum: { amountCents: 0 } })),
+    prisma.payout.aggregate({
+      _sum: { amountCents: true },
+      where: { status: "PENDING", user: { role: "PARTNER" } },
+    }).catch(() => ({ _sum: { amountCents: 0 } })),
     prisma.modPurchase.aggregate({
       _sum: { amountCents: true },
       where: { createdAt: { gte: periods.today } },
@@ -186,6 +207,15 @@ export async function getOwnerControlCenterData() {
       premiumLite: membershipLite,
       premium: membershipPremium,
       premiumMax: membershipMax,
+      activeTotal: activeMembershipsTotal,
+      lifetimeSales,
+    },
+    membershipRevenue: {
+      monthly: (membershipRevenueMonth._sum.amountCents ?? 0) / 100,
+    },
+    payouts: {
+      creatorPending: (creatorPayoutsPending._sum.amountCents ?? 0) / 100,
+      partnerPending: (partnerPayoutsPending._sum.amountCents ?? 0) / 100,
     },
     revenue: {
       daily: (revenueToday._sum.amountCents ?? 0) / 100,

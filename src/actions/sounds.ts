@@ -249,13 +249,16 @@ export async function getSoundStreamInfo(modId: string) {
   }
 
   const previewFileKey = profile.previewFileKey;
-  const url = await getSignedDownloadUrl(previewFileKey, 600);
   const previewFileName = previewFileKey.split("/").pop() ?? "preview.mp3";
   const contentType = resolveStreamContentType(
     profile.previewMimeType,
     previewFileName,
     mimeFromFileName
   );
+  const url = await getSignedDownloadUrl(previewFileKey, 600, {
+    fileName: previewFileName,
+    contentType: contentType.startsWith("audio/") ? contentType : "audio/mpeg",
+  });
 
   return ok({
     modId: mod.id,

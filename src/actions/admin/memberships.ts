@@ -25,6 +25,10 @@ const membershipPlanSchema = z.object({
   priceCents: z.number().int().min(0),
   currency: zTrimmedString.pipe(z.string().max(8)).optional(),
   stripePriceId: zOptionalStripePriceId,
+  billingType: z.enum(["ONE_TIME", "RECURRING"]).optional(),
+  planKind: z.enum(["STANDARD", "LIFETIME", "LIMITED", "EVENT", "CREATOR", "PARTNER"]).optional(),
+  stockLimit: z.number().int().min(0).nullable().optional(),
+  durationDays: z.number().int().min(0).nullable().optional(),
   interval: z.string().max(20).optional(),
   features: z.array(z.string()).default([]),
   perks: z.record(z.unknown()),
@@ -79,6 +83,9 @@ export async function saveMembershipPlan(input: {
   priceCents: number;
   currency?: string;
   billingType?: BillingType;
+  planKind?: "STANDARD" | "LIFETIME" | "LIMITED" | "EVENT" | "CREATOR" | "PARTNER";
+  stockLimit?: number | null;
+  durationDays?: number | null;
   interval?: string;
   stripePriceId?: string;
   features: string[];
@@ -113,7 +120,10 @@ export async function saveMembershipPlan(input: {
     description: parsed.data.description,
     priceCents: parsed.data.priceCents,
     currency: parsed.data.currency ?? "EUR",
-    billingType: (input.billingType ?? "RECURRING") as BillingType,
+    billingType: (input.billingType ?? parsed.data.billingType ?? "RECURRING") as BillingType,
+    planKind: input.planKind ?? parsed.data.planKind ?? "STANDARD",
+    stockLimit: input.stockLimit ?? parsed.data.stockLimit ?? null,
+    durationDays: input.durationDays ?? parsed.data.durationDays ?? null,
     stripePriceId: parsed.data.stripePriceId ?? null,
     interval: input.interval ?? parsed.data.interval ?? "month",
     features: parsed.data.features as Prisma.InputJsonValue,

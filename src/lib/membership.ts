@@ -144,9 +144,6 @@ export async function grantMembershipPurchase(params: {
   amountCents?: number;
   stripePaymentId?: string;
 }) {
-  const plan = await prisma.membershipPlan.findUnique({ where: { id: params.planId } });
-  if (!plan) throw new Error("Plan not found");
-
   if (params.stripePaymentId) {
     const dup = await prisma.membershipPurchase.findFirst({
       where: { stripePaymentId: params.stripePaymentId },
@@ -154,29 +151,52 @@ export async function grantMembershipPurchase(params: {
     if (dup) return dup;
   }
 
-  const purchase = await prisma.membershipPurchase.create({
-    data: {
-      userId: params.userId,
-      planId: params.planId,
-      amountCents: params.amountCents ?? plan.priceCents,
-      stripePaymentId: params.stripePaymentId ?? null,
-      expiresAt: null,
-    },
+  const purchase = await prisma.$transaction(async (tx) => {
+    const plan = await tx.membershipPlan.findUnique({ where: { id: params.planId } });
+    if (!plan) throw new Error("Plan not found");
+
+    if (plan.stockLimit != null && plan.soldCount >= plan.stockLimit) {
+      throw new Error("Plan sold out");
+    }
+
+    const created = await tx.membershipPurchase.create({
+      data: {
+        userId: params.userId,
+        planId: params.planId,
+        amountCents: params.amountCents ?? plan.priceCents,
+        stripePaymentId: params.stripePaymentId ?? null,
+        expiresAt: plan.durationDays
+          ? new Date(Date.now() + plan.durationDays * 86_400_000)
+          : null,
+      },
+    });
+
+    if (plan.stockLimit != null) {
+      await tx.membershipPlan.update({
+        where: { id: plan.id },
+        data: { soldCount: { increment: 1 } },
+      });
+    }
+
+    return { purchase: created, plan };
   });
+
+  const isLifetime =
+    purchase.plan.billingType === "ONE_TIME" || purchase.plan.planKind === "LIFETIME";
 
   await upsertUserMembership({
     userId: params.userId,
-    membershipType: planSlugToTier(plan.slug),
+    membershipType: planSlugToTier(purchase.plan.slug),
     status: "ACTIVE",
-    planId: plan.id,
-    isLifetime: plan.billingType === "ONE_TIME",
+    planId: purchase.plan.id,
+    isLifetime,
   });
   await syncUserRoleFromMembership(params.userId);
 
   const { evaluateUserAchievements } = await import("@/lib/achievements");
   void evaluateUserAchievements(params.userId);
 
-  return purchase;
+  return purchase.purchase;
 }
 
 export async function grantMembershipSubscription(params: {

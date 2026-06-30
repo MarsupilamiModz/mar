@@ -64,16 +64,22 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     audio.crossOrigin = "anonymous";
     audioRef.current = audio;
 
+    const onMeta = () => {
+      const a = audioRef.current;
+      if (!a) return;
+      const d =
+        a.duration && Number.isFinite(a.duration) && a.duration > 0
+          ? a.duration
+          : currentRef.current?.durationSeconds ?? 0;
+      if (d > 0) setDuration(d);
+    };
+
     const onTime = () => {
       const a = audioRef.current;
       if (!a) return;
       setProgress(a.currentTime);
+      onMeta();
       const track = currentRef.current;
-      const metaDuration =
-        a.duration && Number.isFinite(a.duration) && a.duration > 0
-          ? a.duration
-          : track?.durationSeconds ?? 0;
-      setDuration(metaDuration);
       const limit = track?.previewLimitSeconds;
       if (limit && a.currentTime >= limit) {
         a.pause();
@@ -94,14 +100,18 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     };
 
     audio.addEventListener("timeupdate", onTime);
-    audio.addEventListener("loadedmetadata", onTime);
+    audio.addEventListener("loadedmetadata", onMeta);
+    audio.addEventListener("durationchange", onMeta);
+    audio.addEventListener("canplay", onMeta);
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("error", onError);
 
     return () => {
       audio.pause();
       audio.removeEventListener("timeupdate", onTime);
-      audio.removeEventListener("loadedmetadata", onTime);
+      audio.removeEventListener("loadedmetadata", onMeta);
+      audio.removeEventListener("durationchange", onMeta);
+      audio.removeEventListener("canplay", onMeta);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
       audioRef.current = null;
@@ -128,7 +138,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     setQueue(q);
     setQueueIndex(idx >= 0 ? idx : 0);
     setCurrent(track);
-    setDuration(track.durationSeconds ?? 0);
+    const seedDuration = track.durationSeconds && track.durationSeconds > 0 ? track.durationSeconds : 0;
+    setDuration(seedDuration);
+    setProgress(0);
     setPlayError(null);
     a.src = track.streamUrl;
     a.load();

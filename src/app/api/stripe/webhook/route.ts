@@ -172,6 +172,32 @@ export async function POST(req: Request) {
               stripePaymentId: paymentId ?? undefined,
               amountCents: session.amount_total ?? 0,
             });
+
+            const planSlug = session.metadata?.planSlug;
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            const discordRoles = planSlug ? getPlanDiscordRoles(planSlug) : ["premium"];
+            if (user?.discordId) await syncDiscordRoles(user.discordId, discordRoles);
+            if (user?.email) {
+              void sendPremiumActivationEmail({
+                email: user.email,
+                username: user.displayName ?? user.username,
+              });
+            }
+            void notifyPremiumActivated(userId);
+
+            const refCode = session.metadata?.refCode;
+            if (refCode) {
+              await trackAffiliateConversion(refCode, session.amount_total ?? 0, "SUBSCRIPTION");
+            }
+
+            void sendPaymentNotification({
+              type: "Membership purchase",
+              amountCents: session.amount_total ?? 0,
+              userId,
+              reference: planId,
+            });
+
+            logStripeServer("webhook_membership_onetime", { userId, planId, paymentId });
           }
         }
 

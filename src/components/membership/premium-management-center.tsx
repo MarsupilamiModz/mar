@@ -106,7 +106,8 @@ export function PremiumManagementCenter({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
+      <div className="card-surface rounded-xl p-5">
+        <div className="flex flex-wrap gap-2">
         {hasStripeSubscription || membership.stripeSubscriptionId ? (
           <Button variant="neon" onClick={openPortal} disabled={portalLoading}>
             <CreditCard className="h-4 w-4 mr-2" />
@@ -119,10 +120,11 @@ export function PremiumManagementCenter({
           </Link>
         </Button>
       </div>
+      </div>
 
       {nextBilling && !membership.isLifetime && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground rounded-lg border border-border/40 p-3">
-          <Calendar className="h-4 w-4 text-neon-purple" />
+        <div className="card-surface flex items-center gap-2 text-sm text-muted-foreground rounded-xl p-3">
+          <Calendar className="h-4 w-4 text-neon-purple shrink-0" />
           <span>
             {subscription?.cancelAtPeriodEnd || membership.cancelDate
               ? `Access until ${new Date(nextBilling).toLocaleDateString(getIntlLocale(locale))}`
@@ -132,13 +134,13 @@ export function PremiumManagementCenter({
       )}
 
       {membership.isLifetime && (
-        <p className="text-sm text-emerald-400 flex items-center gap-2">
-          <RefreshCw className="h-4 w-4" /> Lifetime access — no recurring billing
-        </p>
+        <div className="card-surface text-sm text-emerald-400 flex items-center gap-2 rounded-xl p-3">
+          <RefreshCw className="h-4 w-4 shrink-0" /> Lifetime access — no recurring billing
+        </div>
       )}
 
       {currentPlan && (
-        <div className="rounded-lg border border-neon-purple/20 bg-neon-purple/5 p-4 space-y-2">
+        <div className="card-surface rounded-xl p-5 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <p className="font-medium">{currentPlan.name}</p>
             <Badge variant={isActive ? "premium" : "outline"}>{membership.status}</Badge>
@@ -156,7 +158,7 @@ export function PremiumManagementCenter({
       )}
 
       {invoices.length > 0 && (
-        <div className="space-y-2">
+        <div className="card-surface rounded-xl p-5 space-y-3">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Invoices</p>
           {invoices.map((inv) => (
             <div
@@ -184,7 +186,7 @@ export function PremiumManagementCenter({
       )}
 
       {purchases.length > 0 && (
-        <div className="space-y-2">
+        <div className="card-surface rounded-xl p-5 space-y-3">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Payment history</p>
           {purchases.map((p) => (
             <div
