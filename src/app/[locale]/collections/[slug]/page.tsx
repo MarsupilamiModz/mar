@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { setRequestLocale } from "next-intl/server";
 import { getCollectionBySlug, incrementCollectionView } from "@/lib/collections-data";
 import { ModCard } from "@/components/mods/mod-card";
@@ -45,23 +46,26 @@ export default async function CollectionDetailPage({
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
       {collection.bannerUrl && (
-        <div className="mb-8 overflow-hidden rounded-xl border border-border/40">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+        <div className="relative mb-8 h-48 w-full overflow-hidden rounded-xl border border-border/40 sm:h-64">
+          <Image
             src={collection.bannerUrl}
             alt=""
-            className="h-48 w-full object-cover sm:h-64"
+            fill
+            sizes="100vw"
+            className="object-cover"
+            priority
           />
         </div>
       )}
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div className="flex gap-4">
           {collection.coverUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={collection.coverUrl}
               alt=""
-              className="h-24 w-24 rounded-lg object-cover border border-border/40 shrink-0"
+              width={96}
+              height={96}
+              className="h-24 w-24 shrink-0 rounded-lg border border-border/40 object-cover"
             />
           )}
           <div>

@@ -183,6 +183,12 @@ export async function evaluateUserAchievements(userId: string) {
   const stats = await getUserStatsForAchievements(userId);
   const unlocked: string[] = [];
 
+  const existingRows = await prisma.userAchievement.findMany({
+    where: { userId, achievementId: { in: achievements.map((a) => a.id) } },
+    select: { achievementId: true },
+  });
+  const alreadyUnlocked = new Set(existingRows.map((r) => r.achievementId));
+
   for (const achievement of achievements) {
     if (achievement.isHidden) continue;
     if (achievement.isSeasonal && achievement.seasonEnd && achievement.seasonEnd < new Date()) continue;
@@ -190,10 +196,7 @@ export async function evaluateUserAchievements(userId: string) {
     const rule = achievement.unlockRule as UnlockRule | null;
     if (!rule || rule.type === "manual") continue;
 
-    const existing = await prisma.userAchievement.findUnique({
-      where: { userId_achievementId: { userId, achievementId: achievement.id } },
-    });
-    if (existing) continue;
+    if (alreadyUnlocked.has(achievement.id)) continue;
 
     if (ruleMet(rule, stats)) {
       await prisma.userAchievement.create({

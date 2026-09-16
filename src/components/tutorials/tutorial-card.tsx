@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatTutorialDuration } from "@/lib/tutorials/youtube";
@@ -29,8 +30,13 @@ export function TutorialCard({ locale, tutorial }: { locale: string; tutorial: T
       <Card className="card-surface h-full overflow-hidden transition-colors hover:border-neon-purple/30">
         {thumb ? (
           <div className="relative aspect-video bg-muted/30">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={thumb} alt="" className="h-full w-full object-cover" />
+            <Image
+              src={thumb}
+              alt=""
+              fill
+              sizes="(max-width: 768px) 100vw, 33vw"
+              className="object-cover"
+            />
             {duration ? (
               <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-xs">
                 {duration}

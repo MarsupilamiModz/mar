@@ -83,13 +83,15 @@ async function fetchLeaderboard(filters: LeaderboardFilters): Promise<Leaderboar
 
   const periodDownloadsByAuthor: Record<string, number> = {};
   if (since) {
-    const downloads = await prisma.download.findMany({
-      where: { createdAt: { gte: since } },
-      select: { mod: { select: { authorId: true } } },
-      take: 50000,
-    });
-    for (const d of downloads) {
-      periodDownloadsByAuthor[d.mod.authorId] = (periodDownloadsByAuthor[d.mod.authorId] ?? 0) + 1;
+    const rows = await prisma.$queryRaw<{ authorId: string; count: bigint }[]>`
+      SELECT m."authorId" AS "authorId", COUNT(*) AS count
+      FROM "Download" d
+      JOIN "Mod" m ON m.id = d."modId"
+      WHERE d."createdAt" >= ${since}
+      GROUP BY m."authorId"
+    `;
+    for (const row of rows) {
+      periodDownloadsByAuthor[row.authorId] = Number(row.count);
     }
   }
 

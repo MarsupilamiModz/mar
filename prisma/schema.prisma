@@ -1108,6 +1108,7 @@ model ModFavorite {
   createdAt DateTime @default(now())
 
   @@unique([modId, userId])
+  @@index([userId, createdAt])
 }
 
 model ModPurchase {
